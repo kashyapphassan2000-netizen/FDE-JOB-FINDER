@@ -10,7 +10,13 @@ import { secret } from './secrets';
  * - The password (owner login) can be changed from the app; it is stored scrypt-hashed and overrides APP_PASSWORD.
  * - Changing the password or turning lockdown on bumps the session version → everyone else is signed out at once.
  */
-export interface Member { email: string; role: Role; addedAt: string; addedBy: string; lastSeen?: string }
+export interface Member { email: string; role: Role; addedAt: string; addedBy: string; lastSeen?: string; expiresAt?: string | null }
+
+/** Time-limited access: when does this member's access end (ms), or null = permanent. */
+export async function accessUntil(email: string): Promise<number | null> {
+  const m = (await hgetall<Member>('auth:members'))[email.trim().toLowerCase()];
+  return m?.expiresAt ? Date.parse(m.expiresAt) : null;
+}
 
 export const ownerEmails = () => (process.env.OWNER_EMAILS || '').split(/[,;\s]+/).map((e) => e.trim().toLowerCase()).filter(Boolean);
 const norm = (e: string) => e.trim().toLowerCase();
@@ -29,7 +35,9 @@ export async function roleOf(email: string): Promise<Role | null> {
   if (e === 'owner' || ownerEmails().includes(e)) return 'owner';
   if (await getLockdown()) return null;
   const m = (await hgetall<Member>('auth:members'))[e];
-  return m ? m.role : null;
+  if (!m) return null;
+  if (m.expiresAt && Date.now() > Date.parse(m.expiresAt)) return null; // time-limited access has ended
+  return m.role;
 }
 
 export async function stillAllowed(s: Session): Promise<boolean> {
@@ -68,11 +76,21 @@ export async function bumpVersion() {
 }
 
 // ---------- members ----------
-export async function addMember(email: string, role: Role, by: string) {
+export async function addMember(email: string, role: Role, by: string, hours?: number | null) {
   const e = norm(email);
   if (!isEmail(e)) throw new Error('Enter a valid email');
   if (role === 'owner' && !ownerEmails().includes(e)) throw new Error('Only the emails in OWNER_EMAILS can be owners (security rule)');
-  await hset('auth:members', e, { email: e, role: ownerEmails().includes(e) ? 'owner' : 'member', addedAt: new Date().toISOString(), addedBy: by });
+  const h = Number(hours) > 0 ? Math.min(24 * 365, Number(hours)) : null;
+  await hset('auth:members', e, { email: e, role: ownerEmails().includes(e) ? 'owner' : 'member', addedAt: new Date().toISOString(), addedBy: by, expiresAt: h && !ownerEmails().includes(e) ? new Date(Date.now() + h * 36e5).toISOString() : null });
+}
+
+/** Give more time (hours from now) or make permanent (null). Bumps nothing — the person stays signed in. */
+export async function setMemberExpiry(email: string, hours: number | null) {
+  const e = norm(email);
+  const all = await hgetall<Member>('auth:members');
+  if (!all[e]) throw new Error('Unknown member');
+  const h = Number(hours) > 0 ? Math.min(24 * 365, Number(hours)) : null;
+  await hset('auth:members', e, { ...all[e], expiresAt: h ? new Date(Date.now() + h * 36e5).toISOString() : null });
 }
 
 export async function removeMember(email: string) {

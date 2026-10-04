@@ -1,6 +1,6 @@
 import { currentUser, unauthorized } from '@/lib/auth';
 import { bad } from '@/lib/guard';
-import { addMember, getLockdown, makeLinkToken, members, ownerEmails, removeMember, roleOf, setLockdown, setPassword } from '@/lib/access';
+import { accessUntil, addMember, setMemberExpiry, getLockdown, makeLinkToken, members, ownerEmails, removeMember, roleOf, setLockdown, setPassword } from '@/lib/access';
 
 async function owner(req: Request) {
   const u = await currentUser(req);
@@ -17,17 +17,20 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const u = await owner(req);
   if (!u) return Response.json({ error: 'Only owners can manage access' }, { status: 403 });
-  const b = (await req.json().catch(() => ({}))) as { action?: string; email?: string; role?: 'owner' | 'member'; on?: boolean; password?: string };
+  const b = (await req.json().catch(() => ({}))) as { action?: string; email?: string; role?: 'owner' | 'member'; on?: boolean; password?: string; hours?: number | null };
   try {
-    if (b.action === 'add') { await addMember(b.email || '', b.role || 'member', u.email); return Response.json({ ok: true }); }
+    if (b.action === 'add') { await addMember(b.email || '', b.role || 'member', u.email, b.hours ?? null); return Response.json({ ok: true }); }
+    if (b.action === 'expiry') { await setMemberExpiry(b.email || '', b.hours ?? null); return Response.json({ ok: true }); }
     if (b.action === 'remove') { await removeMember(b.email || ''); return Response.json({ ok: true }); }
     if (b.action === 'lockdown') { await setLockdown(Boolean(b.on)); return Response.json({ ok: true }); }
     if (b.action === 'password') { await setPassword(b.password || ''); return Response.json({ ok: true, note: 'Password changed — everyone has to sign in again.' }); }
     if (b.action === 'invite') {
       const e = (b.email || '').trim().toLowerCase();
       if (await getLockdown() && !ownerEmails().includes(e)) return bad('Lockdown is ON — turn it off first, otherwise this person cannot get in');
-      if (!(await roleOf(e))) return bad('Add this email first');
-      return Response.json({ link: `${new URL(req.url).origin}/api/auth/magic?t=${await makeLinkToken(e, 7 * 24 * 60)}`, note: 'Single use, valid 7 days. Send it only to that person.' });
+      if (!(await roleOf(e))) { const until = await accessUntil(e); return bad(until && until < Date.now() ? 'Their access has expired — use “Extend…” on their row first' : 'Add this email first'); }
+      const until = await accessUntil(e);
+      const minutes = Math.max(5, Math.min(7 * 24 * 60, until ? Math.floor((until - Date.now()) / 60000) : 7 * 24 * 60));
+      return Response.json({ link: `${new URL(req.url).origin}/api/auth/magic?t=${await makeLinkToken(e, minutes)}`, note: until ? `Single use. Works until their access ends (${new Date(until).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST).` : 'Single use, valid 7 days. Send it only to that person.' });
     }
     return bad('unknown action');
   } catch (e) {

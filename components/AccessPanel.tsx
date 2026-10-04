@@ -2,7 +2,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ago, api } from './api';
 
-type Member = { email: string; role: 'owner' | 'member'; addedAt: string; addedBy: string; lastSeen?: string };
+type Member = { email: string; role: 'owner' | 'member'; addedAt: string; addedBy: string; lastSeen?: string; expiresAt?: string | null };
+const DURATIONS: [number, string][] = [[1, '1 hour'], [2, '2 hours'], [6, '6 hours'], [12, '12 hours'], [24, '24 hours'], [72, '3 days'], [168, '7 days'], [720, '30 days'], [0, 'Permanent']];
+const left = (iso?: string | null) => { if (!iso) return null; const ms = Date.parse(iso) - Date.now(); if (ms <= 0) return 'expired'; const h = ms / 36e5; return h < 1 ? `${Math.max(1, Math.round(ms / 6e4))} min left` : h < 48 ? `${Math.round(h)} h left` : `${Math.round(h / 24)} days left`; };
 type Payload = { members: Member[]; lockdown: boolean; owners: string[]; you: string; ownersConfigured: boolean };
 
 export default function AccessPanel({ toast }: { toast: (s: string) => void }) {
@@ -12,6 +14,7 @@ export default function AccessPanel({ toast }: { toast: (s: string) => void }) {
   const [pw, setPw] = useState('');
   const [pw2, setPw2] = useState('');
   const [invite, setInvite] = useState('');
+  const [hours, setHours] = useState(0);
   const load = useCallback(() => api<Payload>('/api/access').then(setD).catch(() => setDenied(true)), []);
   useEffect(() => { load(); }, [load]);
   async function act(body: Record<string, unknown>, ok: string) {
@@ -40,16 +43,20 @@ export default function AccessPanel({ toast }: { toast: (s: string) => void }) {
       )}
       <div className="row">
         <input className="grow" type="email" placeholder="friend@gmail.com" value={email} onChange={(e) => setEmail(e.target.value)} />
-        <button className="primary" disabled={!email} onClick={() => act({ action: 'add', email }, d.lockdown ? `Added ${email} — but lockdown is ON, so they can't get in until you turn it off` : `Access given to ${email} — now click 🔗 Invite link and send it to them`).then(() => setEmail(''))}>Give access</button>
+        <select value={hours} onChange={(e) => setHours(Number(e.target.value))} title="How long this person can use the app">{DURATIONS.map(([h, l]) => <option key={h} value={h}>Access for: {l}</option>)}</select>
+        <button className="primary" disabled={!email} onClick={() => act({ action: 'add', email, hours: hours || null }, d.lockdown ? `Added ${email} — but lockdown is ON, so they can't get in until you turn it off` : `Access given to ${email} — now click 🔗 Invite link and send it to them`).then(() => setEmail(''))}>Give access</button>
       </div>
       <div className="tablewrap" style={{ marginTop: 10 }}>
         <table>
-          <thead><tr><th>Email</th><th>Role</th><th>Last active</th><th>Action</th></tr></thead>
+          <thead><tr><th>Email</th><th>Role</th><th>Access</th><th>Last active</th><th>Action</th></tr></thead>
           <tbody>
             {d.members.map((m) => (
               <tr key={m.email}>
                 <td>{m.email}</td>
                 <td><span className={`badge ${m.role === 'owner' ? 'b-FDE' : 'b-skip'}`}>{m.role}</span>{m.role !== 'owner' && d.lockdown && <span className="badge b-err">blocked by lockdown</span>}</td>
+                <td className="small">{m.role === 'owner' ? 'always' : m.expiresAt ? <span className={`badge ${left(m.expiresAt) === 'expired' ? 'b-err' : 'b-warn'}`} title={new Date(m.expiresAt).toLocaleString('en-IN')}>⏱ {left(m.expiresAt)}</span> : <span className="badge b-ok">permanent</span>}
+                  {m.role !== 'owner' && <select className="small" style={{ marginLeft: 6, padding: '2px 6px' }} value="" onChange={(e) => e.target.value && act({ action: 'expiry', email: m.email, hours: Number(e.target.value) > 0 ? Number(e.target.value) : null }, Number(e.target.value) > 0 ? `Access for ${m.email}: ${DURATIONS.find(([h]) => h === Number(e.target.value))?.[1]} from now` : `${m.email} now has permanent access`)}><option value="">{m.expiresAt ? 'Extend…' : 'Limit…'}</option>{DURATIONS.map(([h, l]) => <option key={h} value={h || -1}>{h ? `${l} from now` : 'Make permanent'}</option>)}</select>}
+                </td>
                 <td className="small">{m.lastSeen ? ago(m.lastSeen) : '—'}</td>
                 <td><div className="row">
                   <button className="small-btn" disabled={d.lockdown && m.role !== 'owner'} title={d.lockdown && m.role !== 'owner' ? 'Turn lockdown off first' : 'Copy a one-time sign-in link to send them'} onClick={() => act({ action: 'invite', email: m.email }, 'Invite link copied')}>🔗 Invite link</button>
@@ -61,7 +68,7 @@ export default function AccessPanel({ toast }: { toast: (s: string) => void }) {
         </table>
       </div>
       {invite && <div className="notice ok small" style={{ wordBreak: 'break-all' }}><b>Invite link copied</b> — send it to them on WhatsApp / email. It works once, for 7 days, and signs them in for 30 days: {invite}</div>}
-      <div className="small muted" style={{ marginTop: 8 }}><b>How to give someone access:</b> 1) type their email → Give access · 2) click 🔗 Invite link on their row · 3) send them the link. (If Gmail is set up in AI &amp; Keys they can also use “Email link” on the login page themselves.)</div>
+      <div className="small muted" style={{ marginTop: 8 }}><b>How to give someone access:</b> 1) type their email, pick how long (1 hour … permanent) → Give access · 2) click 🔗 Invite link on their row · 3) send them the link. (If Gmail is set up in AI &amp; Keys they can also use “Email link” on the login page themselves.)</div>
       <div className="row" style={{ marginTop: 12 }}>
         <label className="small"><input type="checkbox" checked={d.lockdown} onChange={(e) => window.confirm(e.target.checked ? 'Lockdown: sign everyone out and allow ONLY the owner emails?' : 'Turn lockdown off?') && act({ action: 'lockdown', on: e.target.checked }, e.target.checked ? 'Lockdown on — only owners can get in' : 'Lockdown off')} /> <b>Lockdown</b> — only {d.owners.join(' and ') || 'owners'} can get in (signs everyone else out)</label>
       </div>

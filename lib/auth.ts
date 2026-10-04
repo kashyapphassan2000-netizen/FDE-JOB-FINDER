@@ -26,10 +26,11 @@ export function safeEqual(a: string, b: string): boolean {
 const b64u = (s: string) => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const unb64u = (s: string) => decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/'))));
 
-export async function createSession(email: string, role: Role, ver: number): Promise<{ value: string; maxAge: number }> {
-  const exp = Math.floor(Date.now() / 1000) + MAX_AGE_SEC;
+export async function createSession(email: string, role: Role, ver: number, untilMs?: number): Promise<{ value: string; maxAge: number }> {
+  // time-limited members: the cookie itself dies when their access ends
+  const exp = Math.min(Math.floor(Date.now() / 1000) + MAX_AGE_SEC, untilMs ? Math.floor(untilMs / 1000) : Infinity);
   const payload = `${b64u(email.toLowerCase())}.${role}.${ver}.${exp}`;
-  return { value: `${payload}.${await hmac(payload)}`, maxAge: MAX_AGE_SEC };
+  return { value: `${payload}.${await hmac(payload)}`, maxAge: Math.max(60, exp - Math.floor(Date.now() / 1000)) };
 }
 
 /** Signature + expiry only (cheap; used by the proxy). */

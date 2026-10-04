@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { SESSION_COOKIE, createSession } from '@/lib/auth';
-import { consumeLinkToken, getVersion, makeLinkToken, roleOf, sendSignInEmail } from '@/lib/access';
+import { accessUntil, consumeLinkToken, getVersion, makeLinkToken, roleOf, sendSignInEmail } from '@/lib/access';
 import { loadVault } from '@/lib/secrets';
 
 // POST {email} → if that email has access, email it a single-use sign-in link (same reply either way)
@@ -23,7 +23,7 @@ export async function GET(req: Request) {
   const email = await consumeLinkToken(u.searchParams.get('t') || '');
   const role = email ? await roleOf(email) : null;
   if (!email || !role) return NextResponse.redirect(new URL('/login?e=link', u.origin));
-  const s = await createSession(email, role, await getVersion());
+  const s = await createSession(email, role, await getVersion(), (await accessUntil(email)) ?? undefined);
   const res = NextResponse.redirect(new URL('/', u.origin));
   res.cookies.set(SESSION_COOKIE, s.value, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: s.maxAge });
   return res;
