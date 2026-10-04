@@ -1,3 +1,4 @@
+import { countAi, track } from './obs';
 import { decrypt, encrypt } from './secrets';
 import { getJSON, hgetall, hset, setJSON } from './store';
 
@@ -276,16 +277,20 @@ export async function chat(system: string, user: string, opts: ChatOpts = {}): P
   if (!profiles.length) throw new Error('No AI provider configured. Add one in the "AI & Keys" tab (Gemini / Groq / OpenRouter have free tiers).');
   const tried: string[] = [];
   for (const p of profiles) {
+    const t1 = Date.now();
     try {
       const r = opts.model && p.id === opts.profileId
         ? await callModel(p, opts.model, system, user, Math.max(opts.maxTokens ?? 1500, 1024), opts.timeoutMs ?? 60000)
         : await callOne(p, system, user, opts.maxTokens ?? 1500, opts.timeoutMs ?? 60000);
       if (!r.text.trim()) throw new Error('empty response');
+      await countAi(p.label, r.model, true, Date.now() - t1);
       return { text: r.text, provider: p.label, model: r.model, tried };
     } catch (e) {
+      await countAi(p.label, p.model || 'auto', false, Date.now() - t1);
       tried.push(`${p.label}: ${(e as Error).message.slice(0, 160)}`);
     }
   }
+  await track('ai', 'all AI providers failed', 'fail', tried.join(' | '));
   throw new Error(`All AI providers failed → ${tried.join(' | ')}`);
 }
 

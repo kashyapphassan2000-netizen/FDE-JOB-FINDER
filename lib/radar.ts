@@ -1,3 +1,4 @@
+import { track } from './obs';
 import { getJSON, hgetall, hset, setJSON } from './store';
 import { secret } from './secrets';
 import { pool } from './http';
@@ -71,6 +72,7 @@ export async function runGithubRadar(budgetMs = 120000): Promise<{ orgs: number;
   const rl = res.find((r) => r.status === 'rejected' && (r.reason as { rl?: boolean })?.rl);
   if (rl) note = 'GitHub rate limit hit — add a free GITHUB_TOKEN in AI & Keys for full coverage';
   if (signals.length) await setJSON('radar:signals', [...signals, ...(await getJSON<DepSignal[]>('radar:signals', []))].slice(0, 300));
+  await track('radar', 'GitHub dependency radar', note ? 'warn' : 'ok', `${batch.length} orgs · ${repos} repos · ${signals.length} new signals${note ? ` · ${note}` : ''}`, Date.now() - t0);
   return { orgs: batch.length, repos, signals, note };
 }
 
@@ -110,6 +112,7 @@ export async function runFormD(budgetMs = 120000): Promise<{ scanned: number; te
   for (const r of res) if (r.status === 'fulfilled') { await hset('radar:formd', r.value.cik, r.value); if (r.value.aiRoles?.length) withAi++; }
   for (const f of found.slice(6)) await hset('radar:formd', f.cik, f);
   await setJSON('radar:meta', { at: new Date().toISOString(), scanned, techy: found.length });
+  await track('radar', 'SEC Form D raises', scanned ? 'ok' : 'fail', `${scanned} filings · ${found.length} tech raises · ${withAi} hiring AI/FDE`, Date.now() - t0);
   return { scanned, techy: found.length, withAiRoles: withAi };
 }
 

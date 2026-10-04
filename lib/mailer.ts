@@ -14,6 +14,19 @@ export function mailerStatus() {
 }
 
 export async function sendMail(to: string, subject: string, html: string): Promise<'gmail' | 'resend'> {
+  const t0 = Date.now();
+  const { track } = await import('./obs');
+  try {
+    const via = await sendMailRaw(to, subject, html);
+    await track('email', subject, 'ok', `to ${to} via ${via}`, Date.now() - t0);
+    return via;
+  } catch (e) {
+    await track('email', subject, 'fail', `to ${to}: ${(e as Error).message}`, Date.now() - t0);
+    throw e;
+  }
+}
+
+async function sendMailRaw(to: string, subject: string, html: string): Promise<'gmail' | 'resend'> {
   if (secret('GMAIL_USER') && secret('GMAIL_APP_PASSWORD')) {
     const nodemailer = (await import('nodemailer')).default;
     const t = nodemailer.createTransport({ host: 'smtp.gmail.com', port: 465, secure: true, auth: { user: secret('GMAIL_USER'), pass: secret('GMAIL_APP_PASSWORD') } });

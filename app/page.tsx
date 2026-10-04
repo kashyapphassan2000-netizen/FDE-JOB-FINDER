@@ -15,6 +15,9 @@ import MentorTab from '@/components/MentorTab';
 import StudioTab from '@/components/StudioTab';
 import RadarTab from '@/components/RadarTab';
 import AutopilotPanel from '@/components/AutopilotPanel';
+import ObservabilityTab from '@/components/ObservabilityTab';
+import NotepadTab from '@/components/NotepadTab';
+import ApplyTab from '@/components/ApplyTab';
 import KnowledgeGraph from '@/components/KnowledgeGraph';
 import CareersSearchTab from '@/components/CareersSearchTab';
 import AnalyzerTab from '@/components/AnalyzerTab';
@@ -34,12 +37,12 @@ const NAV = [
   { group: 'Agents', items: [['Agent studio', '🤖']] },
   { group: 'Life', items: [['Life mentor', '🧭'], ['Knowledge graph', '🕸️']] },
   { group: 'Companies', items: [['Zero-day radar', '🛰️'], ['Careers search', '🎯'], ['Global companies hiring', '🌍'], ['Watch companies', '👁️']] },
-  { group: 'Get the job', items: [['Job analyzer & prep', '🔬'], ['Recruiters & referrals', '🤝'], ['Job alerts for others', '📬']] },
+  { group: 'Get the job', items: [['Auto-apply', '⚡'], ['Job analyzer & prep', '🔬'], ['Recruiters & referrals', '🤝'], ['Job alerts for others', '📬']] },
   { group: 'Find', items: [['My dashboard', '🏠'], ['Search any role', '🔍'], ['Jobs', '💼'], ['AI Agent', '🤖'], ['Trends', '📈'], ['Hiring radar', '📡'], ['Layoffs', '📉'], ['Hidden jobs & startups', '💎'], ['Outreach', '✉️'], ['Opportunities', '🏆']] },
   { group: 'Agent searches', items: [['X / Twitter', '𝕏'], ['LinkedIn posts', '🔗'], ['Hidden Bengaluru', '📍'], ['Remote India', '🏠'], ['US / EU remote', '🌍'], ['Semi & Embedded AI', '🔧'], ['New startups', '🚀'], ['Communities', '👥']] },
-  { group: 'Track', items: [['Tracker', '📌'], ['CV', '📄']] },
+  { group: 'Track', items: [['Tracker', '📌'], ['CV', '📄'], ['Notepad', '📝']] },
   { group: 'Library', items: [['Excel sheets', '📊'], ['Excel coverage map', '🗺️']] },
-  { group: 'Setup', items: [['Sources & APIs', '🔌'], ['AI & Keys', '🔑'], ['Settings', '⚙️']] },
+  { group: 'Setup', items: [['Observability', '🩺'], ['Sources & APIs', '🔌'], ['AI & Keys', '🔑'], ['Settings', '⚙️']] },
 ] as const;
 type Tab = (typeof NAV)[number]['items'][number][0];
 const ALL: Tab[] = NAV.flatMap((g) => g.items.map((i) => i[0] as Tab));
@@ -61,6 +64,7 @@ export default function Home() {
   const [refSeed, setRefSeed] = useState<{ company: string; role: string; n: number } | null>(null);
   const [sq, setSq] = useState('');
   const [sqInput, setSqInput] = useState('');
+  const [applySeed, setApplySeed] = useState<{ url: string; title: string; company: string; n: number } | null>(null);
   const [me, setMe] = useState<{ email: string; role: 'owner' | 'member'; until: string | null; profileSet: boolean; used: number; limit: number | null } | null>(null);
   const isOwner = me?.role === 'owner';
   // users (non-owners) never see settings, keys, access or the "alerts for other people" page
@@ -166,12 +170,15 @@ export default function Home() {
         {data?.storeMode === 'memory' && (
           <div className="notice warn">Storage is in <b>memory mode</b> – data is lost on redeploy. Connect Upstash Redis (PDF step 4).</div>
         )}
-        {tab === 'Jobs' && <JobsTab data={data} reload={load} toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}
+        {tab === 'Jobs' && <JobsTab onApply={(url, title, company) => { setApplySeed({ url, title, company, n: Date.now() }); go('Auto-apply'); }} data={data} reload={load} toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}
         {tab === 'AI Agent' && <AgentTab toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}
         {tab === 'Hidden jobs & startups' && <DiscoverTab toast={setToast} />}
         {tab === 'Agent studio' && <StudioTab toast={setToast} />}
         {tab === 'Life mentor' && <MentorTab toast={setToast} seed={mentorSeed} openGraph={() => go('Knowledge graph')} />}
         {tab === 'Knowledge graph' && <KnowledgeGraph toast={setToast} onAsk={(q) => { setMentorSeed({ q, n: Date.now() }); go('Life mentor'); }} />}
+        {tab === 'Auto-apply' && <ApplyTab toast={setToast} seedUrl={applySeed} />}
+        {tab === 'Observability' && <ObservabilityTab toast={setToast} onOpenAgent={() => go('Agent studio')} />}
+        {tab === 'Notepad' && <NotepadTab toast={setToast} onUse={(text, where) => { if (where === 'mentor') { setMentorSeed({ q: text, n: Date.now() }); go('Life mentor'); } else if (where === 'analyze') { setAnaSeed({ url: /^https?:\/\//.test(text.trim()) ? text.trim() : '', company: '', n: Date.now() }); go('Job analyzer & prep'); } else { navigator.clipboard.writeText(text).then(() => setToast('Copied — paste it into any agent chat')); go('Agent studio'); } }} />}
         {tab === 'Zero-day radar' && <RadarTab toast={setToast} isOwner={isOwner} onWatch={(c) => api('/api/watch', { method: 'POST', body: JSON.stringify({ input: c }) }).then(() => setToast(`Watching ${c} — see Watch companies`)).catch((e) => setToast((e as Error).message))} />}
         {tab === 'Careers search' && <CareersSearchTab toast={setToast} onAnalyze={(url, company) => { setAnaSeed({ url, company, n: Date.now() }); go('Job analyzer & prep'); }} />}
         {tab === 'Watch companies' && <WatchTab toast={setToast} />}

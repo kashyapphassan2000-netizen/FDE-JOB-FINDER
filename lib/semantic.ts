@@ -1,3 +1,4 @@
+import { track } from './obs';
 import { createHash } from 'node:crypto';
 import { allProfiles, chatJson, listOf } from './llm';
 import { getJSON, hgetall, hset, setJSON, delKey } from './store';
@@ -163,6 +164,7 @@ export async function semanticPass(jobs: Job[], opts: { budgetMs?: number; reran
   const live = new Set(jobs.map((j) => j.id));
   if (Object.keys(sem).length > live.size * 2 + 200) { await delKey('sem'); await Promise.all(Object.entries(sem).filter(([id]) => live.has(id)).map(([id, v]) => hset('sem', id, v))); }
   await setJSON('sem:meta', { at: new Date().toISOString(), engine, reranker, embedded, reranked, pending: todo.length - embedded });
+  await track('semantic', 'rank jobs', note ? 'warn' : 'ok', `${embedded} embedded · ${reranked} reranked · ${todo.length - embedded} pending${note ? ` · ${note}` : ''}`, Date.now() - t0);
   return { embedded, reranked, engine, reranker, ms: Date.now() - t0, pending: todo.length - embedded, note };
 }
 export const getSem = () => hgetall<Sem>('sem');

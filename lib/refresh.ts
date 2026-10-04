@@ -1,3 +1,4 @@
+import { track } from './obs';
 import { GHOST_DAYS, hardNoise, trackGhosts } from './semantic';
 import type { Job, RawJob, SourceHealth } from './types';
 import { SOURCES, intervalFor, sourceConfigured } from './sources';
@@ -206,6 +207,7 @@ export async function refresh(opts: { only?: string[]; force?: boolean; trigger:
       skipped,
       failed,
     };
+    await track('source', `refresh (${opts.trigger})`, failed.length ? 'warn' : 'ok', `${meta.added} new · ${jobs.length} kept · ran ${ran.length} · failed: ${failed.map((f) => `${f} (${(health[f]?.error || '').slice(0, 60)})`).join(', ') || 'none'}`, meta.ms);
     await Promise.all([setJSON('jobs', jobs), setJSON('health', health), setJSON('meta', meta), saveTrendSnapshot(jobs).catch(() => null), recordDirectory(jobs).catch(() => null)]);
 
     // ---- alerts (skip the very first fill to avoid a flood) ----

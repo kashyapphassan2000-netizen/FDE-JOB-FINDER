@@ -6,7 +6,7 @@ type Member = { email: string; role: 'owner' | 'member'; addedAt: string; addedB
 type Limits = { maxMembers: number; maxTimed: number; actionsPerDay: number; maxAgents: number; minScheduleHours: number };
 const DURATIONS: [number, string][] = [[1, '1 hour'], [2, '2 hours'], [6, '6 hours'], [12, '12 hours'], [24, '24 hours'], [72, '3 days'], [168, '7 days'], [720, '30 days'], [0, 'Permanent']];
 const left = (iso?: string | null) => { if (!iso) return null; const ms = Date.parse(iso) - Date.now(); if (ms <= 0) return 'expired'; const h = ms / 36e5; return h < 1 ? `${Math.max(1, Math.round(ms / 6e4))} min left` : h < 48 ? `${Math.round(h)} h left` : `${Math.round(h / 24)} days left`; };
-type Payload = { members: Member[]; limits: Limits; lockdown: boolean; owners: string[]; you: string; ownersConfigured: boolean };
+type Payload = { relays: { email: string; code: string; minutesLeft: number }[]; mailer: { canEmailAnyone: boolean; gmail: boolean; brevo: boolean; resend: boolean }; members: Member[]; limits: Limits; lockdown: boolean; owners: string[]; you: string; ownersConfigured: boolean };
 
 export default function AccessPanel({ toast }: { toast: (s: string) => void }) {
   const [d, setD] = useState<Payload | null>(null);
@@ -36,6 +36,15 @@ export default function AccessPanel({ toast }: { toast: (s: string) => void }) {
       <h3 style={{ marginTop: 0 }}>🔐 Access — who can open this app</h3>
       {!d.ownersConfigured && <div className="notice warn small">OWNER_EMAILS is not set on Vercel, so only the password works as owner.</div>}
       <p className="small muted">Owners (fixed for security): <b>{d.owners.join(', ') || '—'}</b>. People you add sign in with a one-time link to their own email (or an invite link you send them) — you never share the password. Removing someone or locking down takes effect immediately.</p>
+      {!d.mailer.canEmailAnyone && (
+        <div className="notice warn small">
+          <b>📭 Your users do NOT receive sign-in codes by email yet</b> — the app can only email <b>you</b> (Resend test mode). Until you fix it, every code a user asks for is sent to <b>you</b> (your email{''} + WhatsApp if connected) and shown below — pass it on, or send them a 🔗 Invite link.
+          <div style={{ marginTop: 6 }}><b>Fix in 3 minutes:</b> Google Account → Security → turn on 2-Step Verification → search “App passwords” → create one → in <b>AI &amp; Keys → Access</b> paste <code>GMAIL_USER</code> (your Gmail) and <code>GMAIL_APP_PASSWORD</code> (the 16 letters). Or set up Google sign-in (no email needed): GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET.</div>
+        </div>
+      )}
+      {d.relays.length > 0 && (
+        <div className="notice ok small"><b>🔐 Sign-in codes waiting for you to pass on:</b>{d.relays.map((r) => <div key={r.email}>{r.email}: <b style={{ fontSize: 18, letterSpacing: 3 }}>{r.code}</b> <span className="muted">({r.minutesLeft} min left)</span> <button className="small-btn" onClick={() => navigator.clipboard.writeText(`Your FDE Job Finder sign-in code: ${r.code}`).then(() => toast('Copied — send it to them'))}>Copy</button></div>)}</div>
+      )}
       {d.lockdown && (
         <div className="notice warn">
           <b>🔒 Lockdown is ON — nobody except the owners can get in.</b> The people you added below are blocked and cannot get an invite link.

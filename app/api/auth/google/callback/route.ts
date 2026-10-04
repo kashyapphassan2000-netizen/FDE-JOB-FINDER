@@ -1,3 +1,4 @@
+import { track } from '@/lib/obs';
 import { NextResponse } from 'next/server';
 import { hmac, safeEqual } from '@/lib/auth';
 import { loadVault, secret } from '@/lib/secrets';
@@ -26,6 +27,7 @@ export async function GET(req: Request) {
   if (!['https://accounts.google.com', 'accounts.google.com'].includes(p.iss || '') || p.aud !== secret('GOOGLE_CLIENT_ID') || !p.exp || p.exp * 1000 < Date.now() || !p.email || p.email_verified !== true) return fail('google-token');
   const res = NextResponse.redirect(new URL('/', url.origin));
   res.cookies.set('fj_oauth', '', { path: '/api/auth/google', maxAge: 0 });
-  if (!(await attachSession(res, p.email.toLowerCase()))) return fail('noaccess');
+  if (!(await attachSession(res, p.email.toLowerCase()))) { await track('login', 'google', 'fail', `${p.email} has no access`); return fail('noaccess'); }
+  await track('login', 'google', 'ok', p.email);
   return res;
 }

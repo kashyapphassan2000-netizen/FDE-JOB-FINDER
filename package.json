@@ -9,7 +9,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "excel": "python3 scripts/build_workbook.py data/source_workbook.xlsx data/workbook.json AI_Job_Search_Master_Excel_v2_Comprehensive.xlsx && python3 scripts/build_platforms.py data/source_workbook.xlsx data/platforms.json",
-    "worker": "npx -y tsx scripts/worker.ts"
+    "worker": "npx -y tsx scripts/worker.ts",
+    "apply": "npx -y tsx scripts/apply.ts"
   },
   "engines": {
     "node": ">=20"

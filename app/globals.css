@@ -641,3 +641,19 @@ input:focus, select:focus, textarea:focus { border-color: var(--brand); box-shad
 .or::before, .or::after { content: ''; flex: 1; height: 1px; background: var(--line, #e3e8ef); }
 .st-research { border: 1px solid var(--line, #e3e8ef); border-radius: 12px; padding: 10px 14px; margin: 8px 0; max-height: 70vh; overflow: auto; }
 .st-code { background: #0d1424; color: #d7fbe9; padding: 10px 12px; border-radius: 10px; font-size: 12px; white-space: pre-wrap; word-break: break-all; }
+.obs-check { border-left: 4px solid #2bd17e; padding: 6px 10px; margin: 4px 0; background: rgba(0,0,0,.02); border-radius: 8px; }
+.obs-check.warn { border-color: #f5b400; } .obs-check.fail { border-color: #e5484d; }
+.obs-fix { margin-top: 3px; color: var(--text, #222); }
+.obs-list { display: flex; flex-direction: column; gap: 2px; }
+.obs-ev { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; cursor: pointer; border-left: 3px solid transparent; }
+.obs-ev:hover { background: rgba(0,0,0,.03); } .obs-ev.fail { border-left-color: #e5484d; } .obs-ev.warn { border-left-color: #f5b400; }
+.obs-when { width: 70px; color: var(--muted, #7b8798); font-size: 12px; } .obs-name { font-size: 13px; } .obs-detail { flex: 1; min-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.obs-open { width: 100%; } .obs-open pre { white-space: pre-wrap; word-break: break-word; background: rgba(0,0,0,.04); padding: 8px; border-radius: 8px; margin: 4px 0; }
+.np-layout { display: grid; grid-template-columns: 260px 1fr; gap: 14px; align-items: start; }
+.np-list { display: flex; flex-direction: column; gap: 4px; position: sticky; top: 70px; max-height: calc(100vh - 90px); overflow: auto; }
+.np-item { text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 10px; border: 1px solid transparent; background: transparent; }
+.np-item.on, .np-item:hover { background: var(--panel, #fff); border-color: var(--line, #e3e8ef); }
+.np-item small { color: var(--muted, #7b8798); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.np-area { width: 100%; min-height: 60vh; margin: 10px 0; font-family: ui-monospace, Menlo, monospace; font-size: 14px; line-height: 1.55; resize: vertical; }
+@media (max-width: 900px) { .np-layout { grid-template-columns: 1fr; } .np-list { position: static; max-height: 240px; } }
+.ap-q { padding: 6px 0; border-bottom: 1px dashed var(--line, #e3e8ef); } .ap-q.need textarea { border-color: #f5b400; background: rgba(245,180,0,.06); }

@@ -21,7 +21,7 @@ const DOMAIN_LABEL = Object.fromEntries(DOMAINS) as Record<Domain, string>;
 const hue = (s: string) => [...(s || 'x')].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7);
 const matchLabel = (n: number) => (n >= 80 ? 'STRONG MATCH' : n >= 60 ? 'GOOD MATCH' : n >= 40 ? 'FAIR MATCH' : 'LOW MATCH');
 
-export default function JobsTab({ data, reload, toast, onOutreach }: { data: JobsPayload | null; reload: () => void; toast: (s: string) => void; onOutreach?: (company: string, role: string) => void }) {
+export default function JobsTab({ data, reload, toast, onOutreach, onApply }: { data: JobsPayload | null; reload: () => void; toast: (s: string) => void; onOutreach?: (company: string, role: string) => void; onApply?: (url: string, title: string, company: string) => void }) {
   const [q, setQ] = useState('');
   const [roles, setRoles] = useState<Category[]>([]);
   const [domains, setDomains] = useState<Domain[]>([]);
@@ -238,6 +238,7 @@ export default function JobsTab({ data, reload, toast, onOutreach }: { data: Job
                   <a className="jr-apply" href={j.url} target="_blank" rel="noreferrer noopener">Apply now</a>
                   <button className="jr-ghost" onClick={() => setFit(j)}>✨ Ask AI: am I a fit?</button>
                   {onOutreach && <button className="jr-ghost" onClick={() => onOutreach(j.company, j.title)}>✉ Find people</button>}
+                  {onApply && !/linkedin\.com/.test(j.url) && <button className="jr-ghost" title="Read this job's application questions and answer them from your CV" onClick={() => onApply(j.url, j.title, j.company)}>⚡ Apply</button>}
                   <button className={`jr-icon ${track[j.id]?.status === 'saved' ? 'on' : ''}`} title="Save" onClick={() => mark(j, track[j.id]?.status === 'saved' ? 'none' : 'saved')}>{track[j.id]?.status === 'saved' ? '♥' : '♡'}</button>
                   <select className="jr-track" value={track[j.id]?.status || ''} onChange={(e) => mark(j, (e.target.value || 'none') as TrackStatus | 'none')}>
                     <option value="">Track…</option>

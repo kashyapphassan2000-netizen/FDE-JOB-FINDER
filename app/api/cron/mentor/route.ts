@@ -1,3 +1,5 @@
+import { track as cronTrackRaw } from '@/lib/obs';
+const cronTracked = (n: string, st: 'ok' | 'fail', d: string, ms: number) => cronTrackRaw('cron', n, st, d, ms);
 import { isCron, unauthorized } from '@/lib/auth';
 import { activeSpaces, dailyBrief, getWorld } from '@/lib/mentor';
 import { loadVault, secret } from '@/lib/secrets';
@@ -8,7 +10,7 @@ import { roleOf } from '@/lib/access';
 export const maxDuration = 300;
 
 // Vercel Cron (daily, early morning IST): refresh the world picture, write everyone's brief, email the owner's.
-export async function GET(req: Request) {
+async function handle(req: Request): Promise<Response> {
   if (!isCron(req)) return unauthorized();
   await loadVault();
   const t0 = Date.now();
@@ -31,4 +33,18 @@ export async function GET(req: Request) {
     } catch (e) { log.push(`${ns}: failed ${(e as Error).message.slice(0, 100)}`); }
   }
   return Response.json({ ok: true, log });
+}
+
+// observability: every scheduled run is logged (Observability page)
+export async function GET(req: Request) {
+  const t0 = Date.now();
+  const task = `mentor${new URL(req.url).searchParams.get('task') ? `:${new URL(req.url).searchParams.get('task')}` : ''}`;
+  try {
+    const r = await handle(req);
+    if (r.status !== 401) await cronTracked(task, r.ok ? 'ok' : 'fail', (await r.clone().text()).slice(0, 500), Date.now() - t0);
+    return r;
+  } catch (e) {
+    await cronTracked(task, 'fail', (e as Error).message, Date.now() - t0);
+    throw e;
+  }
 }

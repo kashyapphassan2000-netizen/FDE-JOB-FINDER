@@ -14,6 +14,11 @@ export function notifyConfigured() {
 
 /** WhatsApp: CallMeBot (free, personal — one-time opt-in) or Twilio WhatsApp (sandbox / business number). */
 export async function sendWhatsApp(text: string): Promise<void> {
+  const { track } = await import('./obs');
+  try { await sendWhatsAppRaw(text); await track('whatsapp', text.split('\n')[0].slice(0, 80), 'ok', `${text.length} chars`); }
+  catch (e) { await track('whatsapp', text.split('\n')[0].slice(0, 80), 'fail', (e as Error).message); throw e; }
+}
+async function sendWhatsAppRaw(text: string): Promise<void> {
   const phone = secret('WHATSAPP_PHONE').replace(/[^0-9]/g, '');
   if (!phone) throw new Error('Set WHATSAPP_PHONE (with country code, e.g. 919876543210)');
   const msg = text.slice(0, 1500);

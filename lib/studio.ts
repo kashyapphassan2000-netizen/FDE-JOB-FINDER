@@ -1,3 +1,4 @@
+import { track } from './obs';
 import { randomBytes } from 'node:crypto';
 import { aiConfigured, chatJson } from './llm';
 import { readPage, webSearch } from './search';
@@ -37,18 +38,19 @@ import { roleOf } from './access';
  * Every agent follows its owner's instructions directly — it does not question orders; it only stops for something
  * illegal / harmful to others or impossible, and then says why in one line.
  */
-export type ToolId = 'web_search' | 'read_page' | 'news' | 'company_jobs' | 'my_jobs' | 'market' | 'excel' | 'my_cv' | 'memory' | 'http_get' | 'ask_agent';
+export type ToolId = 'web_search' | 'read_page' | 'news' | 'company_jobs' | 'my_jobs' | 'market' | 'excel' | 'my_cv' | 'memory' | 'http_get' | 'ask_agent' | 'notify';
 export const TOOLS: Record<ToolId, { label: string; desc: string; args: string }> = {
   web_search: { label: 'Web search', desc: 'search the whole web (Google-style operators allowed). recency: day|week|month|any', args: '{"query":"","recency":"week"}' },
   read_page: { label: 'Read any page', desc: 'open a URL and read its full text', args: '{"url":""}' },
   news: { label: 'Latest news', desc: 'dated news from the last N days (Google + Bing News)', args: '{"query":"","days":7}' },
-  company_jobs: { label: 'All company job boards', desc: 'search every company careers board the app indexes (~280 boards) for a role', args: '{"role":"forward deployed engineer"}' },
-  my_jobs: { label: 'My job feed', desc: 'jobs already collected by the app (filtered by words)', args: '{"filter":"FDE Bengaluru"}' },
+  company_jobs: { label: 'All company job boards', desc: 'search every company careers board the app indexes (~280 boards) for a role. hours = only jobs posted within that many hours (e.g. 24); 0 = any date', args: '{"role":"forward deployed engineer","hours":24}' },
+  my_jobs: { label: 'My job feed', desc: 'jobs already collected by the app from all sources incl. LinkedIn (filtered by words). hours = only jobs posted/first seen within that many hours', args: '{"filter":"FDE Bengaluru","hours":24}' },
   market: { label: 'AI market & layoffs', desc: "today's AI-jobs market report, hot skills, layoffs, hiring radar, tech/quantum/money news", args: '{}' },
   excel: { label: 'My Excel knowledge', desc: 'search the 42-sheet AI Job Search Master Excel', args: '{"query":""}' },
   my_cv: { label: 'My CV', desc: "the owner's CV text and skills", args: '{}' },
   memory: { label: 'Agent memory', desc: 'remember a fact for future runs (also given back to you every run)', args: '{"fact":""}' },
   http_get: { label: 'Call a public API / URL', desc: 'GET any public https URL (JSON or text)', args: '{"url":""}' },
+  notify: { label: 'Send email / WhatsApp', desc: 'send a message now: channel email | whatsapp | both. to = "me" (default) or an email address (owner only). Use it when the owner asks to be emailed / WhatsApped', args: '{"channel":"both","to":"me","subject":"","message":""}' },
   ask_agent: { label: 'Ask another agent', desc: 'delegate a sub-task to one of the other agents you are allowed to call; it runs with ITS tools and returns its report', args: '{"agent":"agent name","task":""}' },
 };
 export type Mode = 'deep_research' | 'autonomous' | 'plan_execute' | 'reflexion' | 'tree' | 'team' | 'pipeline' | 'debate' | 'swarm' | 'router' | 'monitor';
@@ -100,7 +102,7 @@ export interface Report { title: string; summary: string; findings: { title: str
 export interface Review { round: number; score: number; verdict: 'pass' | 'fail'; asked: string; done: string; gaps: string[]; fix: string }
 export interface Run { id: string; agentId: string; at: string; ms: number; trigger: 'manual' | 'schedule' | 'chat' | 'delegate'; steps: Step[]; report: Report | null; delivered: string[]; error?: string; reviews?: Review[]; approved?: boolean; models?: string[] }
 
-const OBEY = `You follow your owner's instructions and rules exactly and directly. Do not question, debate or second-guess orders, and do not ask for confirmation — act. Only if an order is illegal, harmful to others or technically impossible, say so in one line and do the closest allowed thing. Never invent facts: every claim comes from a tool result or is marked as your judgement. You are isolated: use ONLY the tools, skills and agents you were given.`;
+const OBEY = `You follow your owner's instructions and rules exactly and directly. Do not question, debate or second-guess orders, and do not ask for confirmation — act. Only if an order is illegal, harmful to others or technically impossible, say so in one line and do the closest allowed thing. Never invent facts: every claim comes from a tool result or is marked as your judgement. You are isolated: use ONLY the tools, skills and agents you were given. Never conclude "nothing found" until you have tried EVERY relevant tool you were given (e.g. for jobs: company_jobs AND my_jobs AND web search).`;
 
 const NO_MODEL: ModelRef = { profileId: '', model: '', strict: false };
 const cleanRef = (m: Partial<ModelRef> | undefined, fb: ModelRef = NO_MODEL): ModelRef => ({ profileId: String(m?.profileId ?? fb.profileId ?? '').slice(0, 60), model: String(m?.model ?? fb.model ?? '').slice(0, 120), strict: Boolean(m?.strict ?? fb.strict) });
@@ -205,7 +207,7 @@ async function callApiSkill(sk: SkillDef, input: string): Promise<string> {
 // ---------- tools ----------
 const trim = (s: string, n: number) => (s.length > n ? `${s.slice(0, n)}…` : s);
 /** Everything one run needs; isolation = an agent only sees its own tools, skills, memory and allowed agents. */
-interface Ctx { a: AgentDef; skills: SkillDef[]; deadline: number; steps: Step[]; depth: number; models: Set<string>; seen: string[]; research?: { body: string; sources: { n: number; title: string; url: string }[] } }
+interface Ctx { notified?: string[]; a: AgentDef; skills: SkillDef[]; deadline: number; steps: Step[]; depth: number; models: Set<string>; seen: string[]; research?: { body: string; sources: { n: number; title: string; url: string }[] } }
 async function runTool(ctx: Ctx, tool: string, args: Record<string, unknown>): Promise<string> {
   const agentId = ctx.a.id;
   if (tool.startsWith('skill_')) {
@@ -219,15 +221,46 @@ async function runTool(ctx: Ctx, tool: string, args: Record<string, unknown>): P
     }
     case 'read_page': { const u = String(args.url || ''); if (!/^https?:\/\//.test(u)) return 'url must start with http'; return trim(await readPage(u, 7000), 7000); }
     case 'news': { const r = await newsSearch([String(args.query || '')], Math.max(1, Math.min(60, Number(args.days) || 7)), { perQuery: 10 }); return r.items.slice(0, 12).map((n) => `${(n.date || '').slice(0, 10)} ${n.title} (${n.source}) ${n.url}`).join('\n') || 'no news'; }
-    case 'company_jobs': { const r = await careersSearch({ q: String(args.role || 'forward deployed engineer'), limit: 25 }); return `${r.total} matches across ${r.companies} companies (your locations):\n` + r.hits.slice(0, 20).map((h) => `${h.title} — ${h.company} — ${h.location || 'n/a'} — ${(h.postedAt || '').slice(0, 10)} ${h.url}`).join('\n'); }
+    case 'company_jobs': {
+      const hours = Math.max(0, Number(args.hours) || 0);
+      const r = await careersSearch({ q: String(args.role || 'forward deployed engineer'), limit: 200 });
+      const inWin = (iso?: string | null) => !hours || (iso ? Date.now() - Date.parse(iso) <= hours * 36e5 : false);
+      const hits = r.hits.filter((h) => inWin(h.postedAt));
+      return `${hits.length} matches${hours ? ` posted in the last ${hours} h (${r.hits.length - hits.length} older/undated hidden)` : ''} across company boards (your locations):\n` + (hits.slice(0, 25).map((h) => `${h.title} — ${h.company} — ${h.location || 'n/a'} — posted ${h.postedAt ? new Date(h.postedAt).toISOString().slice(0, 16).replace('T', ' ') : 'date unknown'} ${h.url}`).join('\n') || 'NONE in this window — this is a valid answer, do not pad with older roles.');
+    }
     case 'my_jobs': {
       const ws = String(args.filter || '').toLowerCase().split(/\s+/).filter(Boolean);
-      const jobs = (await getJobs()).filter((j) => ws.every((w) => `${j.title} ${j.company} ${j.location} ${j.categories.join(' ')}`.toLowerCase().includes(w))).sort((a, b) => Date.parse(b.postedAt || b.firstSeen) - Date.parse(a.postedAt || a.firstSeen));
-      return `${jobs.length} jobs\n` + jobs.slice(0, 20).map((j) => `${j.title} — ${j.company} — ${j.location} — ${(j.postedAt || j.firstSeen).slice(0, 10)} ${j.url}`).join('\n');
+      const hours = Math.max(0, Number(args.hours) || 0);
+      const when = (j: { postedAt?: string | null; firstSeen: string }) => j.postedAt || j.firstSeen;
+      const match = (await getJobs()).filter((j) => ws.every((w) => `${j.title} ${j.company} ${j.location} ${j.categories.join(' ')}`.toLowerCase().includes(w))).sort((a, b) => Date.parse(when(b)) - Date.parse(when(a)));
+      const line = (j: (typeof match)[number]) => `${j.title} — ${j.company} — ${j.location} — ${j.postedAt ? `POSTED ${j.postedAt.slice(0, 16).replace('T', ' ')}` : `posting date UNKNOWN (first seen by us ${j.firstSeen.slice(0, 16).replace('T', ' ')})`} — via ${j.sources.join('/')} ${j.url}`;
+      if (!hours) return `${match.length} jobs\n${match.slice(0, 25).map(line).join('\n')}`;
+      // only a real posting date proves "posted in the window"; undated ones are listed apart so they are never passed off as fresh
+      const dated = match.filter((j) => j.postedAt && Date.now() - Date.parse(j.postedAt) <= hours * 36e5);
+      const undated = match.filter((j) => !j.postedAt && Date.now() - Date.parse(j.firstSeen) <= hours * 36e5);
+      return `${dated.length} jobs with a posting date inside the last ${hours} h:\n${dated.slice(0, 25).map(line).join('\n') || 'NONE — a valid answer.'}${undated.length ? `\n\n${undated.length} more appeared in our feed in the last ${hours} h but their posting date is unknown (may be older) — only include them clearly labelled "date unverified":\n${undated.slice(0, 10).map(line).join('\n')}` : ''}`;
     }
     case 'market': { const w = await getWorld(); return `MARKET: ${w.marketSummary}\nHOT SKILLS: ${w.hotSkills.join('; ')}\nLAYOFFS: ${w.layoffs.join('; ')}\nHIRING: ${w.hiring.join('; ')}\nTECH: ${w.tech.join('; ')}\nQUANTUM: ${w.quantum.join('; ')}\nMONEY: ${w.money.join('; ')}`; }
     case 'excel': return excelContext(String(args.query || ''), 20) || 'nothing matched';
     case 'my_cv': { const cv = await getCv(); return cv.text ? trim(cv.text, 6000) : `No CV uploaded. Skills: ${cv.skills.join(', ') || 'unknown'}`; }
+    case 'notify': {
+      const ch = String(args.channel || 'both');
+      const msg = String(args.message || '').slice(0, 3000);
+      if (!msg) return 'message is empty';
+      const res: string[] = [];
+      if (ch === 'email' || ch === 'both') {
+        const toArg = String(args.to || 'me').trim();
+        const me = ctx.a.owner === 'owner' ? secret('DIGEST_TO') : ctx.a.owner;
+        const to = toArg === 'me' || !toArg ? me : ctx.a.owner === 'owner' ? toArg : me; // users can only email themselves
+        try { await sendMail(to, `${ctx.a.emoji} ${String(args.subject || ctx.a.name).slice(0, 120)}`, `<div style="font-family:system-ui,sans-serif;white-space:pre-wrap">${esc(msg)}</div><p style="color:#999;font-size:12px">${esc(ctx.a.name)} · FDE Job Finder</p>`); res.push(`email sent to ${to}`); } catch (e) { res.push(`email FAILED: ${(e as Error).message.slice(0, 160)}`); }
+      }
+      if (ch === 'whatsapp' || ch === 'both') {
+        if (ctx.a.owner !== 'owner') res.push('WhatsApp is only connected for the owner');
+        else try { await sendWhatsApp(`${ctx.a.emoji} *${ctx.a.name}*\n${msg}`); res.push('WhatsApp sent'); } catch (e) { res.push(`WhatsApp FAILED: ${(e as Error).message.slice(0, 160)}`); }
+      }
+      ctx.notified = [...(ctx.notified || []), ...res];
+      return res.join(' · ');
+    }
     case 'memory': { const m = await getJSON<string[]>(`studio:mem:${agentId}`, []); const f = String(args.fact || '').slice(0, 400); if (f) await setJSON(`studio:mem:${agentId}`, [f, ...m].slice(0, 80)); return 'saved'; }
     case 'http_get': {
       const u = String(args.url || '');
@@ -280,6 +313,9 @@ async function ask<T>(ctx: Ctx, system: string, user: string, ref: LlmOpts, maxT
   return r.data;
 }
 
+/** models sometimes return the answer as an object / list instead of text */
+const asText = (v: unknown): string => (typeof v === 'string' ? v : v == null ? '' : JSON.stringify(v, null, 1));
+
 // ---------- the reasoning loop (ReAct) for one agent / member ----------
 async function react(ctx: Ctx, o: { who: string; system: string; task: string; tools: string[]; maxSteps: number; deadline: number; ref: LlmOpts }): Promise<string> {
   const doc = toolDoc(ctx, o.tools);
@@ -292,7 +328,7 @@ async function react(ctx: Ctx, o: { who: string; system: string; task: string; t
       `TASK:\n${o.task}\n\nTOOLS you can call:\n${doc || '(none — answer from reasoning)'}\n\nWHAT YOU DID SO FAR:\n${trace.join('\n\n') || '(nothing yet)'}\n\nStep ${i + 1} of max ${o.maxSteps}. ${DEPTH_PROMPT[depth]} Decide the single best next move. If you have enough evidence, give the final answer.\nJSON: {"thought":"your reasoning","action":{"tool":"tool_id","args":{}}} OR {"thought":"","final":"complete answer with facts, sources (URLs) and recommendations"}`,
       o.ref, tokens(depth), Math.min(90000, o.deadline - Date.now() - 15000));
     if (!data) break;
-    if (data.final || !data.action || !o.tools.includes(data.action.tool)) { ctx.steps.push({ who: o.who, thought: data.thought || '', at: Date.now() }); if (data.final) return data.final; if (data.action) { trace.push(`(tool ${data.action.tool} is not available to you)`); continue; } return data.thought || ''; }
+    if (data.final || !data.action || !o.tools.includes(data.action.tool)) { ctx.steps.push({ who: o.who, thought: data.thought || '', at: Date.now() }); if (data.final) return asText(data.final); if (data.action) { trace.push(`(tool ${data.action.tool} is not available to you)`); continue; } return data.thought || ''; }
     let obs: string;
     try { obs = await runTool(ctx, data.action.tool, data.action.args || {}); } catch (e) { obs = `tool error: ${(e as Error).message.slice(0, 200)}`; }
     ctx.seen.push(obs);
@@ -300,7 +336,7 @@ async function react(ctx: Ctx, o: { who: string; system: string; task: string; t
     trace.push(`THOUGHT: ${data.thought}\nACTION: ${data.action.tool} ${JSON.stringify(data.action.args)}\nRESULT:\n${trim(obs, 2500)}`);
   }
   const data = await ask<{ final: string }>(ctx, `${o.system}\n\n${OBEY}`, `TASK:\n${o.task}\n\nEVIDENCE:\n${trace.join('\n\n').slice(-12000)}\n\nWrite the best final answer now from this evidence. JSON: {"final":""}`, o.ref, 2500).catch(() => null);
-  return data?.final || trace.slice(-1)[0] || 'No result';
+  return asText(data?.final) || trace.slice(-1)[0] || 'No result';
 }
 
 // ---------- agentic modes ----------
@@ -466,7 +502,8 @@ async function supervise(ctx: Ctx, base: string, task: string, raw: string): Pro
       `You are the SUPERVISOR. You did not do this work. You are brutally honest, never polite, never fooled by confident wording. ${OBEY}`,
       `WHAT THE OWNER ASKED:\nInstructions: ${a.goal}\nRules: ${a.rules || '(none)'}\nThis run's task: ${task}\n${a.supervisor.criteria ? `OWNER'S PASS CRITERIA: ${a.supervisor.criteria}\n` : ''}
 WHAT THE AGENTS ACTUALLY DID (tool calls):\n${evidence || '(no tools used)'}\n\nWHAT THEY DELIVERED:\n${raw.slice(0, 14000)}
-${urls.length ? `LINK CHECK (computed, not opinion): ${urls.length - unverified.length}/${urls.length} links were really returned by tools.${unverified.length ? ` NOT seen in any tool result (likely invented — penalise hard, demand real ones): ${unverified.slice(0, 10).join(' ')}` : ''}\n` : ''}Compare item by item. Check: every instruction done? every rule obeyed? claims backed by sources/links? anything invented, stale, vague, or missing? Score 1-10 (10 = exactly what was asked, fully evidenced). JSON: {"score":0,"asked":"what was asked, one line","done":"what was actually done, one line","gaps":["specific gap"],"fix":"exact instructions to fix the gaps"}`,
+${urls.length ? `LINK CHECK (computed, not opinion): ${urls.length - unverified.length}/${urls.length} links were really returned by tools.${unverified.length ? ` NOT seen in any tool result (likely invented — penalise hard, demand real ones): ${unverified.slice(0, 10).join(' ')}` : ''}\n` : ''}RULES FOR JUDGING: an honest "nothing matched in the requested window" backed by real searches IS a pass (score it on search quality). Listing items that break a constraint (date window, location, role) as valid results IS a fail. Do not ask for things the owner did not request.
+Compare item by item. Check: every instruction done? every rule obeyed? claims backed by sources/links? anything invented, stale, vague, or missing? Score 1-10 (10 = exactly what was asked, fully evidenced). JSON: {"score":0,"asked":"what was asked, one line","done":"what was actually done, one line","gaps":["specific gap"],"fix":"exact instructions to fix the gaps"}`,
       ref, 1400);
     if (!r) break;
     // invented links cap the score no matter how confident the reviewer model is
@@ -502,20 +539,24 @@ ${memory.length ? `YOUR MEMORY FROM EARLIER RUNS:\n- ${memory.slice(0, 25).join(
   let reviews: Review[] | undefined;
   let approved: boolean | undefined;
   try {
-    let raw = await work(ctx, base, task);
+    let raw = asText(await work(ctx, base, task));
     if (a.supervisor.enabled && Date.now() < ctx.deadline - 50000) {
       const s = await supervise(ctx, base, task, raw);
       raw = s.raw; reviews = s.reviews; approved = s.approved;
     }
     const last = reviews?.[reviews.length - 1];
     const rep = await ask<Report>(ctx, `${base}\n${OBEY}`,
-      `Turn this work into the final report for your owner. Keep every concrete item (names, numbers, links). Be brutally honest about what was NOT achieved. ${a.report.onlyIfNew && prev?.report ? `Set newSinceLast=false if nothing meaningfully new vs the last run (${prev.report.findings.map((f) => f.title).slice(0, 15).join('; ')}).` : 'newSinceLast=true.'}
+      `Turn this work into the final report for your owner. Keep every concrete item (names, numbers, links) THAT OBEYS the instructions and rules. HARD FILTER: drop every item that breaks a constraint (e.g. outside the requested time window, wrong location, wrong role) — do not list them as findings; mention them in one line of the summary ("excluded N older / off-target items"). If nothing passes, say so plainly: "No new matching items in the window" is a correct, complete result. Be brutally honest about what was NOT achieved. ${a.report.onlyIfNew && prev?.report ? `Set newSinceLast=false if nothing meaningfully new vs the last run (${prev.report.findings.map((f) => f.title).slice(0, 15).join('; ')}).` : 'newSinceLast=true.'}
 ${last ? `SUPERVISOR: ${last.verdict.toUpperCase()} ${last.score}/10${last.gaps.length ? `, open gaps: ${last.gaps.join('; ')}` : ''} — mention unresolved gaps in the summary.\n` : ''}WORK:\n${raw.slice(0, 16000)}\nJSON: {"title":"","summary":"3-6 sentences","findings":[{"title":"","detail":"","url":""}],"actions":["what the owner should do next"],"newSinceLast":true}`, llm(a.model), 3500, 90000);
     const report: Report = rep ? { title: rep.title || a.name, summary: rep.summary || '', findings: (rep.findings || []).slice(0, 40), actions: rep.actions || [], newSinceLast: rep.newSinceLast !== false } : { title: a.name, summary: raw.slice(0, 2000), findings: [], actions: [], newSinceLast: true };
     if (ctx.research) { report.body = ctx.research.body; report.sources = ctx.research.sources; }
     if (reviews?.length && !approved) report.summary = `⚠ Supervisor did NOT approve (best ${Math.max(...reviews.map((r) => r.score))}/10 after ${reviews.length} round${reviews.length > 1 ? 's' : ''}). ${report.summary}`;
     const run: Run = { id: randomBytes(4).toString('hex'), agentId: a.id, at: new Date().toISOString(), ms: Date.now() - t0, trigger, steps: ctx.steps, report, delivered: [], reviews, approved, models: [...ctx.models] };
-    if (trigger !== 'chat' && trigger !== 'delegate' && (!a.report.onlyIfNew || report.newSinceLast !== false)) run.delivered = await deliver(a, report);
+    // "email me / WhatsApp me the result" in the instructions or in this chat message → deliver even from chat
+    const asked = askedChannels(`${a.goal}\n${trigger === 'chat' ? extra || '' : ''}`);
+    if (trigger !== 'chat' && trigger !== 'delegate' && (!a.report.onlyIfNew || report.newSinceLast !== false)) run.delivered = await deliver(a, report, asked);
+    else if (trigger === 'chat' && (asked.email || asked.whatsapp)) run.delivered = await deliver({ ...a, report: { ...a.report, email: asked.email ? a.report.email || 'me' : '', whatsapp: asked.whatsapp, webhook: '' } }, report);
+    if (ctx.notified?.length) run.delivered = [...run.delivered, ...ctx.notified];
     await saveRun(a, run, approved === false ? 'ok (supervisor not satisfied)' : 'ok');
     return run;
   } catch (e) {
@@ -525,12 +566,20 @@ ${last ? `SUPERVISOR: ${last.verdict.toUpperCase()} ${last.score}/10${last.gaps.
   }
 }
 async function saveRun(a: AgentDef, run: Run, status: string) {
+  await track('agent', `${a.emoji} ${a.name}`, run.error ? 'fail' : run.approved === false ? 'warn' : 'ok', `${run.trigger} · ${run.error || run.report?.title || ''}${run.reviews?.length ? ` · supervisor ${run.reviews[run.reviews.length - 1].score}/10` : ''} · sent: ${run.delivered.join(', ')}`, run.ms, `${a.id}:${run.id}`);
   const runs = await getRuns(a.id);
   await setJSON(`studio:runs:${a.id}`, [run, ...runs].slice(0, 40));
   await hset('studio:agents', a.id, { ...a, lastRun: run.at, lastStatus: status });
 }
 
-async function deliver(a: AgentDef, r: Report): Promise<string[]> {
+function askedChannels(text: string) {
+  const t = text.toLowerCase();
+  const verb = /(send|mail|email|e-mail|whatsapp|message|notify|ping|share|forward)/;
+  return { email: verb.test(t) && /\b(e-?mail|mail)\b/.test(t), whatsapp: verb.test(t) && /whats ?app/.test(t) };
+}
+async function deliver(a: AgentDef, r: Report, asked?: { email: boolean; whatsapp: boolean }): Promise<string[]> {
+  if (asked?.email && !a.report.email) a = { ...a, report: { ...a.report, email: 'me' } };
+  if (asked?.whatsapp && !a.report.whatsapp && a.owner === 'owner') a = { ...a, report: { ...a.report, whatsapp: true } };
   const out: string[] = ['in-app'];
   const to = a.report.email === 'me' ? (a.owner === 'owner' ? secret('DIGEST_TO') : a.owner) : a.report.email;
   if (a.report.email) {
@@ -551,7 +600,9 @@ export async function agentChat(a: AgentDef, text: string): Promise<{ reply: str
   const history = await getJSON<{ role: 'user' | 'agent'; text: string; at: string }[]>(`studio:chat:${a.id}`, []);
   const ctx = history.slice(-10).map((m) => `${m.role === 'user' ? 'OWNER' : 'YOU'}: ${m.text.slice(0, 800)}`).join('\n');
   const run = await runAgentDef(a, 'chat', `${ctx ? `Conversation so far:\n${ctx}\n\n` : ''}The owner now says: ${text}\nDo what they ask (use your tools as needed) and answer them directly.`, 200000);
-  const reply = run.report?.body ? `**${run.report.title}**\n\n${run.report.body}\n\n**Sources**\n${(run.report.sources || []).map((x) => `[${x.n}] ${x.title} — ${x.url}`).join('\n')}` : run.report ? `**${run.report.title}**\n\n${run.report.summary}${run.report.findings.length ? `\n\n${run.report.findings.map((f) => `- **${f.title}** — ${f.detail}${f.url ? ` (${f.url})` : ''}`).join('\n')}` : ''}${run.report.actions.length ? `\n\n**Next:**\n${run.report.actions.map((x) => `- ${x}`).join('\n')}` : ''}` : `Failed: ${run.error}`;
+  const sent = run.delivered.filter((d) => d !== 'in-app');
+  const reply0 = run.report?.body ? `**${run.report.title}**\n\n${run.report.body}\n\n**Sources**\n${(run.report.sources || []).map((x) => `[${x.n}] ${x.title} — ${x.url}`).join('\n')}` : run.report ? `**${run.report.title}**\n\n${run.report.summary}${run.report.findings.length ? `\n\n${run.report.findings.map((f) => `- **${f.title}** — ${f.detail}${f.url ? ` (${f.url})` : ''}`).join('\n')}` : ''}${run.report.actions.length ? `\n\n**Next:**\n${run.report.actions.map((x) => `- ${x}`).join('\n')}` : ''}` : `Failed: ${run.error}`;
+  const reply = sent.length ? `${reply0}\n\n📨 ${sent.join(' · ')}` : reply0;
   const now = new Date().toISOString();
   await setJSON(`studio:chat:${a.id}`, [...history, { role: 'user', text, at: now }, { role: 'agent', text: reply, at: now }].slice(-60));
   return { reply, run };

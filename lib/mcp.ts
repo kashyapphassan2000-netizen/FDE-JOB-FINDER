@@ -1,3 +1,4 @@
+import { track } from './obs';
 import { createHash, randomBytes } from 'node:crypto';
 import { hdel, hgetall, hset } from './store';
 import { roleOf } from './access';
@@ -104,7 +105,9 @@ export async function handleRpc(msg: { jsonrpc?: string; id?: number | string | 
       if (!t) return err(-32602, `unknown tool ${msg.params?.name}`);
       try {
         if (t.cost && tenant().role === 'member') await spend(tenant().ns, t.cost);
-        const out = await t.run(msg.params?.arguments || {});
+        const t0 = Date.now();
+        const out = await t.run(msg.params?.arguments || {}).catch(async (e) => { await track('mcp', t.name, 'fail', (e as Error).message, Date.now() - t0); throw e; });
+        await track('mcp', t.name, 'ok', JSON.stringify(msg.params?.arguments || {}).slice(0, 200), Date.now() - t0);
         const text = typeof out === 'string' ? out : JSON.stringify(out, null, 1);
         return ok({ content: [{ type: 'text', text: text.slice(0, 90000) }], isError: false });
       } catch (e) {

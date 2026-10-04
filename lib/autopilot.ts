@@ -1,3 +1,4 @@
+import { track } from './obs';
 import { chatJson } from './llm';
 import { getJSON, hgetall, hset, setJSON } from './store';
 import { getCv } from './cv';
@@ -38,6 +39,7 @@ export async function draftOutreach(jobs: Job[], max = 5): Promise<Draft[]> {
     await hset('drafts', j.id, d);
     out.push(d);
   }
+  if (todo.length) await track('autopilot', 'outreach drafts', out.length ? 'ok' : 'warn', `${out.length}/${todo.length} drafted`);
   if (out.length && tenant().ns === 'owner') await announce(out).catch(() => null);
   return out;
 }
@@ -87,6 +89,7 @@ export async function weeklyGap(jobs: Job[], opts: { readTop?: number } = {}): P
   ).catch(() => ({ data: null }));
   const report: GapReport = { at: new Date().toISOString(), jobs: pool.length, terms, gaps: data?.gaps?.slice(0, 5) || missing.slice(0, 5).map((t) => ({ term: t.term, why: `${t.pct}% of top roles ask for it`, how: 'Ship a small public project using it' })), summary: data?.summary || (cv.text ? '' : 'Upload your CV in the CV tab — without it every term shows as missing.') };
   await setJSON('gap:reports', [report, ...prev].slice(0, 12));
+  await track('autopilot', 'resume gap report', cv.text ? 'ok' : 'warn', cv.text ? report.gaps.map((g) => g.term).join(', ') : 'no CV uploaded — every term shows as missing');
   return report;
 }
 export async function emailGap(r: GapReport, to: string) {

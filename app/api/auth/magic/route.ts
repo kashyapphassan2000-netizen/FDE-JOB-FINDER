@@ -1,3 +1,4 @@
+import { track } from '@/lib/obs';
 import { NextResponse } from 'next/server';
 import { SESSION_COOKIE, createSession } from '@/lib/auth';
 import { accessUntil, consumeLinkToken, getVersion, makeLinkToken, roleOf, sendSignInEmail } from '@/lib/access';
@@ -23,7 +24,8 @@ export async function GET(req: Request) {
   const u = new URL(req.url);
   const email = await consumeLinkToken(u.searchParams.get('t') || '');
   const role = email ? await roleOf(email) : null;
-  if (!email || !role) return NextResponse.redirect(new URL('/login?e=link', u.origin));
+  if (!email || !role) { await track('login', 'invite / email link', 'fail', 'expired, reused or access removed'); return NextResponse.redirect(new URL('/login?e=link', u.origin)); }
+  await track('login', 'invite / email link', 'ok', email);
   const s = await createSession(email, role, await getVersion(), (await accessUntil(email)) ?? undefined);
   const res = NextResponse.redirect(new URL('/', u.origin));
   res.cookies.set(SESSION_COOKIE, s.value, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: s.maxAge });
