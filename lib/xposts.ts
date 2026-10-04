@@ -29,6 +29,7 @@ export async function fetchTweet(id: string, timeoutMs = 10000): Promise<Tweet |
       }
     }
     if (d.note_tweet?.text) text = d.note_tweet.text; // long posts
+    text = text.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
     return { id, text, author: d.user?.name || '', handle: d.user?.screen_name || '', createdAt: d.created_at || null, links, likes: d.favorite_count, replies: d.conversation_count };
   } catch {
     return null;
