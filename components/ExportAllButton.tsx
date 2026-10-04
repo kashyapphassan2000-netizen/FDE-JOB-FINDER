@@ -19,5 +19,5 @@ export default function ExportAllButton({ toast }: { toast: (s: string) => void 
       setBusy(false);
     }
   }
-  return <button disabled={busy} onClick={run} title="Download one PDF with the data of every page">{busy ? "Building PDF…" : "⬇ Export all"}</button>;
+  return <button disabled={busy} onClick={run} title="One PDF with EVERY page. To export only this page, use the ⬇ PDF button on the page itself.">{busy ? "Building PDF…" : "⬇ Export ALL pages"}</button>;
 }

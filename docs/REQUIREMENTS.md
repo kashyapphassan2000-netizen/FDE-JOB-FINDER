@@ -41,3 +41,6 @@ Collected from the owner's instructions. Brutally honest, no fake claims.
   - Hidden jobs & startups: funding news from the last 30 days; companies re-checked every 3 days, hidden if not re-checked in 14 days; auto-scan when older than 24 h.
   - Opportunities: refreshed every 3 h; closed deadlines and contracts older than 45 days removed.
   - Jobs: removed when not seen on their board for 5 days or posted more than 60 days ago (unless tracked). Agent finds older than 30 days are hidden unless saved/applied.
+- **Per-page export = that page only.** On an Agent tab (X, LinkedIn posts, Hidden Bengaluru, …) the PDF/CSV holds only that tab's results; default window = posted in the last 24 h, newest first (selector: 24 h / 3 / 7 / 30 days / any). "Export ALL pages" in the top bar is the only all-in-one export.
+- **Companies hiring** sheet: every company worldwide the app tracks, with its careers page and live counts of FDE / AI-ML roles (Bengaluru office or remote-from-India), new in 24 h, latest posting; filters for FDE-only, "hires FDEs", Bengaluru / remote, new startups. New startups (YC hiring + funding news) are found daily and auto-watched when they have a role the owner can take.
+- Posts missions run by cron search the last 24 h.

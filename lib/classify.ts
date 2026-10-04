@@ -68,6 +68,8 @@ const REMOTE_CLOSED = /us only|usa only|u\.s\. only|remote \(us|remote - us|remo
 
 const FOREIGN_REMOTE_TITLE = /\b(usa?|united states|u\.s\.|uk|canada|europe|eu|emea|latam|americas|north america|germany|australia)\s*[-–(,]?\s*remote\b|\bremote\s*[-–(,:]\s*(usa?|united states|u\.s\.|uk|canada|europe|eu|emea|latam|americas|north america|germany|australia)\b/i;
 
+const FOREIGN_PLACE_TITLE = /\b(united states|usa|u\.s\.|us only|canada|mexico|brazil|argentina|colombia|chile|latam|united kingdom|uk|london|germany|france|spain|italy|netherlands|ireland|poland|europe|emea|dach|nordics|israel|uae|dubai|saudi|singapore|japan|tokyo|korea|australia|sydney|new zealand|philippines|vietnam|indonesia|malaysia|china)\b/i;
+
 export function locationTags(job: RawJob): string[] {
   const l = `${job.location || ''}`;
   const tags: string[] = [];
@@ -80,6 +82,8 @@ export function locationTags(job: RawJob): string[] {
     tags.push('REMOTE');
     if (tags.includes('INDIA') || (REMOTE_OPEN.test(l) && !REMOTE_CLOSED.test(l)) || (/^remote$/i.test(l.trim()) && !tags.includes('USA'))) tags.push('REMOTE_IN');
   }
+  // location hidden ("3 Locations") but the title names only foreign places → not for you
+  if ((!l.trim() || /^\s*\d+\s+locations?\s*$/i.test(l)) && FOREIGN_PLACE_TITLE.test(job.title || '') && !/india|bengaluru|bangalore|apac|asia|global|worldwide|anywhere/i.test(job.title || '') && !tags.includes('REMOTE_FOREIGN')) tags.push('REMOTE_FOREIGN');
   if (!l.trim() || /^\s*\d+\s+locations?\s*$/i.test(l)) { if (!tags.includes('REMOTE_FOREIGN')) tags.push('UNSTATED'); } // Workday "3 Locations" etc.
   else if (!tags.length) tags.push('GLOBAL');
   return tags;

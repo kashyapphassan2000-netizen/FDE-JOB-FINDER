@@ -7,6 +7,7 @@ import { getCv } from './cv';
 import { sendAlert } from './notify';
 import { loadVault } from './secrets';
 import { saveTrendSnapshot } from './trends';
+import { recordDirectory } from './directory';
 
 const MAX_JOBS = 2500;
 const KEEP_DAYS = 5; // not seen on its board for 5 days → treated as closed and removed
@@ -189,7 +190,7 @@ export async function refresh(opts: { only?: string[]; force?: boolean; trigger:
       skipped,
       failed,
     };
-    await Promise.all([setJSON('jobs', jobs), setJSON('health', health), setJSON('meta', meta), saveTrendSnapshot(jobs).catch(() => null)]);
+    await Promise.all([setJSON('jobs', jobs), setJSON('health', health), setJSON('meta', meta), saveTrendSnapshot(jobs).catch(() => null), recordDirectory(jobs).catch(() => null)]);
 
     // ---- alerts (skip the very first fill to avoid a flood) ----
     if (!firstRun) {

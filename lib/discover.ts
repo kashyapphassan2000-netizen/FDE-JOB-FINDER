@@ -1,9 +1,9 @@
 import type { CompanyEntry, RawJob } from './types';
-import { classify, isExcluded, locationTags } from './classify';
+import { classify, isExcluded, locationAllowed, locationTags } from './classify';
 import { guessAts } from './atsdetect';
 import { decodeEntities, getJson, getText, parseRss, pool, relativeToIso } from './http';
 import { DEFAULT_COMPANIES } from './companies';
-import { getSettings } from './settings';
+import { getSettings, saveSettings } from './settings';
 import { getJSON, setJSON } from './store';
 import { aiConfigured, chatJson } from './llm';
 import { loadVault } from './secrets';
@@ -195,6 +195,18 @@ export async function runDiscover(budgetMs = 240000): Promise<{ added: number; c
   log.push(`dropped stale: ${existing.filter((c) => !isFresh(c)).length} (not re-checked in ${STALE_DAYS} days or funding older than ${2 * FUND_FRESH_DAYS} days)`);
   log.push(`checked ${batch.length} companies for careers boards in ${((Date.now() - t0) / 1000).toFixed(0)}s`);
   const all = [...byKey.values()].filter(isFresh).sort((a, b) => b.roles.length - a.roles.length || b.hiddenScore - a.hiddenScore).slice(0, 600);
+  // auto-watch: new startups with a public board AND an FDE / AI role you can take (Bengaluru or remote-from-India) →
+  // polled on every refresh from now on, so their new jobs reach Jobs / Companies hiring without you clicking anything
+  const auto = await getJSON<string[]>('disc:auto', []);
+  const known = new Set(settings.extraCompanies.map((c) => `${c.ats}:${c.slug}`));
+  const fits = (r: DiscoveredCompany['roles'][number]) => locationAllowed(locationTags({ title: r.title, company: '', url: r.url, location: r.location }), r.location);
+  const toWatch = all.filter((c) => c.status === 'new' && c.ats && c.roles.some(fits) && !known.has(`${c.ats.ats}:${c.ats.slug}`)).slice(0, 25);
+  if (toWatch.length && auto.length < 300) {
+    for (const c of toWatch) c.status = 'watched';
+    await saveSettings({ extraCompanies: [...settings.extraCompanies, ...toWatch.map((c) => ({ ats: c.ats!.ats, slug: c.ats!.slug, name: c.name, tag: c.region.includes('INDIA') || c.region.includes('BLR') ? ('india' as const) : undefined }))] });
+    await setJSON('disc:auto', [...auto, ...toWatch.map((c) => c.key)]);
+    log.push(`auto-watched ${toWatch.length} new startups with FDE/AI roles you can take: ${toWatch.map((c) => c.name).join(', ')}`);
+  }
   await setJSON('disc:companies', all);
   await setJSON('disc:meta', { at: new Date().toISOString(), log });
   return { added, checked: batch.length, total: all.length, log };

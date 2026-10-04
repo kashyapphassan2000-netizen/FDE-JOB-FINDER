@@ -9,6 +9,7 @@ import TrendsTab from '@/components/TrendsTab';
 import SearchTab from '@/components/SearchTab';
 import IntelTab from '@/components/IntelTab';
 import ExportAllButton from '@/components/ExportAllButton';
+import DirectoryTab from '@/components/DirectoryTab';
 import DashboardTab from '@/components/DashboardTab';
 import AiKeysTab from '@/components/AiKeysTab';
 import TrackerTab from '@/components/TrackerTab';
@@ -20,7 +21,7 @@ import SettingsTab from '@/components/SettingsTab';
 import { ago, api, type JobsPayload } from '@/components/api';
 
 const NAV = [
-  { group: 'Find', items: [['My dashboard', '🏠'], ['Search any role', '🔍'], ['Jobs', '💼'], ['AI Agent', '🤖'], ['Trends', '📈'], ['Hiring radar', '📡'], ['Layoffs', '📉'], ['Hidden jobs & startups', '💎'], ['Outreach', '✉️'], ['Opportunities', '🏆']] },
+  { group: 'Find', items: [['My dashboard', '🏠'], ['Search any role', '🔍'], ['Jobs', '💼'], ['Companies hiring', '🏢'], ['AI Agent', '🤖'], ['Trends', '📈'], ['Hiring radar', '📡'], ['Layoffs', '📉'], ['Hidden jobs & startups', '💎'], ['Outreach', '✉️'], ['Opportunities', '🏆']] },
   { group: 'Agent searches', items: [['X / Twitter', '𝕏'], ['LinkedIn posts', '🔗'], ['Hidden Bengaluru', '📍'], ['Remote India', '🏠'], ['US / EU remote', '🌍'], ['Semi & Embedded AI', '🔧'], ['New startups', '🚀'], ['Communities', '👥']] },
   { group: 'Track', items: [['Tracker', '📌'], ['CV', '📄']] },
   { group: 'Library', items: [['Excel sheets', '📊'], ['Excel coverage map', '🗺️']] },
@@ -141,6 +142,7 @@ export default function Home() {
         {tab === 'Jobs' && <JobsTab data={data} reload={load} toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}
         {tab === 'AI Agent' && <AgentTab toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}
         {tab === 'Hidden jobs & startups' && <DiscoverTab toast={setToast} />}
+        {tab === 'Companies hiring' && <DirectoryTab toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}
         {tab === 'Outreach' && <OutreachTab toast={setToast} seed={seed} />}
         {tab === 'Opportunities' && <OpportunitiesTab toast={setToast} />}
         {tab === 'AI & Keys' && <AiKeysTab toast={setToast} />}

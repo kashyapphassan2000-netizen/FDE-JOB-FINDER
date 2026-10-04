@@ -95,6 +95,7 @@ export interface Find {
   domain: Domain;
   locTags: string[];
   mission: string;
+  missions?: string[]; // every tab that found it (a post can belong to X and to a custom search)
   engine: string;
   foundAt: string;
   status: 'new' | 'saved' | 'dismissed' | 'applied';
@@ -151,7 +152,7 @@ function fallbackPlan(prompt: string): string[] {
   ];
 }
 
-export async function runAgent(opts: { missionId?: string; prompt?: string; budgetMs?: number; depth?: 'quick' | 'deep'; alert?: boolean }): Promise<AgentRun> {
+export async function runAgent(opts: { missionId?: string; prompt?: string; budgetMs?: number; depth?: 'quick' | 'deep'; alert?: boolean; recency?: Recency }): Promise<AgentRun> {
   const t0 = Date.now();
   const budget = opts.budgetMs ?? 260000;
   const left = () => budget - (Date.now() - t0);
@@ -283,7 +284,7 @@ Results:\n${JSON.stringify(items)}\nJSON: {"items":[{"i":0,"relevant":"yes|maybe
 
     // 1. PLAN
     let queries = mission?.queries || [];
-    let rec: Recency = mission?.recency || 'month';
+    let rec: Recency = opts.recency || mission?.recency || 'month';
     if (opts.prompt) {
       const scope = mission ? SCOPE[mission.id] : '';
       const wantsPosts = !mission && /twitter|\bx\b|tweet|post|linkedin/i.test(opts.prompt);
@@ -376,8 +377,8 @@ ${scope ? `SCOPE (strict): ${scope}\n` : ''}Request: ${opts.prompt}\nJSON: {"que
       if (f.kind !== 'company' && isExcluded({ title: f.title, company: f.company, location: f.location, url: f.url }, settings)) continue;
       ids.add(f.id);
       const prev = existing[f.id];
-      if (prev) { await hset('agent:finds', f.id, { ...f, status: prev.status, foundAt: prev.foundAt }); continue; }
-      await hset('agent:finds', f.id, f);
+      if (prev) { await hset('agent:finds', f.id, { ...f, status: prev.status, foundAt: prev.foundAt, postedAt: f.postedAt || prev.postedAt, missions: Array.from(new Set([...(prev.missions || [prev.mission]), f.mission])) }); continue; }
+      await hset('agent:finds', f.id, { ...f, missions: [f.mission] });
       newOnes.push(f);
     }
     const handles = newOnes.filter((f) => f.kind === 'post' && f.confidence !== 'maybe' && /\(@([A-Za-z0-9_]{1,15})\)/.test(f.author || '')).map((f) => (f.author || '').match(/\(@([A-Za-z0-9_]{1,15})\)/)![1]);
@@ -425,7 +426,8 @@ export async function runDueMission(): Promise<AgentRun | { skipped: string }> {
   const other = MISSIONS.filter((m) => !['x-posts', 'li-posts'].includes(m.id)).sort((a, b) => lastRunOf(a.id) - lastRunOf(b.id))[0];
   const lastWasPosts = last && ['x-posts', 'li-posts'].includes(last.mission);
   const next = lastWasPosts ? other.id : postsDue;
-  return runAgent({ missionId: next, budgetMs: 250000, depth: u.dailyBudget - u.usedToday > 25 ? 'deep' : 'quick' });
+  // posts: last 24 h only (freshest first); the other tabs keep their own window
+  return runAgent({ missionId: next, budgetMs: 250000, depth: u.dailyBudget - u.usedToday > 25 ? 'deep' : 'quick', recency: ['x-posts', 'li-posts'].includes(next) ? 'day' : undefined });
 }
 
 /** Personal AI analysis of one job vs your CV. */

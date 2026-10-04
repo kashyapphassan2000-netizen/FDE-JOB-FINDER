@@ -8,7 +8,7 @@ import ExportButton from './ExportButton';
 type Mission = { id: string; title: string; desc: string; queries: string[] };
 type Find = {
   id: string; kind: 'job' | 'post' | 'careers_page' | 'company'; title: string; company: string; location: string; url: string; snippet: string; why: string;
-  role: string[]; domain: string; locTags: string[]; mission: string; engine: string; foundAt: string; status: 'new' | 'saved' | 'dismissed' | 'applied';
+  role: string[]; domain: string; locTags: string[]; mission: string; missions?: string[]; engine: string; foundAt: string; status: 'new' | 'saved' | 'dismissed' | 'applied';
   ats?: { ats: string; slug: string; total: number; relevant: number }; author?: string; postedAt?: string | null; applyHow?: string; confidence?: 'high' | 'maybe';
 };
 type Run = { id: string; mission: string; prompt?: string; depth?: string; startedAt: string; ms: number; queries: string[]; engines: string[]; ai: string | null; log: string[]; finds: number; total?: number; companies: number; searches?: number; findIds?: string[]; error?: string };
@@ -39,6 +39,10 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
   const [fit, setFit] = useState<FitJob | null>(null);
   const [openRun, setOpenRun] = useState<string | null>(null);
   const [showLinks, setShowLinks] = useState(false);
+  // freshness window (hours; 0 = any). Default: last 24 h, latest first.
+  const [age, setAgeState] = useState(24);
+  useEffect(() => { try { const v = Number(localStorage.getItem('fj_agent_age')); if (v >= 0 && localStorage.getItem('fj_agent_age') !== null) setAgeState(v); } catch {} }, []);
+  const setAge = (v: number) => { setAgeState(v); try { localStorage.setItem('fj_agent_age', String(v)); } catch {} };
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(() => api<Payload>('/api/agent').then((p) => { setD(p); setLastRun((r) => r || (missionId ? p.runs.find((x) => x.mission === missionId) : p.runs[0]) || null); }).catch((e) => toast(e.message)), [toast, missionId]);
@@ -94,13 +98,20 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
 
   const byId = useMemo(() => new Map((d?.finds || []).map((f) => [f.id, f])), [d]);
   const runFinds = useMemo(() => (lastRun?.findIds || []).map((id) => byId.get(id)).filter(Boolean) as Find[], [lastRun, byId]);
-  const pool = view === 'run' ? runFinds : d?.finds || [];
+  const inMission = (f: Find, m: string) => f.mission === m || Boolean(f.missions?.includes(m));
+  const when = (f: Find) => Date.parse(f.postedAt || '') || Date.parse(f.foundAt);
+  // on a tab page (X, LinkedIn, Hidden Bengaluru…) ONLY that tab's results are shown and exported
+  const scoped = useMemo(() => (view === 'run' ? runFinds : d?.finds || []).filter((f) => !mission || inMission(f, mission)), [view, runFinds, d, mission]);
+  const freshFinds = useMemo(() => scoped.filter((f) => !age || Date.now() - when(f) < age * 36e5), [scoped, age]);
+  const pool = freshFinds;
   const finds = useMemo(
     () => pool
-      .filter((f) => (!kind || f.kind === kind) && (view === 'run' || !mission || f.mission === mission) && (view === 'run' || status === 'all' || (status === 'open' ? f.status === 'new' : f.status === status)))
-      .sort((a, b) => (a.kind === 'post' ? 0 : 1) - (b.kind === 'post' ? 0 : 1) || (a.confidence === 'maybe' ? 1 : 0) - (b.confidence === 'maybe' ? 1 : 0) || Date.parse(b.postedAt || b.foundAt) - Date.parse(a.postedAt || a.foundAt)),
-    [pool, kind, status, mission, view],
+      .filter((f) => (!kind || f.kind === kind) && (view === 'run' || status === 'all' || (status === 'open' ? f.status === 'new' : f.status === status)))
+      .sort((a, b) => when(b) - when(a) || (a.confidence === 'maybe' ? 1 : 0) - (b.confidence === 'maybe' ? 1 : 0)),
+    [pool, kind, status, view],
   );
+  const olderHidden = scoped.length - freshFinds.length;
+  const AGE_LABEL: Record<number, string> = { 24: 'last 24 h', 72: 'last 3 days', 168: 'last 7 days', 720: 'last 30 days', 0: 'any time' };
   const counts = useMemo(() => pool.reduce<Record<string, number>>((c, f) => ((c[f.kind] = (c[f.kind] || 0) + 1), c), {}), [pool]);
 
   if (!d) return <div className="panel muted">Loading agent…</div>;
@@ -205,7 +216,11 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
           <button className={!kind ? 'on' : ''} onClick={() => setKind('')}>All</button>
           {(['post', 'job', 'company', 'careers_page'] as const).map((k) => <button key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{KIND[k][0]} {KIND[k][1]}s · {counts[k] || 0}</button>)}
         </span>
-        <ExportButton title={`${cur ? cur.title : 'AI Agent'} — ${view === 'run' ? 'latest run' : 'all saved finds'}`} subtitle={lastRun?.prompt ? `Request: ${lastRun.prompt}` : cur?.desc}
+        <select value={age} onChange={(e) => setAge(Number(e.target.value))} title="Show only results posted within…">
+          {[24, 72, 168, 720, 0].map((h) => <option key={h} value={h}>Posted: {AGE_LABEL[h]}</option>)}
+        </select>
+        <ExportButton title={`${cur ? cur.title : mission ? d.missions.find((m) => m.id === mission)?.title || 'AI Agent' : 'AI Agent'} — ${view === 'run' ? 'latest run' : 'saved finds'} · ${AGE_LABEL[age]}`} filename={`${cur?.id || mission || 'agent'}-${AGE_LABEL[age]}`}
+          subtitle={`${cur ? `Only this tab (${cur.title}). ` : ''}Posted ${AGE_LABEL[age]}, newest first. ${lastRun?.prompt ? `Request: ${lastRun.prompt}` : cur?.desc || ''}`}
           cols={[
             { header: 'Type', get: (f: Find) => KIND[f.kind][1], width: 60 },
             { header: 'Role / post', get: (f: Find) => f.title, width: 170, link: (f: Find) => f.url },
@@ -238,6 +253,7 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
 
       <div className="finds">
         {finds.slice(0, 400).map((f) => <FindCard key={f.id} f={f} onStat={setStat} onWatch={watch} onFit={() => setFit({ id: f.id, title: f.title, company: f.company, location: f.location, url: f.url, description: f.snippet })} onOutreach={onOutreach} />)}
+        {olderHidden > 0 && <div className="small muted" style={{ margin: '4px 0 8px' }}>{olderHidden} older result{olderHidden > 1 ? 's' : ''} hidden (posted before the {AGE_LABEL[age]}) — change “Posted” above to see them.</div>}
         {!finds.length && (view === 'all' || lastRun?.findIds) && <div className="empty">Nothing here{kind ? ' for this type' : ''}. {view === 'run' ? 'Try “All saved finds”, a Deep search, or a different mission.' : ''}</div>}
       </div>
 
