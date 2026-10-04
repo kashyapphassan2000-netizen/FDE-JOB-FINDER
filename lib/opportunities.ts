@@ -4,7 +4,7 @@ import { getJSON, setJSON } from './store';
 /**
  * Non-job routes into a job, from the Excel sheets COMPETITIONS_HACKATHONS, NEW_FAST_HIRE_HACKS ("PPO/Hackathon Fast-Track"),
  * Talent_Marketplaces / NEW_GIG_TRAINING_PLATFORMS, OPENSOURCE_PROGRAMS, CERTIFICATIONS_CREDENTIALS, COMMUNITY_BUILDERS.
- * Live items are refreshed at most every 6 hours.
+ * Live items are refreshed at most every 3 hours; closed / old items are dropped.
  */
 export interface Opp {
   id: string; kind: 'hackathon' | 'hiring_challenge' | 'contract'; title: string; org: string; url: string; deadline?: string | null; posted?: string | null;
@@ -49,9 +49,16 @@ async function mercor(): Promise<Opp[]> {
     } as Opp));
 }
 
+/** Fresh only: deadline not passed; contracts posted in the last 45 days. */
+function stillOpen(o: Opp): boolean {
+  if (o.deadline && Date.parse(o.deadline) < Date.now()) return false;
+  if (o.kind === 'contract' && o.posted && Date.now() - Date.parse(o.posted) > 45 * 864e5) return false;
+  return true;
+}
+
 export async function getOpportunities(force = false): Promise<{ at: string; items: Opp[]; errors: string[] }> {
   const cached = await getJSON<{ at: string; items: Opp[]; errors: string[] } | null>('opps', null);
-  if (!force && cached && Date.now() - Date.parse(cached.at) < 6 * 36e5) return cached;
+  if (!force && cached && Date.now() - Date.parse(cached.at) < 3 * 36e5) return { ...cached, items: cached.items.filter(stillOpen) };
   const jobs: [string, () => Promise<Opp[]>][] = [
     ['Unstop hackathons', () => unstop('hackathons', 'AI')], ['Unstop ML hackathons', () => unstop('hackathons', 'machine learning')],
     ['Unstop hiring challenges', () => unstop('competitions', 'hiring')], ['Devpost', devpost], ['Mercor', mercor],
@@ -62,7 +69,7 @@ export async function getOpportunities(force = false): Promise<{ at: string; ite
   const items: Opp[] = [];
   res.forEach((r, i) => {
     if (r.status !== 'fulfilled') return void errors.push(`${jobs[i][0]}: ${(r.reason as Error).message.slice(0, 100)}`);
-    for (const o of r.value) if (!seen.has(o.id)) { seen.add(o.id); items.push(o); }
+    for (const o of r.value) if (!seen.has(o.id) && stillOpen(o)) { seen.add(o.id); items.push(o); }
   });
   const out = { at: new Date().toISOString(), items, errors };
   await setJSON('opps', out);

@@ -105,6 +105,14 @@ export interface Find {
   confidence?: 'high' | 'maybe';
 }
 
+/** Fresh only: posts/jobs older than 30 days (by post date, else by when we found them) are hidden unless you saved/applied. */
+export const FIND_FRESH_DAYS = 30;
+export function isFreshFind(f: Find): boolean {
+  if (f.status === 'saved' || f.status === 'applied') return true;
+  const t = Date.parse(f.postedAt || '') || Date.parse(f.foundAt);
+  return !t || Date.now() - t < FIND_FRESH_DAYS * 864e5;
+}
+
 export interface AgentRun {
   id: string; mission: string; prompt?: string; depth: 'quick' | 'deep'; startedAt: string; ms: number; queries: string[];
   engines: string[]; ai: string | null; log: string[]; finds: number; total: number; companies: number; searches: number; findIds: string[]; error?: string;

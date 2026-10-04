@@ -29,3 +29,15 @@ Collected from the owner's instructions. Brutally honest, no fake claims.
 - Delete logs/finds manually and get fresh results.
 - Free first: free tiers + keyless fallbacks; be honest where something is impossible for free.
 - Beautiful, simple UI.
+
+## Added later (keep)
+- **My dashboard** (default page): everything in one place, FDE recommendations filtered by years of experience; Bengaluru first, then remote (India OK).
+- **Jobs**: Bengaluru first, then worldwide remote open to India; experience filter.
+- **Agent tabs** (X, LinkedIn posts, Hidden Bengaluru, Remote India, US/EU remote, Semi & Embedded AI, New startups, Communities): each takes a plain-English request scoped to that tab; results shown in the app (no redirects to LinkedIn).
+- **Export PDF on every page**, plus one "Export all" button that puts every page into one PDF.
+- **Access**: owner adds/removes emails (sign-in link / one-time invite, never the password). Owners = the emails in `OWNER_EMAILS` (Vercel env). Lockdown = only owners. Password can be changed in Settings (signs everyone else out).
+- **Fresh data only, everywhere**:
+  - Trends report, Hiring radar, Layoffs: news from the last 7 days (Google News + Bing News, dated), full articles read, facts extracted with sources; rebuilt daily by cron and automatically when a page is opened and the data is older than 20 h. Hiring signals older than 45 days and layoffs older than 60 days are purged.
+  - Hidden jobs & startups: funding news from the last 30 days; companies re-checked every 3 days, hidden if not re-checked in 14 days; auto-scan when older than 24 h.
+  - Opportunities: refreshed every 3 h; closed deadlines and contracts older than 45 days removed.
+  - Jobs: removed when not seen on their board for 5 days or posted more than 60 days ago (unless tracked). Agent finds older than 30 days are hidden unless saved/applied.

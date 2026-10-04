@@ -1,6 +1,6 @@
 import { guard, bad } from '@/lib/guard';
 import { getDiscovered, runDiscover, setDiscoveredStatus } from '@/lib/discover';
-import { getJSON } from '@/lib/store';
+import { acquireLock, getJSON, releaseLock } from '@/lib/store';
 import { getSettings, saveSettings } from '@/lib/settings';
 
 export const maxDuration = 300;
@@ -17,7 +17,10 @@ export async function POST(req: Request) {
   if (g) return g;
   const { action, key } = (await req.json()) as { action: string; key?: string };
   try {
-    if (action === 'run') return Response.json(await runDiscover(260000));
+    if (action === 'run') {
+      if (!(await acquireLock('disc:run', 290))) return bad('A scan is already running — reload in a few minutes', 409);
+      try { return Response.json(await runDiscover(250000)); } finally { await releaseLock('disc:run'); }
+    }
     if (!key) return bad('key required');
     const c = await setDiscoveredStatus(key, action === 'watch' ? 'watched' : action === 'dismiss' ? 'dismissed' : 'new');
     if (action === 'watch' && c.ats) {

@@ -1,5 +1,5 @@
 import { guard, bad } from '@/lib/guard';
-import { MISSIONS, runAgent, type AgentRun, type Find } from '@/lib/agent';
+import { isFreshFind, MISSIONS, runAgent, type AgentRun, type Find } from '@/lib/agent';
 import { delKey, getJSON, hdel, hgetall, hset, setJSON } from '@/lib/store';
 import { availableEngines, clearSearchCache, searchUsage } from '@/lib/search';
 import { boardSearchLinks, xSearchLinks } from '@/lib/xposts';
@@ -18,6 +18,7 @@ export async function GET(req: Request) {
     missions: MISSIONS,
     runs: runs.slice(0, 20),
     finds: Object.values(finds)
+      .filter(isFreshFind)
       .map((f) => ({ ...f, locTags: locationTags({ title: f.title, company: f.company, location: f.location, url: f.url }) }))
       .filter((f) => f.kind !== 'job' || !f.location || locationAllowed(f.locTags, f.location)) // your location rule, applied to older finds too
       .sort((a, b) => b.foundAt.localeCompare(a.foundAt)),

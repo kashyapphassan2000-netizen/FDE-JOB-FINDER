@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { ago, api, setTrack } from './api';
+import ExportButton from './ExportButton';
 
 type Hit = { title: string; company: string; location: string; url: string; postedAt?: string | null; salary?: string; source: string; text?: string };
 type Res = { q: string; ms: number; total: number; hits: Hit[]; bySource: { source: string; n: number }[]; boardsSearched: number; errors: string[]; captureLinks: { label: string; url: string }[]; stripped: number };
@@ -41,6 +42,11 @@ export default function SearchTab({ q, toast, onOutreach }: { q: string; toast: 
           <div className="row" style={{ marginBottom: 10 }}>
             <span className={`chip ${!src ? 'on' : ''}`} onClick={() => setSrc('')}>All · {res.total}</span>
             {res.bySource.map((s) => <span key={s.source} className={`chip ${src === s.source ? 'on' : ''}`} onClick={() => setSrc(s.source)}>{s.source} · {s.n}</span>)}
+            <span className="grow" />
+            <ExportButton title={`Search: ${q}`} subtitle={`${shown.length} results${src ? ` from ${src}` : ''} · ${any ? 'location rule ignored' : 'Bengaluru office or remote-from-India only'}`} filename={`search-${q}`}
+              cols={[{ header: 'Role', get: (h: Hit) => h.title, link: (h) => h.url }, { header: 'Company', get: (h) => h.company, width: 100 }, { header: 'Location', get: (h) => h.location, width: 100 },
+                { header: 'Posted', get: (h) => (h.postedAt ? `${ago(h.postedAt)} ago` : ''), width: 50 }, { header: 'Salary', get: (h) => h.salary || '', width: 70 }, { header: 'Source', get: (h) => h.source, width: 80 }]}
+              rows={shown} />
           </div>
           <div className="panel">
             <b>Also search these (they need your login / block servers) → open, then 📥 Capture:</b>

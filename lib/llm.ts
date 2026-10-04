@@ -286,3 +286,13 @@ export async function chatJson<T = any>(system: string, user: string, opts: Para
   const meta = await chat(`${system}\nReturn ONLY valid JSON. No prose, no markdown fences.`, user, opts);
   return { data: parseJson<T>(meta.text), meta };
 }
+
+/** Models sometimes return a bare array instead of {key:[...]} — accept both. */
+export function listOf<T>(data: unknown, key: string): T[] {
+  if (Array.isArray(data)) return data as T[];
+  const v = (data as Record<string, unknown> | null)?.[key];
+  if (Array.isArray(v)) return v as T[];
+  // {anyKey:[...]} with a different name
+  const arr = data && typeof data === 'object' ? Object.values(data).find(Array.isArray) : null;
+  return (arr as T[]) || [];
+}

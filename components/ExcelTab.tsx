@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { api, linkify } from './api';
+import ExportButton from './ExportButton';
 
 type Row = { i: number; cells: string[]; section: boolean };
 type Sheet = { name: string; title: string; header: string[]; rows: Row[] };
@@ -67,6 +68,10 @@ export default function ExcelTab({ toast }: { toast: (s: string) => void }) {
             <div className="small muted">{overall.done}/{overall.total} rows done or skipped</div>
           </div>
           <input placeholder="Search all sheets…" value={q} onChange={(e) => setQ(e.target.value)} style={{ minWidth: 240 }} />
+          <ExportButton title={searching ? `Excel search: ${q}` : `Excel sheet: ${views[0]?.s.title || ''}`} subtitle={`${d.workbook.source} · ${overall.done}/${overall.total} rows done`} filename={searching ? `excel-search-${q}` : `excel-${views[0]?.s.name || 'sheet'}`}
+            sections={views.map((v) => ({ title: `${v.s.title} (${v.rows.length} rows)`, headers: [...v.s.header.slice(0, 7), 'My status'], rows: v.rows.map((r) => [...v.s.header.slice(0, 7).map((_, i) => r.cells[i] || ''), track[key(v.s, r)]?.status || '']) }))} />
+          <ExportButton title="Excel — all sheets" subtitle={`${d.workbook.source} · all ${sheets.length} sheets`} filename="excel-all-sheets"
+            sections={sheets.map((s) => ({ title: `${s.title} (${s.rows.length} rows)`, headers: [...s.header.slice(0, 7), 'My status'], rows: s.rows.map((r) => [...s.header.slice(0, 7).map((_, i) => r.cells[i] || ''), track[key(s, r)]?.status || '']) }))} />
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             <option value="">All rows</option>
             <option value="open">Not done yet</option>

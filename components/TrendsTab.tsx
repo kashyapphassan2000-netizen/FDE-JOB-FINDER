@@ -1,6 +1,7 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
-import { ago, api } from './api';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ago, api, dateLabel, isStale } from './api';
+import ExportButton from './ExportButton';
 
 type Count = { key: string; n: number; change?: number; domain?: string };
 type Trends = {
@@ -9,8 +10,10 @@ type Trends = {
   yourSkills: { have: string[]; missing: string[]; cvUploaded: boolean };
 };
 type Report = {
-  at: string; model?: string; headlines: { title: string; summary: string; region: string; url: string }[]; hot_skills: { skill: string; why: string; region: string }[];
-  new_roles: { role: string; what: string; who_hires: string }[]; domains: { domain: string; ai_use_cases: string; companies: string; your_angle: string }[]; your_moves: string[]; sources: { title: string; url: string }[];
+  at: string; model?: string; days?: number; articles?: number; news?: number; summary?: string;
+  headlines: { title: string; summary: string; region: string; url: string; date?: string; source?: string }[]; hot_skills: { skill: string; why: string; region: string; url?: string }[];
+  new_roles: { role: string; what: string; who_hires: string; url?: string }[]; domains: { domain: string; ai_use_cases: string; companies: string; your_angle: string }[];
+  who_hiring?: { company: string; what: string; region: string; url?: string }[]; watch_out?: string[]; your_moves: string[]; sources: { title: string; url: string; date?: string; source?: string }[];
 };
 
 function Bars({ items, max, mine }: { items: Count[]; max?: number; mine?: Set<string> }) {
@@ -32,11 +35,19 @@ export default function TrendsTab({ toast }: { toast: (s: string) => void }) {
   const [t, setT] = useState<Trends | null>(null);
   const [r, setR] = useState<Report | null>(null);
   const [busy, setBusy] = useState(false);
-  const load = useCallback(() => api<{ trends: Trends; report: Report | null }>('/api/trends').then((d) => { setT(d.trends); setR(d.report); }).catch((e) => toast(e.message)), [toast]);
-  useEffect(() => { load(); }, [load]);
-  async function rebuild() {
+  const auto = useRef(false);
+  const load = useCallback(() => api<{ trends: Trends; report: Report | null }>('/api/trends').then((d) => { setT(d.trends); setR(d.report); return d; }).catch((e) => { toast(e.message); return null; }), [toast]);
+  useEffect(() => {
+    load().then((d) => {
+      if (!d || auto.current) return;
+      auto.current = true;
+      if (isStale(d.report?.at, 20)) rebuild(true); // fresh report on open
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [load]);
+  async function rebuild(silent = false) {
     setBusy(true);
-    toast('Reading fresh AI-jobs news for India, USA and global (≈8 searches, 30–90 s)…');
+    if (!silent) toast('Reading this week’s AI-jobs news in full for India, USA and global (1–2 min)…');
     try {
       const d = await api<{ report: Report }>('/api/trends', { method: 'POST' });
       setR(d.report);
@@ -65,15 +76,33 @@ export default function TrendsTab({ toast }: { toast: (s: string) => void }) {
       <div className="panel">
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <h3 style={{ margin: 0 }}>📰 Market report — India · USA · world</h3>
-          <span className="row">{r && <span className="small muted">updated {ago(r.at)}{r.model ? ` · ${r.model}` : ''}</span>}<button className="primary small-btn" disabled={busy} onClick={rebuild}>{busy ? 'Reading news…' : r ? 'Refresh report' : 'Build report'}</button></span>
+          <span className="row">{r && <span className="small muted">updated {ago(r.at)}{r.model ? ` · ${r.model}` : ''}</span>}<button className="primary small-btn" disabled={busy} onClick={() => rebuild()}>{busy ? 'Reading fresh news…' : '🔄 Rebuild now'}</button>
+            <ExportButton title="AI jobs market report & trends" subtitle={r ? `${r.summary || ''}\nNews window: last ${r.days || 7} days · ${r.articles || 0} articles read · built ${new Date(r.at).toLocaleString('en-IN')}` : 'Live job-data trends'} filename="trends-report" sections={[
+              ...(r ? [
+                { title: 'Headlines', headers: ['Date', 'Headline', 'Summary', 'Region', 'Link'], rows: r.headlines.map((h) => [h.date || '', h.title, h.summary, h.region, h.url]) },
+                { title: 'Who is hiring (from the news)', headers: ['Company', 'What', 'Region', 'Link'], rows: (r.who_hiring || []).map((h) => [h.company, h.what, h.region, h.url || '']) },
+                { title: 'Hot skills', headers: ['Skill', 'Why', 'Region'], rows: r.hot_skills.map((h) => [h.skill, h.why, h.region]) },
+                { title: 'New & emerging roles', headers: ['Role', 'What', 'Who hires'], rows: r.new_roles.map((h) => [h.role, h.what, h.who_hires]) },
+                { title: 'Domains deploying AI', headers: ['Domain', 'AI use cases', 'Companies', 'Your angle'], rows: r.domains.map((d) => [d.domain, d.ai_use_cases, d.companies, d.your_angle]) },
+                { title: 'Watch out', text: (r.watch_out || []).map((w) => `• ${w}`).join('\n') },
+                { title: 'Your next moves', text: r.your_moves.map((m, i) => `${i + 1}. ${m}`).join('\n') },
+              ] : []),
+              { title: `Live job data (${t.total} jobs & posts)`, headers: ['Skill', 'Count'], rows: t.skills.map((x) => [x.key, String(x.n)]) },
+              { title: 'Roles being hired', headers: ['Role', 'Count'], rows: t.roles.map((x) => [x.key, String(x.n)]) },
+              { title: 'Who is hiring most (your feed)', headers: ['Company', 'Open roles', 'Domain'], rows: t.companies.map((x) => [x.key, String(x.n), x.domain || '']) },
+              { title: 'Where', headers: ['Region', 'Count'], rows: t.regions.map((x) => [x.key, String(x.n)]) },
+              ...(r ? [{ title: 'Sources', headers: ['Date', 'Source', 'Title', 'Link'], rows: r.sources.map((x) => [x.date || '', x.source || '', x.title, x.url]) }] : []),
+            ]} /></span>
         </div>
-        {!r && <p className="muted small">Click “Build report” — the agent searches the latest AI-hiring news and summarises headlines, hot skills, new roles and where AI is being deployed, mapped to your CV.</p>}
+        {!r && <p className="muted small">{busy ? 'Reading this week’s news in full — the report appears here in 1–2 minutes…' : 'No report yet — click “Rebuild now”.'}</p>}
         {r && (
           <>
+            <p className="small muted" style={{ margin: '6px 0 0' }}>Fresh only: news from the last {r.days || 7} days ({r.news || '?'} items, {r.articles || '?'} full articles read), facts extracted then cross-checked against your live job data. Auto-rebuilt daily and whenever older than 20 h.</p>
+            {r.summary && <div className="notice ok" style={{ marginTop: 10 }}><b>This week:</b> {r.summary}</div>}
             <div className="grid2" style={{ marginTop: 12 }}>
               {r.headlines.map((h) => (
                 <a key={h.url + h.title} className="card news" href={h.url} target="_blank" rel="noreferrer">
-                  <span className="badge b-dom">{h.region}</span>
+                  <span className="badge b-dom">{h.region}</span>{h.date && <span className="badge b-date">{dateLabel(h.date)}</span>}{h.source && <span className="small muted"> {h.source}</span>}
                   <h4>{h.title}</h4>
                   <div className="small muted">{h.summary}</div>
                 </a>
@@ -89,6 +118,12 @@ export default function TrendsTab({ toast }: { toast: (s: string) => void }) {
                 {r.new_roles.map((s) => <div key={s.role} className="tline"><b>{s.role}</b><div className="small">{s.what}</div><div className="small muted">Who hires: {s.who_hires}</div></div>)}
               </div>
             </div>
+            {(r.who_hiring || []).length > 0 && (
+              <>
+                <h4 style={{ marginTop: 14 }}>🏢 Who is hiring (this week’s news)</h4>
+                <div className="grid2">{r.who_hiring!.map((h) => <div key={h.company + h.what} className="tline"><b>{h.company}</b> <span className="badge b-dom">{h.region}</span><div className="small">{h.what} {h.url && <a href={h.url} target="_blank" rel="noreferrer">source ↗</a>}</div></div>)}</div>
+              </>
+            )}
             <h4 style={{ marginTop: 14 }}>🏭 Domains deploying AI — and your angle</h4>
             <div className="grid2">
               {r.domains.map((d) => (
@@ -100,10 +135,11 @@ export default function TrendsTab({ toast }: { toast: (s: string) => void }) {
                 </div>
               ))}
             </div>
+            {(r.watch_out || []).length > 0 && <div className="notice warn" style={{ marginTop: 12 }}><b>Watch out:</b><ul style={{ margin: '6px 0 0' }}>{r.watch_out!.map((m) => <li key={m}>{m}</li>)}</ul></div>}
             {r.your_moves.length > 0 && (
               <div className="notice ok" style={{ marginTop: 12 }}><b>Your next moves:</b><ol style={{ margin: '6px 0 0' }}>{r.your_moves.map((m) => <li key={m}>{m}</li>)}</ol></div>
             )}
-            <details className="small"><summary>{r.sources.length} sources</summary><ol>{r.sources.map((s) => <li key={s.url}><a href={s.url} target="_blank" rel="noreferrer">{s.title}</a></li>)}</ol></details>
+            <details className="small"><summary>{r.sources.length} sources</summary><ol>{r.sources.map((s) => <li key={s.url}>{s.date && <span className="muted">{s.date} · {s.source} · </span>}<a href={s.url} target="_blank" rel="noreferrer">{s.title}</a></li>)}</ol></details>
           </>
         )}
       </div>

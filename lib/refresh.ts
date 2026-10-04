@@ -9,7 +9,8 @@ import { loadVault } from './secrets';
 import { saveTrendSnapshot } from './trends';
 
 const MAX_JOBS = 2500;
-const KEEP_DAYS = 14;
+const KEEP_DAYS = 5; // not seen on its board for 5 days → treated as closed and removed
+const MAX_POSTED_DAYS = 60; // fresh only: roles posted more than 60 days ago are dropped
 const SOURCE_TIMEOUT_MS = 90000;
 
 export interface RefreshMeta {
@@ -170,6 +171,7 @@ export async function refresh(opts: { only?: string[]; force?: boolean; trigger:
     const cutoff = Date.now() - KEEP_DAYS * 864e5;
     let jobs = [...byId.values()]
       .filter((j) => Date.parse(j.lastSeen) >= cutoff || tracked[j.id])
+      .filter((j) => !j.postedAt || Date.now() - Date.parse(j.postedAt) < MAX_POSTED_DAYS * 864e5 || tracked[j.id])
       .map((j) => rescore(j, cv.skills))
       .filter((j) => j.categories.length > 0 || tracked[j.id]) // only FDE + AI/ML roles are kept
       .filter((j) => locationAllowed(j.locTags, j.location) || tracked[j.id]); // only Bengaluru office or India-eligible remote

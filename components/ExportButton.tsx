@@ -4,15 +4,16 @@ import { useState } from 'react';
 export type Col<T> = { header: string; get: (r: T) => string | number | null | undefined; width?: number; link?: (r: T) => string | undefined };
 export type Section = { title: string; text?: string; rows?: string[][]; headers?: string[] };
 
-/** Real PDF download (jsPDF): title, filters line, a table with clickable links, optional extra text sections. Also CSV. */
-export default function ExportButton<T>({ title, subtitle, cols, rows, sections, filename }: { title: string; subtitle?: string; cols?: Col<T>[]; rows?: T[]; sections?: Section[]; filename?: string }) {
-  const [busy, setBusy] = useState(false);
-  const name = (filename || title).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + `-${new Date().toISOString().slice(0, 10)}`;
-  const clean = (v: unknown) => String(v ?? '').replace(/[^\x09\x0A\x0D\x20-\x7E -ɏ₹–—’‘“”•…]/g, '').slice(0, 600);
+export type PdfOpts<T> = { title: string; subtitle?: string; cols?: Col<T>[]; rows?: T[]; sections?: Section[]; filename?: string; tableFirst?: boolean };
+const fileName = (f: string) => f.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + `-${new Date().toISOString().slice(0, 10)}`;
+// jsPDF's built-in font only has Latin characters: map the few symbols we use, drop the rest (emoji etc.)
+const clean = (v: unknown) => String(v ?? '').replace(/₹/g, 'Rs ').replace(/[^\x09\x0A\x0D\x20-\x7E\xA0-\xFF–—‘’“”•…]/g, '').slice(0, 600);
 
-  async function pdf() {
-    setBusy(true);
-    try {
+/** Real PDF download (jsPDF): title band, filters line, text sections, tables with clickable links, page numbers. */
+export async function makePdf<T>({ title, subtitle, cols, rows, sections, filename, tableFirst }: PdfOpts<T>) {
+  const name = fileName(filename || title);
+  {
+    {
       const { jsPDF } = await import('jspdf');
       const autoTable = (await import('jspdf-autotable')).default;
       const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
@@ -27,15 +28,26 @@ export default function ExportButton<T>({ title, subtitle, cols, rows, sections,
       doc.setTextColor(30, 30, 40);
       let y = 72;
       if (subtitle) { doc.setFontSize(9); const t = doc.splitTextToSize(clean(subtitle), W - 64); doc.text(t, 32, y); y += t.length * 11 + 6; }
+      const drawSections = () => {
       for (const s of sections || []) {
         if (y > doc.internal.pageSize.getHeight() - 80) { doc.addPage(); y = 40; }
         doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.text(clean(s.title), 32, y); doc.setFont('helvetica', 'normal'); y += 14;
         if (s.text) { doc.setFontSize(9); const t = doc.splitTextToSize(clean(s.text), W - 64); doc.text(t, 32, y); y += t.length * 11 + 8; }
         if (s.rows?.length) {
-          autoTable(doc, { startY: y, head: s.headers ? [s.headers.map(clean)] : undefined, body: s.rows.map((r) => r.map(clean)), styles: { fontSize: 8, cellPadding: 3 }, headStyles: { fillColor: [91, 76, 240] }, margin: { left: 32, right: 32 } });
+          const raw = s.rows;
+          const isUrl = (v: string) => /^https?:\/\//.test(v || '');
+          autoTable(doc, {
+            startY: y, head: s.headers ? [s.headers.map(clean)] : undefined,
+            body: raw.map((r) => r.map((v) => (isUrl(v) ? (() => { try { return new URL(v).hostname.replace(/^www\./, '') ; } catch { return 'open'; } })() : clean(v)))),
+            styles: { fontSize: 7.5, cellPadding: 3, overflow: 'linebreak', valign: 'top' }, headStyles: { fillColor: [91, 76, 240] }, alternateRowStyles: { fillColor: [245, 246, 251] }, margin: { left: 32, right: 32 },
+            didParseCell: (h) => { if (h.section === 'body' && isUrl(raw[h.row.index]?.[h.column.index])) h.cell.styles.textColor = [79, 70, 229]; },
+            didDrawCell: (h) => { const v = h.section === 'body' ? raw[h.row.index]?.[h.column.index] : ''; if (isUrl(v)) doc.link(h.cell.x, h.cell.y, h.cell.width, h.cell.height, { url: v }); },
+          });
           y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 16;
         }
       }
+      };
+      const drawTable = () => {
       if (cols && rows?.length) {
         const links: (string | undefined)[][] = rows.map((r) => cols.map((c) => c.link?.(r)));
         autoTable(doc, {
@@ -53,10 +65,24 @@ export default function ExportButton<T>({ title, subtitle, cols, rows, sections,
             if (l) doc.link(h.cell.x, h.cell.y, h.cell.width, h.cell.height, { url: l });
           },
         });
+        y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 20;
       }
+      };
+      if (tableFirst) { drawTable(); drawSections(); } else { drawSections(); drawTable(); }
       const pages = doc.getNumberOfPages();
       for (let i = 1; i <= pages; i++) { doc.setPage(i); doc.setFontSize(8); doc.setTextColor(140); doc.text(`${i} / ${pages}`, W - 60, doc.internal.pageSize.getHeight() - 16); }
       doc.save(`${name}.pdf`);
+    }
+  }
+}
+
+export default function ExportButton<T>({ title, subtitle, cols, rows, sections, filename, tableFirst }: PdfOpts<T>) {
+  const [busy, setBusy] = useState(false);
+  const name = fileName(filename || title);
+  async function pdf() {
+    setBusy(true);
+    try {
+      await makePdf({ title, subtitle, cols, rows, sections, filename, tableFirst });
     } finally {
       setBusy(false);
     }

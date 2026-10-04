@@ -141,6 +141,7 @@ textarea { width: 100%; min-height: 90px; font-family: var(--mono); font-size: 1
 .b-skip { background: var(--panel2); color: var(--muted); }
 .b-warn { background: var(--warn-soft); color: var(--warn); }
 .b-new { background: var(--err); color: #fff; font-size: 10.5px; letter-spacing: .04em; }
+.b-date { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); font-weight: 600; }
 .b-dom { background: var(--panel2); color: var(--text); font-weight: 500; }
 .pill { display: inline-block; padding: 3px 10px; margin: 3px 4px 0 0; border-radius: 99px; background: var(--panel2); color: var(--text); font-size: 12px; }
 

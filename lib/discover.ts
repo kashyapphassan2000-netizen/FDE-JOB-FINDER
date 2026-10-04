@@ -7,6 +7,7 @@ import { getSettings } from './settings';
 import { getJSON, setJSON } from './store';
 import { aiConfigured, chatJson } from './llm';
 import { loadVault } from './secrets';
+import { newsSearch, type NewsItem } from './news';
 
 /**
  * Hidden jobs & new startups — low-crowd places most applicants never check:
@@ -46,6 +47,10 @@ const FEEDS: { url: string; label: string; region: 'INDIA' | 'GLOBAL' }[] = [
 const AI_HINT = /\bai\b|artificial intelligence|machine learning|\bml\b|llm|genai|generative|agent|robot|autonom|chip|semiconductor|deeptech|deep tech|vision|data|automation|copilot|model/i;
 const FUND_RX = /([A-Z][\w.&'’+-]*(?:\s+[A-Z0-9][\w.&'’+-]*){0,3})\s*(?:,[^,]{0,60},\s*)?(?:has\s+)?(?:raises|raised|secures|secured|bags|bagged|lands|closes|nets|picks up|gets|snags|scores)\b/i;
 const STOP = new Set(['exclusive', 'report', 'startup', 'the', 'ai', 'india', 'indian', 'funding', 'why', 'how', 'this', 'week', 'here']);
+
+/** Freshness rules: funding news older than this is ignored/purged; a company not re-checked in STALE_DAYS is hidden. */
+export const FUND_FRESH_DAYS = 30;
+export const STALE_DAYS = 14;
 
 const keyOf = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '');
 
@@ -92,9 +97,14 @@ async function fundingCandidates(): Promise<Omit<DiscoveredCompany, 'hiddenScore
   const out: Omit<DiscoveredCompany, 'hiddenScore' | 'roles' | 'checkedAt' | 'status'>[] = [];
   const res = await pool(FEEDS, 5, async (f) => ({ f, items: parseRss(await getText(f.url, { timeoutMs: 20000 })) }));
   const useAI = await aiConfigured();
+  // + dated Google/Bing news for funding rounds in the last 7 days (India + global)
+  const news = await newsSearch(['AI startup raises funding India', 'Bengaluru startup raises Series A', 'AI startup raises seed round', 'AI startup raises Series B', 'generative AI startup funding round'], 7, { perQuery: 15 }).catch(() => ({ items: [] as NewsItem[] }));
+  if (news.items.length) res.push({ status: 'fulfilled', value: { f: { url: '', label: 'News (last 7 days)', region: 'GLOBAL' as const }, items: news.items.map((n) => ({ title: n.title, link: n.url, pubDate: n.date, description: `${n.source} · ${n.snippet}` })) } });
+  const cutoff = Date.now() - FUND_FRESH_DAYS * 864e5;
   for (const r of res) {
     if (r.status !== 'fulfilled') continue;
-    const { f, items } = r.value;
+    const { f } = r.value;
+    const items = r.value.items.filter((x) => !x.pubDate || Date.parse(x.pubDate) > cutoff); // old funding news → skipped
     let picked: { name: string; item: (typeof items)[number] }[] = [];
     if (useAI) {
       try {
@@ -131,8 +141,17 @@ async function ycRoles(slug: string): Promise<{ title: string; location: string;
     .filter((j: RawJob) => classify({ ...j, company: '' }).length);
 }
 
-export async function getDiscovered(): Promise<DiscoveredCompany[]> {
-  return getJSON<DiscoveredCompany[]>('disc:companies', []);
+export async function getDiscovered(all = false): Promise<DiscoveredCompany[]> {
+  const list = await getJSON<DiscoveredCompany[]>('disc:companies', []);
+  return all ? list : list.filter(isFresh);
+}
+
+/** Watched companies always stay; others must be re-checked recently, and "recently funded" must be recent. */
+function isFresh(c: DiscoveredCompany): boolean {
+  if (c.status === 'watched') return true;
+  if (Date.now() - Date.parse(c.checkedAt) > STALE_DAYS * 864e5) return false;
+  if (c.source.startsWith('Funding') && c.fundedAt && Date.now() - Date.parse(c.fundedAt) > 2 * FUND_FRESH_DAYS * 864e5) return false;
+  return true;
 }
 
 export async function runDiscover(budgetMs = 240000): Promise<{ added: number; checked: number; total: number; log: string[] }> {
@@ -141,7 +160,7 @@ export async function runDiscover(budgetMs = 240000): Promise<{ added: number; c
   await loadVault();
   const settings = await getSettings();
   const watched = new Set([...DEFAULT_COMPANIES, ...settings.extraCompanies].map((c) => keyOf(c.name)));
-  const existing = await getDiscovered();
+  const existing = await getDiscovered(true);
   const byKey = new Map(existing.map((c) => [c.key, c]));
 
   const [yc, fund] = await Promise.allSettled([ycCandidates(), fundingCandidates()]);
@@ -151,7 +170,7 @@ export async function runDiscover(budgetMs = 240000): Promise<{ added: number; c
   // check companies not seen in the last 7 days; recently-funded first, then India/BLR, then small teams
   const due = cands
     .filter((c) => !watched.has(c.key))
-    .filter((c) => { const p = byKey.get(c.key); return !p || Date.now() - Date.parse(p.checkedAt) > 7 * 864e5; })
+    .filter((c) => { const p = byKey.get(c.key); return !p || Date.now() - Date.parse(p.checkedAt) > 3 * 864e5; })
     .sort((a, b) => (b.fundedAt ? 1 : 0) - (a.fundedAt ? 1 : 0) || (b.region.includes('BLR') ? 1 : 0) - (a.region.includes('BLR') ? 1 : 0) || (a.teamSize || 999) - (b.teamSize || 999));
   const batch = due.slice(0, 150);
   let added = 0;
@@ -173,15 +192,16 @@ export async function runDiscover(budgetMs = 240000): Promise<{ added: number; c
     if (!byKey.has(r.value.key)) added++;
     byKey.set(r.value.key, r.value);
   }
+  log.push(`dropped stale: ${existing.filter((c) => !isFresh(c)).length} (not re-checked in ${STALE_DAYS} days or funding older than ${2 * FUND_FRESH_DAYS} days)`);
   log.push(`checked ${batch.length} companies for careers boards in ${((Date.now() - t0) / 1000).toFixed(0)}s`);
-  const all = [...byKey.values()].sort((a, b) => b.roles.length - a.roles.length || b.hiddenScore - a.hiddenScore).slice(0, 600);
+  const all = [...byKey.values()].filter(isFresh).sort((a, b) => b.roles.length - a.roles.length || b.hiddenScore - a.hiddenScore).slice(0, 600);
   await setJSON('disc:companies', all);
   await setJSON('disc:meta', { at: new Date().toISOString(), log });
   return { added, checked: batch.length, total: all.length, log };
 }
 
 export async function setDiscoveredStatus(key: string, status: DiscoveredCompany['status']) {
-  const all = await getDiscovered();
+  const all = await getDiscovered(true);
   const c = all.find((x) => x.key === key);
   if (!c) throw new Error('unknown company');
   c.status = status;

@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import type { TrackEntry, TrackStatus } from '@/lib/types';
 import { ago, setTrack, STATUS_LABEL, type JobsPayload } from './api';
+import ExportButton from './ExportButton';
 
 const ORDER: TrackStatus[] = ['saved', 'applied', 'referral', 'interview', 'offer', 'rejected', 'ignored'];
 
@@ -25,7 +26,10 @@ export default function TrackerTab({ data, reload, toast }: { data: JobsPayload 
       <div className="row" style={{ marginBottom: 12 }}>
         <span className="muted">{entries.length} tracked applications · pipeline persists in Redis even after jobs expire from boards.</span>
         <span className="grow" />
-        <a href="/api/export"><button>⬇ Export CSV</button></a>
+        <ExportButton title="Application tracker" subtitle={ORDER.map((st) => `${STATUS_LABEL[st]}: ${entries.filter((e) => e.status === st).length}`).join(' · ')} filename="tracker"
+          cols={[{ header: 'Status', get: (e: TrackEntry) => STATUS_LABEL[e.status], width: 70 }, { header: 'Role', get: (e) => e.job.title, link: (e) => e.job.url }, { header: 'Company', get: (e) => e.job.company, width: 90 },
+            { header: 'Location', get: (e) => e.job.location, width: 90 }, { header: 'Updated', get: (e) => new Date(e.updatedAt).toLocaleDateString('en-IN'), width: 55 }, { header: 'Notes', get: (e) => e.notes || '', width: 150 }]}
+          rows={[...entries].sort((a, b) => ORDER.indexOf(a.status) - ORDER.indexOf(b.status) || b.updatedAt.localeCompare(a.updatedAt))} />
       </div>
       <div className="kanban">
         {ORDER.map((st) => {

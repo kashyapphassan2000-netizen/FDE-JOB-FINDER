@@ -8,6 +8,7 @@ import OpportunitiesTab from '@/components/OpportunitiesTab';
 import TrendsTab from '@/components/TrendsTab';
 import SearchTab from '@/components/SearchTab';
 import IntelTab from '@/components/IntelTab';
+import ExportAllButton from '@/components/ExportAllButton';
 import DashboardTab from '@/components/DashboardTab';
 import AiKeysTab from '@/components/AiKeysTab';
 import TrackerTab from '@/components/TrackerTab';
@@ -130,6 +131,7 @@ export default function Home() {
             <span className="muted small hide-sm">{data?.meta?.lastRefresh ? `Updated ${ago(data.meta.lastRefresh)}` : 'Never refreshed'}</span>
             <button className="primary" disabled={busy} onClick={() => refreshNow(false)}>{busy ? 'Refreshing…' : '⟳ Refresh'}</button>
             <button className="hide-sm" disabled={busy} onClick={() => refreshNow(true)} title="Ignore quota cooldowns and call every configured API now">Force all</button>
+            <ExportAllButton toast={setToast} />
             {tab === 'Jobs' && <button className="hide-sm danger" disabled={busy} onClick={() => refreshNow(true, true)} title="Delete stored jobs and refetch everything">🗑 Clear & refetch</button>}
           </div>
         </header>

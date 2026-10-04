@@ -1,6 +1,7 @@
 'use client';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ago, api } from './api';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ago, api, dateLabel, isStale } from './api';
+import ExportButton from './ExportButton';
 
 type Co = {
   key: string; name: string; website?: string; location: string; region: string[]; source: string; sourceUrl?: string; tags: string[];
@@ -17,12 +18,20 @@ export default function DiscoverTab({ toast }: { toast: (s: string) => void }) {
   const [status, setStatus] = useState('new');
   const [q, setQ] = useState('');
 
-  const load = useCallback(() => api('/api/discover').then(setD).catch((e) => toast(e.message)), [toast]);
-  useEffect(() => { load(); }, [load]);
+  const auto = useRef(false);
+  const load = useCallback(() => api<{ companies: Co[]; meta: { at: string; log: string[] } | null }>('/api/discover').then((x) => { setD(x); return x; }).catch((e) => { toast(e.message); return null; }), [toast]);
+  useEffect(() => {
+    load().then((x) => {
+      if (!x || auto.current) return;
+      auto.current = true;
+      if (isStale(x.meta?.at, 24)) scan(true); // fresh on open
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [load]);
 
-  async function scan() {
+  async function scan(silent = false) {
     setBusy(true);
-    toast('Scanning YC hiring companies + latest funding news, then checking each one’s careers board (2–4 min)…');
+    if (!silent) toast('Scanning YC hiring companies + this week’s funding news, then checking each one’s careers board (2–4 min)…');
     try {
       const r = await api<{ added: number; checked: number; total: number }>('/api/discover', { method: 'POST', body: JSON.stringify({ action: 'run' }) });
       toast(`Checked ${r.checked} companies · ${r.added} new · ${r.total} in your list`);
@@ -48,12 +57,17 @@ export default function DiscoverTab({ toast }: { toast: (s: string) => void }) {
   return (
     <>
       <div className="notice ok small">
-        <b>Hidden jobs = low-crowd companies.</b> Freshly funded startups (India + US funding news) and YC companies that are hiring in Bengaluru / India / remote / USA.
+        <b>Hidden jobs = low-crowd companies.</b> Fresh only: funding news from the last 30 days (feeds + Google/Bing News) and every company re-checked at least every 14 days — stale ones disappear. Freshly funded startups (India + US funding news) and YC companies that are hiring in Bengaluru / India / remote / USA.
         For each one the app finds its public careers board and lists open <b>FDE / AI-ML</b> roles. <b>Watch</b> = poll it on every refresh. Auto-scan runs daily.
       </div>
       <div className="panel row">
-        <button className="primary" disabled={busy} onClick={scan}>{busy ? 'Scanning…' : '🔎 Scan now'}</button>
-        <span className="small muted">{d.meta ? `last scan ${ago(d.meta.at)} ago` : 'never scanned'}</span>
+        <button className="primary" disabled={busy} onClick={() => scan()}>{busy ? 'Scanning fresh data…' : '🔄 Scan now'}</button>
+        <span className="small muted">{busy ? 'getting the latest…' : d.meta ? `updated ${ago(d.meta.at)} ago · auto daily + when older than 24 h` : 'never scanned'}</span>
+        <ExportButton title="Hidden jobs & new startups" subtitle={`Funding news from the last 30 days; companies re-checked within 14 days. Updated ${d.meta ? new Date(d.meta.at).toLocaleString('en-IN') : 'never'}.`} filename="hidden-jobs-startups"
+          cols={[{ header: 'Company', get: (c: Co) => c.name, width: 90, link: (c: Co) => c.website }, { header: 'Score', get: (c) => c.hiddenScore, width: 34 }, { header: 'Location', get: (c) => c.location, width: 90 },
+            { header: 'Source', get: (c) => `${c.source}${c.fundedAt ? ` (${dateLabel(c.fundedAt)})` : ''}`, width: 90, link: (c) => c.sourceUrl }, { header: 'Funding', get: (c) => c.fundingNews || '', width: 150 },
+            { header: 'Open FDE/AI roles', get: (c) => c.roles.map((r) => `${r.title} — ${r.location}`).join('; '), link: (c) => c.roles[0]?.url }, { header: 'Checked', get: (c) => dateLabel(c.checkedAt), width: 60 }]}
+          rows={list} />
         <input placeholder="Search name / tag…" value={q} onChange={(e) => setQ(e.target.value)} />
         <select value={region} onChange={(e) => setRegion(e.target.value)}>
           <option value="">Anywhere</option><option value="BLR">Bengaluru</option><option value="INDIA">India</option><option value="USA">USA</option><option value="REMOTE">Remote</option>
@@ -71,7 +85,7 @@ export default function DiscoverTab({ toast }: { toast: (s: string) => void }) {
               <span className="score" title="hidden-gem score">{c.hiddenScore}</span>
             </div>
             <div className="small muted">{c.location || '—'} · {c.sourceUrl ? <a href={c.sourceUrl} target="_blank" rel="noreferrer noopener">{c.source}</a> : c.source}{c.teamSize ? ` · ${c.teamSize} people` : ''}{c.stage ? ` · ${c.stage}` : ''}</div>
-            {c.fundingNews && <div className="small" style={{ marginTop: 4 }}>💰 {c.fundingNews}</div>}
+            {c.fundingNews && <div className="small" style={{ marginTop: 4 }}>💰 {c.fundingNews} {c.fundedAt && <span className="badge b-date">{dateLabel(c.fundedAt)}</span>}</div>}
             <div style={{ marginTop: 4 }}>{c.tags.slice(0, 5).map((t) => <span key={t} className="badge b-dom">{t}</span>)}{c.ats && <span className="badge b-AIML">{c.ats.ats} · {c.ats.total} jobs</span>}</div>
             {c.roles.length > 0 && (
               <ul style={{ margin: '6px 0', paddingLeft: 18 }}>

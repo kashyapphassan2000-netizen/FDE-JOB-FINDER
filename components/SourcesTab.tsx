@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { SourceHealth } from '@/lib/types';
 import { ago, api } from './api';
+import ExportButton from './ExportButton';
 
 type Src = {
   id: string; name: string; group: string; keyless: boolean; envKeys: string[]; optionalEnv: string[]; configured: boolean;
@@ -59,6 +60,13 @@ export default function SourcesTab({ toast, reload }: { toast: (s: string) => vo
         <Item ok={i.store.ok} label={`Redis storage (${i.store.mode})`} fix={i.store.error || 'connect Upstash for Redis in Vercel → Storage'} />
         <Item ok={i.blob} label="Vercel Blob (private) for CV" fix="Vercel → Storage → Create → Blob → Private → connect" />
         <Item ok={i.notify.telegram || i.notify.webhook} label="Alerts (Telegram / webhook)" fix="optional: TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID" />
+      </div>
+      <div className="row" style={{ justifyContent: 'flex-end' }}>
+        <ExportButton title="Sources & APIs — health" subtitle={`${okCount}/${d.sources.length} sources healthy`} filename="sources-health"
+          cols={[{ header: 'Source', get: (x: Src) => x.name, width: 120, link: (x) => x.docs }, { header: 'Group', get: (x) => x.group, width: 80 }, { header: 'Status', get: (x) => (!x.configured ? 'needs key' : !x.health?.lastRun ? 'not run yet' : x.health.ok ? (x.health.error ? 'partial' : 'OK') : 'error'), width: 55 },
+            { header: 'Last run', get: (x) => (x.health?.lastRun ? new Date(x.health.lastRun).toLocaleString('en-IN') : ''), width: 90 }, { header: 'Fetched', get: (x) => x.health?.count ?? '', width: 45 }, { header: 'Relevant', get: (x) => x.health?.relevant ?? '', width: 45 },
+            { header: 'Error', get: (x) => x.health?.error || '' }, { header: 'Covers', get: (x) => x.covers, width: 150 }]}
+          rows={d.sources} />
       </div>
       <div className="muted small" style={{ marginBottom: 8 }}>
         {okCount}/{d.sources.length} sources healthy · keyless sources run on every refresh; key-based ones respect a cooldown so you stay inside free quotas.

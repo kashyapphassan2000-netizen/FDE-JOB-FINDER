@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { ago, api } from './api';
+import ExportButton from './ExportButton';
 
 type Platform = { id: string; name: string; url: string; host: string; mapping: string; connectors: string[]; searchTemplate: string; kind: string; sheets: string[]; notes: string };
 type Check = { lastChecked?: string; status?: string; notes?: string };
@@ -76,6 +77,10 @@ export default function PlatformsTab({ toast }: { toast: (s: string) => void }) 
       </div>
       <div className="panel row">
         <input className="grow" placeholder="Search platforms, companies, sheets…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <ExportButton title="Excel coverage map" subtitle={`${list.length} items · status is checked at runtime against what is really running`} filename="excel-coverage"
+          cols={[{ header: 'Platform / company', get: (p: Platform) => p.name, width: 110, link: (p) => p.url }, { header: 'Kind', get: (p) => p.kind, width: 70 }, { header: 'Status', get: (p) => (EFF[d.eff[p.id]?.eff]?.[0] || d.eff[p.id]?.eff || '').replace(/^\S+\s/, ''), width: 80 },
+            { header: 'Detail', get: (p) => d.eff[p.id]?.detail || '' }, { header: 'Sheets', get: (p) => p.sheets.join(', '), width: 110 }]}
+          rows={list} />
         <select value={kind} onChange={(e) => setKind(e.target.value)}>
           <option value="">All types</option>
           {kinds.map((k) => <option key={k} value={k}>{k.replace(/_/g, ' ')}</option>)}

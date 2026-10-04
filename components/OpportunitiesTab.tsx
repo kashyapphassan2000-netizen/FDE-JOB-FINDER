@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ago, api } from './api';
+import { ago, api, dateLabel } from './api';
+import ExportButton from './ExportButton';
 
 type Opp = { id: string; kind: 'hackathon' | 'hiring_challenge' | 'contract'; title: string; org: string; url: string; deadline?: string | null; posted?: string | null; prize?: string; eligibility: string; openToYou: boolean; tags: string[]; ppi?: boolean; pay?: string };
 type Payload = { at: string; items: Opp[]; errors: string[]; programs: { group: string; items: { name: string; what: string; url: string; note?: string }[] }[] };
@@ -27,7 +28,7 @@ export default function OpportunitiesTab({ toast }: { toast: (s: string) => void
       <div className="hero">
         <div>
           <h2>Side doors into a job</h2>
-          <p>Hiring challenges and hackathons (winners get pre-placement interviews), remote AI contracts that convert to full-time, open-source programs and inbound channels — all from your Excel, with live listings refreshed every 6 hours.</p>
+          <p>Hiring challenges and hackathons (winners get pre-placement interviews), remote AI contracts that convert to full-time, open-source programs and inbound channels — all from your Excel, with live listings refreshed every 3 hours; closed and old ones are removed.</p>
         </div>
         <div className="hero-stats">
           <div><b>{n('hiring_challenge') + n('hackathon')}</b><span>challenges open</span></div>
@@ -41,7 +42,12 @@ export default function OpportunitiesTab({ toast }: { toast: (s: string) => void
         </span>
         <label className="small"><input type="checkbox" checked={onlyMine} onChange={(e) => setOnlyMine(e.target.checked)} /> only ones open to working professionals / online</label>
         <span className="small muted">updated {ago(d.at)}</span>
-        <button className="small-btn" disabled={busy} onClick={() => load(true)}>{busy ? 'Refreshing…' : 'Refresh'}</button>
+        <button className="small-btn" disabled={busy} onClick={() => load(true)}>{busy ? 'Refreshing…' : '🔄 Refresh now'}</button>
+        <ExportButton title="Opportunities — challenges, hackathons, AI contracts" subtitle={`Live listings (closed / old ones removed). Updated ${new Date(d.at).toLocaleString('en-IN')}.`} filename="opportunities"
+          cols={[{ header: 'Type', get: (o: Opp) => KIND[o.kind].replace(/^\S+\s/, ''), width: 80 }, { header: 'Title', get: (o) => o.title, link: (o) => o.url }, { header: 'Org', get: (o) => o.org, width: 90 },
+            { header: 'Pay / prize', get: (o) => o.pay || o.prize || '', width: 70 }, { header: 'Deadline', get: (o) => (o.deadline ? `${dateLabel(o.deadline).split(' ·')[0]} (${left(o.deadline)})` : ''), width: 80 },
+            { header: 'Posted', get: (o) => dateLabel(o.posted), width: 70 }, { header: 'PPO/interview', get: (o) => (o.ppi ? 'yes' : ''), width: 50 }, { header: 'Eligibility', get: (o) => o.eligibility, width: 140 }]}
+          tableFirst rows={items} sections={d.programs.map((g) => ({ title: g.group, headers: ['Name', 'What', 'Link'], rows: g.items.map((p) => [p.name, p.what, p.url]) }))} />
       </div>
       {d.errors.length > 0 && <div className="notice warn small">{d.errors.join(' · ')}</div>}
       <div className="opps">

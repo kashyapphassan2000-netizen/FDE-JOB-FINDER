@@ -57,3 +57,16 @@ export function linkify(text: string): React.ReactNode[] {
     ),
   );
 }
+
+/** Auto-refresh a sheet once when its data is missing or older than `maxHours` (fresh data on open). */
+export function isStale(at: string | null | undefined, maxHours: number): boolean {
+  return !at || Number.isNaN(Date.parse(at)) || Date.now() - Date.parse(at) > maxHours * 36e5;
+}
+
+export const dateLabel = (d?: string | null) => {
+  if (!d) return '';
+  const t = Date.parse(d.length === 7 ? `${d}-15` : d);
+  if (Number.isNaN(t)) return d;
+  const days = Math.floor((Date.now() - t) / 864e5);
+  return `${new Date(t).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}${days <= 0 ? ' · today' : days === 1 ? ' · yesterday' : ` · ${days}d ago`}`;
+};

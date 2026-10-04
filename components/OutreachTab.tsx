@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import { ago, api } from './api';
+import ExportButton from './ExportButton';
 
 type Contact = {
   id: string; name: string; role: string; email: string; confidence: 'verified' | 'found' | 'guess'; source: string; sourceUrl?: string; linkedin?: string;
@@ -93,6 +94,14 @@ export default function OutreachTab({ toast, seed }: { toast: (s: string) => voi
         </div>
       </div>
 
+      <div className="row" style={{ justifyContent: 'flex-end', marginBottom: 8 }}>
+        <ExportButton title="Outreach — people & emails" subtitle={`${leads?.length || 0} companies · ${sent} sent · ${replied} replies`} filename="outreach"
+          cols={[{ header: 'Company', get: (r: { l: Lead; c: Contact }) => r.l.company, width: 80, link: (r) => `https://${r.l.domain}` }, { header: 'Name', get: (r) => r.c.name, width: 80, link: (r) => r.c.linkedin },
+            { header: 'Role', get: (r) => r.c.role, width: 90 }, { header: 'Email', get: (r) => r.c.email, width: 120, link: (r) => (r.c.email ? `mailto:${r.c.email}` : undefined) }, { header: 'Confidence', get: (r) => r.c.confidence, width: 50 },
+            { header: 'Type', get: (r) => r.c.kind || 'hiring', width: 45 }, { header: 'Status', get: (r) => r.c.status, width: 45 }, { header: 'Sent', get: (r) => (r.c.sentAt ? new Date(r.c.sentAt).toLocaleDateString('en-IN') : ''), width: 55 },
+            { header: 'Draft subject', get: (r) => r.c.draft?.subject || '' }]}
+          rows={(leads || []).flatMap((l) => l.contacts.map((c) => ({ l, c })))} />
+      </div>
       <div className="panel">
         <div className="row">
           <input className="grow big" placeholder="Company name or website — e.g. Sarvam AI, bolna.ai" value={company} onChange={(e) => setCompany(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && find()} />

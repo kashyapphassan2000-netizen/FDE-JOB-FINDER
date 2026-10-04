@@ -1,13 +1,13 @@
 import type { Job } from './types';
 import { DOMAIN_LABEL, extractSkills, locationAllowed, locationTags } from './classify';
 import { getCv } from './cv';
-import { aiConfigured, chatJson } from './llm';
+import { aiConfigured, chatJson, listOf } from './llm';
 import { getJobs } from './refresh';
-import { webSearch, type WebResult } from './search';
+import { newsSearch, readArticles, type NewsItem } from './news';
 import { getJSON, hgetall, setJSON } from './store';
 import { loadVault } from './secrets';
 import { pool } from './http';
-import type { Find } from './agent';
+import { isFreshFind, type Find } from './agent';
 
 /**
  * Trends = what the market is asking for, computed from every job + hiring post the app has collected,
@@ -39,7 +39,7 @@ const regionOf = (j: { locTags: string[] }) => (j.locTags.includes('BLR') ? 'Ben
 
 export async function computeTrends() {
   const [jobs, findsH, cv] = await Promise.all([getJobs(), hgetall<Find>('agent:finds'), getCv()]);
-  const finds = Object.values(findsH).filter((f) => (f.kind === 'job' || f.kind === 'post') && f.status !== 'dismissed').map((f) => ({ ...f, locTags: locationTags({ title: f.title, company: f.company, location: f.location, url: f.url }) })).filter((f) => !f.location || locationAllowed(f.locTags, f.location));
+  const finds = Object.values(findsH).filter((f) => (f.kind === 'job' || f.kind === 'post') && f.status !== 'dismissed' && isFreshFind(f)).map((f) => ({ ...f, locTags: locationTags({ title: f.title, company: f.company, location: f.location, url: f.url }) })).filter((f) => !f.location || locationAllowed(f.locTags, f.location));
   type Row = { title: string; company: string; text: string; domain: string; region: string; when: string; fresh: boolean };
   const rows: Row[] = [
     ...jobs.map((j: Job) => ({ title: j.title, company: j.company, text: `${j.title} ${j.description || ''}`, domain: j.domain, region: regionOf(j), when: j.postedAt || j.firstSeen, fresh: Date.now() - Date.parse(j.firstSeen) < 7 * 864e5 })),
@@ -101,42 +101,75 @@ export async function saveTrendSnapshot(jobs: Job[]) {
 }
 
 export interface MarketReport {
-  at: string; model?: string;
-  headlines: { title: string; summary: string; region: string; url: string }[];
-  hot_skills: { skill: string; why: string; region: string }[];
-  new_roles: { role: string; what: string; who_hires: string }[];
+  at: string; model?: string; days?: number; articles?: number; news?: number;
+  summary?: string;
+  headlines: { title: string; summary: string; region: string; url: string; date?: string; source?: string }[];
+  hot_skills: { skill: string; why: string; region: string; url?: string }[];
+  new_roles: { role: string; what: string; who_hires: string; url?: string }[];
   domains: { domain: string; ai_use_cases: string; companies: string; your_angle: string }[];
+  who_hiring?: { company: string; what: string; region: string; url?: string }[];
+  watch_out?: string[];
   your_moves: string[];
-  sources: { title: string; url: string }[];
+  sources: { title: string; url: string; date?: string; source?: string }[];
 }
 
 const NEWS_QUERIES = [
-  'AI hiring trends India 2026 skills in demand', 'AI engineer jobs demand USA 2026 new skills', 'forward deployed engineer demand 2026 companies hiring',
-  'new AI job roles 2026', 'GenAI agentic AI skills most in demand employers', 'Bengaluru AI startups hiring news this week',
-  'AI layoffs hiring freeze 2026 tech', 'global AI talent demand report 2026 LinkedIn Indeed',
+  'AI hiring India skills in demand', 'AI engineer jobs demand', 'forward deployed engineer', 'new AI job roles', 'agentic AI skills employers',
+  'Bengaluru AI startups hiring', 'GenAI jobs India report', 'AI talent demand report', 'AI engineer salary India', 'LLM engineer hiring',
+  'AI hiring freeze layoffs tech', 'enterprise AI adoption deployment engineers',
 ];
 
-/** AI market report from fresh web/news results (≈8 searches, cached; refresh when you want). */
-export async function buildMarketReport(): Promise<MarketReport> {
+type Fact = { fact: string; kind: 'skill' | 'role' | 'domain' | 'hiring' | 'layoff' | 'salary' | 'other'; region: string; company?: string; i: number };
+
+/** Deep market report: dated news (last 7 days) → full articles read → facts extracted per article batch → synthesis with citations. */
+export async function buildMarketReport(days = 7): Promise<MarketReport> {
   await loadVault();
   if (!(await aiConfigured())) throw new Error('Add an AI provider in AI & Keys');
-  const res = await pool(NEWS_QUERIES, 4, (q) => webSearch(q, 8, 'month'));
-  const hits: WebResult[] = [];
-  const seen = new Set<string>();
-  for (const r of res) if (r.status === 'fulfilled') for (const x of r.value.results) if (!seen.has(x.url)) { seen.add(x.url); hits.push(x); }
-  if (!hits.length) throw new Error('No news results — check your web-search keys in AI & Keys');
+  const { items, errors } = await newsSearch(NEWS_QUERIES, days, { perQuery: 8 });
+  if (!items.length) throw new Error(`No news in the last ${days} days — ${errors[0] || 'news feeds unreachable'}`);
+  const pick = items.slice(0, 50);
+  await readArticles(pick, 18, 3000);
+  const full = pick.filter((x) => x.text), thin = pick.filter((x) => !x.text).slice(0, 20);
+  // pass 1: facts
+  const batches: NewsItem[][] = [];
+  for (let i = 0; i < full.length; i += 5) batches.push(full.slice(i, i + 5));
+  if (thin.length) batches.push(thin);
+  const facts: (Fact & { url: string; date: string; source: string })[] = [];
+  let model = '';
+  await pool(batches, 2, async (b) => {
+    const list = b.map((h, i) => `[${i}] ${h.title} | ${h.source} | ${(h.date || '').slice(0, 10)}\n${(h.text || h.snippet).replace(/\s+/g, ' ').slice(0, h.text ? 2600 : 280)}`).join('\n\n');
+    try {
+      const { data, meta } = await chatJson<{ facts: Fact[] }>('Extract concrete, checkable facts about the AI / tech JOB MARKET from these articles: skills in demand, new roles, domains deploying AI, who is hiring (with numbers/city), layoffs, salaries. Numbers and names only from the text. Skip fluff.',
+        `ARTICLES:\n${list}\nJSON: {"facts":[{"fact":"1 sentence with the number/name","kind":"skill|role|domain|hiring|layoff|salary|other","region":"India|USA|Global|Bengaluru|Europe","company":"if any","i":<article index>}]}`, { maxTokens: 2500, timeoutMs: 90000 });
+      model = `${meta.provider} · ${meta.model}`;
+      for (const f of listOf<Fact>(data, 'facts')) if (f.fact && b[f.i]) facts.push({ ...f, url: b[f.i].url, date: (b[f.i].date || '').slice(0, 10), source: b[f.i].source });
+    } catch {}
+  });
+  if (!facts.length) throw new Error('Could not extract facts from the news (AI quota?) — try again in a minute');
+  // pass 2: synthesis
   const [cv, t] = await Promise.all([getCv(), computeTrends()]);
-  const list = hits.slice(0, 45).map((h, i) => `${i}. ${h.title} | ${h.url} | ${h.snippet.slice(0, 280).replace(/\s+/g, ' ')}`).join('\n');
-  const { data, meta } = await chatJson<Omit<MarketReport, 'at' | 'sources'>>(
-    'You are a sharp AI-jobs market analyst. Use ONLY the provided search results and job statistics; never invent numbers or companies. Be concrete and brief.',
-    `FRESH SEARCH RESULTS:\n${list}\n\nOUR JOB DATA (${t.total} jobs/posts): top skills ${t.skills.slice(0, 15).map((s) => `${s.key}(${s.n})`).join(', ')}; roles ${t.roles.slice(0, 10).map((r) => `${r.key}(${r.n})`).join(', ')}; domains ${t.domains.map((d) => `${d.key}(${d.n})`).join(', ')}.
-CANDIDATE: Bengaluru-based, moving into AI engineering (FDE / AI-ML). CV skills: ${cv.skills.join(', ') || 'not uploaded'}.
-JSON: {"headlines":[{"title":"","summary":"1-2 sentences","region":"India|USA|Global","url":"from the results"}],"hot_skills":[{"skill":"","why":"","region":"India|USA|Global"}],"new_roles":[{"role":"","what":"","who_hires":""}],"domains":[{"domain":"","ai_use_cases":"where AI solutions are being deployed","companies":"examples from results/data","your_angle":"how this candidate maps his skills to it"}],"your_moves":["3-6 concrete actions for the next 2 weeks"]}
-Give 6-10 headlines, 8-12 hot skills, 4-8 new roles, 5-8 domains.`,
-    { maxTokens: 4000, timeoutMs: 120000 },
+  const factList = facts.slice(0, 120).map((f, i) => `F${i} [${f.kind}|${f.region}|${f.date}] ${f.fact}${f.company ? ` (${f.company})` : ''}`).join('\n');
+  type F = { f?: number };
+  const { data, meta } = await chatJson<{ summary?: string; headlines?: (MarketReport['headlines'][number] & F)[]; hot_skills?: (MarketReport['hot_skills'][number] & F)[]; new_roles?: (MarketReport['new_roles'][number] & F)[]; domains?: MarketReport['domains']; who_hiring?: (NonNullable<MarketReport['who_hiring']>[number] & F)[]; watch_out?: string[]; your_moves?: string[] }>(
+    'You are an elite AI-jobs market analyst writing for one candidate. Use ONLY the numbered facts and the job statistics; never invent numbers or companies. Cite facts with their F-number in "f". Be concrete, specific and brief.',
+    `FACTS (news, last ${days} days):\n${factList}\n\nOUR LIVE JOB DATA (${t.total} jobs/posts): top skills ${t.skills.slice(0, 15).map((s) => `${s.key}(${s.n})`).join(', ')}; roles ${t.roles.slice(0, 10).map((r) => `${r.key}(${r.n})`).join(', ')}; domains ${t.domains.map((d) => `${d.key}(${d.n})`).join(', ')}; rising ${t.rising.map((r) => r.key).join(', ') || 'n/a'}.
+CANDIDATE: Bengaluru-based, moving into AI engineering (FDE / AI-ML). Works only Bengaluru office or remote-from-India. CV skills: ${cv.skills.join(', ') || 'not uploaded'}.
+JSON: {"summary":"4-5 sentence state of the market this week","headlines":[{"title":"","summary":"1-2 sentences","region":"India|USA|Global","f":0}],"hot_skills":[{"skill":"","why":"evidence","region":"India|USA|Global","f":0}],"new_roles":[{"role":"","what":"","who_hires":"","f":0}],"domains":[{"domain":"","ai_use_cases":"","companies":"","your_angle":"how this candidate maps his skills to it"}],"who_hiring":[{"company":"","what":"","region":"","f":0}],"watch_out":["risks: layoffs, freezes, saturated roles"],"your_moves":["5-8 concrete actions for the next 2 weeks"]}
+Give 8-12 headlines, 8-12 hot skills, 4-8 new roles, 5-8 domains, 6-15 companies hiring.`,
+    { maxTokens: 5000, timeoutMs: 150000 },
   );
   if (!data) throw new Error('AI returned no report, try again');
-  const report: MarketReport = { at: new Date().toISOString(), model: `${meta.provider} · ${meta.model}`, headlines: data.headlines || [], hot_skills: data.hot_skills || [], new_roles: data.new_roles || [], domains: data.domains || [], your_moves: data.your_moves || [], sources: hits.slice(0, 45).map((h) => ({ title: h.title, url: h.url })) };
+  const cite = (f?: number) => (typeof f === 'number' && facts[f] ? facts[f] : undefined);
+  const report: MarketReport = {
+    at: new Date().toISOString(), model: `${meta.provider} · ${meta.model}${model && model !== `${meta.provider} · ${meta.model}` ? ` + ${model}` : ''}`, days, articles: full.length, news: items.length, summary: (data.summary || '').replace(/\s*[[(]F\d+(?:\s*[,;]\s*F?\d+)*[\])]/gi, ''),
+    headlines: (data.headlines || []).map((h) => ({ title: h.title, summary: h.summary, region: h.region, url: cite(h.f)?.url || h.url || '', date: cite(h.f)?.date, source: cite(h.f)?.source })),
+    hot_skills: (data.hot_skills || []).map((h) => ({ skill: h.skill, why: h.why, region: h.region, url: cite(h.f)?.url })),
+    new_roles: (data.new_roles || []).map((h) => ({ role: h.role, what: h.what, who_hires: h.who_hires, url: cite(h.f)?.url })),
+    domains: data.domains || [],
+    who_hiring: (data.who_hiring || []).map((h) => ({ company: h.company, what: h.what, region: h.region, url: cite(h.f)?.url })),
+    watch_out: data.watch_out || [], your_moves: data.your_moves || [],
+    sources: pick.filter((x) => x.text).concat(thin).slice(0, 60).map((h) => ({ title: h.title, url: h.url, date: (h.date || '').slice(0, 10), source: h.source })),
+  };
   await setJSON('trends:report', report);
   return report;
 }

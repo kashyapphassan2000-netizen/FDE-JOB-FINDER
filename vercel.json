@@ -88,6 +88,18 @@
     {
       "path": "/api/cron/discover",
       "schedule": "50 20 * * *"
+    },
+    {
+      "path": "/api/cron/intel?task=hiring",
+      "schedule": "25 23 * * *"
+    },
+    {
+      "path": "/api/cron/intel?task=layoffs",
+      "schedule": "50 23 * * *"
+    },
+    {
+      "path": "/api/cron/intel?task=report",
+      "schedule": "35 0 * * *"
     }
   ]
 }

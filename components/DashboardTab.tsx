@@ -1,15 +1,15 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import type { Job } from '@/lib/types';
-import { ago, api } from './api';
+import { ago, api, dateLabel } from './api';
 import ExportButton from './ExportButton';
 
 type D = {
   jobs: Job[]; meta: { lastRefresh: string | null } | null; posts: { id: string; title: string; company: string; author?: string; url: string; postedAt?: string | null; foundAt: string; location: string; applyHow?: string }[];
   funnel: Record<string, number>; outreach: { companies: number; contacts: number; sent: number; replied: number };
-  radar: { name: string; signal?: string; region?: string; confidence?: string; url?: string }[]; layoffs: { name: string; count?: string; reason?: string; next?: string; url?: string; inYourTracker?: boolean }[];
+  radar: { name: string; date?: string; signal?: string; region?: string; confidence?: string; url?: string }[]; layoffs: { name: string; date?: string; count?: string; reason?: string; next?: string; url?: string; inYourTracker?: boolean }[];
   trends: { skills: { key: string; n: number }[]; roles: { key: string; n: number }[]; regions: { key: string; n: number }[]; yourSkills: { have: string[]; missing: string[]; cvUploaded: boolean } };
-  report: { at: string; headlines: { title: string; summary: string; region: string; url: string }[]; moves: string[] } | null;
+  report: { at: string; summary?: string; headlines: { title: string; summary: string; region: string; url: string }[]; moves: string[] } | null;
 };
 const rank = (t: string[]) => (t.includes('BLR') ? 0 : t.includes('REMOTE_IN') ? 1 : t.includes('UNSTATED') ? 2 : 3);
 const WHERE = ['Bengaluru office', 'Remote (India OK)', 'Location not stated', 'India'];
@@ -33,10 +33,10 @@ export default function DashboardTab({ toast }: { toast: (s: string) => void }) 
 
   const sections = [
     { title: 'Summary', text: `${d.jobs.length} jobs tracked (${fde} FDE). Recommendations for ${role === 'FDE' ? 'FDE' : 'FDE + AI/ML'} roles, ${minY}-${maxY} years experience, posted in the last ${fresh} days: ${recs.length} (${blr} Bengaluru, ${rem} remote). Applications: ${Object.entries(d.funnel).map(([k, v]) => `${k} ${v}`).join(', ') || 'none yet'}. Outreach: ${d.outreach.sent} emails sent, ${d.outreach.replied} replies.` },
-    { title: 'Hiring radar (likely to hire next)', headers: ['Company', 'Signal', 'Region', 'Confidence'], rows: d.radar.map((r) => [r.name, r.signal || '', r.region || '', r.confidence || '']) },
-    { title: 'Layoffs to watch', headers: ['Company', 'Cuts', 'Why', 'Next', 'In your tracker'], rows: d.layoffs.map((l) => [l.name, l.count || '', l.reason || '', l.next || '', l.inYourTracker ? 'YES' : '']) },
+    { title: 'Hiring radar (likely to hire next)', headers: ['Company', 'Date', 'Signal', 'Region', 'Confidence', 'Link'], rows: d.radar.map((r) => [r.name, r.date || '', r.signal || '', r.region || '', r.confidence || '', r.url || '']) },
+    { title: 'Layoffs to watch', headers: ['Company', 'Date', 'Cuts', 'Why', 'Next', 'In your tracker', 'Link'], rows: d.layoffs.map((l) => [l.name, l.date || '', l.count || '', l.reason || '', l.next || '', l.inYourTracker ? 'YES' : '', l.url || '']) },
     { title: 'Skills employers ask for', text: d.trends.skills.map((s) => `${s.key} (${s.n})`).join(', ') + (d.trends.yourSkills.cvUploaded ? `\nMissing from your CV: ${d.trends.yourSkills.missing.join(', ')}` : '') },
-    ...(d.report ? [{ title: 'Market headlines', headers: ['Region', 'Headline', 'Summary'], rows: d.report.headlines.map((h) => [h.region, h.title, h.summary]) }, { title: 'Your next moves', text: d.report.moves.map((m, i) => `${i + 1}. ${m}`).join('\n') }] : []),
+    ...(d.report ? [{ title: 'Market this week', text: d.report.summary || '' }, { title: 'Market headlines', headers: ['Region', 'Headline', 'Summary', 'Link'], rows: d.report.headlines.map((h) => [h.region, h.title, h.summary, h.url]) }, { title: 'Your next moves', text: d.report.moves.map((m, i) => `${i + 1}. ${m}`).join('\n') }] : []),
     { title: 'Latest hiring posts (X / LinkedIn)', headers: ['Role', 'Author / company', 'Posted', 'How to apply', 'Link'], rows: d.posts.slice(0, 25).map((p) => [p.title, p.author || p.company, (p.postedAt || p.foundAt).slice(0, 10), p.applyHow || '', p.url]) },
   ];
 
@@ -101,11 +101,11 @@ export default function DashboardTab({ toast }: { toast: (s: string) => void }) 
         </div>
         <div className="panel">
           <h3 style={{ marginTop: 0 }}>📡 Likely to hire next</h3>
-          {d.radar.map((r) => <div key={r.name} className="tline"><b>{r.name}</b> <span className="badge b-dom">{r.region}</span><div className="small muted">{r.signal} {r.url && <a href={r.url} target="_blank" rel="noreferrer">source</a>}</div></div>)}
+          {d.radar.map((r) => <div key={r.name} className="tline"><b>{r.name}</b> <span className="badge b-dom">{r.region}</span>{r.date && <span className="badge b-date">{dateLabel(r.date)}</span>}<div className="small muted">{r.signal} {r.url && <a href={r.url} target="_blank" rel="noreferrer">source</a>}</div></div>)}
         </div>
         <div className="panel">
           <h3 style={{ marginTop: 0 }}>📉 Layoffs to watch</h3>
-          {d.layoffs.map((l) => <div key={l.name} className="tline"><b>{l.name}</b> {l.inYourTracker && <span className="badge b-err">in your tracker</span>}<div className="small muted">{l.count} · {l.reason} {l.url && <a href={l.url} target="_blank" rel="noreferrer">source</a>}</div></div>)}
+          {d.layoffs.map((l) => <div key={l.name} className="tline"><b>{l.name}</b> {l.date && <span className="badge b-date">{dateLabel(l.date)}</span>} {l.inYourTracker && <span className="badge b-err">in your tracker</span>}<div className="small muted">{l.count} · {l.reason} {l.url && <a href={l.url} target="_blank" rel="noreferrer">source</a>}</div></div>)}
         </div>
         <div className="panel">
           <h3 style={{ marginTop: 0 }}>🧠 What employers ask for</h3>
