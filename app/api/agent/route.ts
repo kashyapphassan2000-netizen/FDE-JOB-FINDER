@@ -12,6 +12,16 @@ import { locationAllowed, locationTags } from '@/lib/classify';
 
 export const maxDuration = 300;
 
+/** A find found by one tab also shows on another tab only when its content PROVES it belongs there. */
+function crossOk(f: Find, m: string): boolean {
+  const t = `${f.title} ${f.company} ${f.location} ${(f as { snippet?: string }).snippet || ''}`.toLowerCase();
+  if (m === 'domains') return /semiconductor|\bchip|silicon|\bsoc\b|embedded|firmware|robot|edge ai|\bfpga|\basic\b|nvidia|qualcomm|\bintel\b|\bamd\b|\barm\b|analog devices|texas instruments|micron|synopsys|cadence|bosch|samsung semiconductor/.test(t);
+  if (m === 'remote-india') return /remote/.test(t) && /india|apac|asia|anywhere|worldwide|global|any location/.test(t);
+  if (m === 'global-remote') return /remote/.test(t) && /worldwide|anywhere|global|united states|\busa?\b|europe|\beu\b|emea|uk\b|any location/.test(t);
+  if (m === 'blr-hidden') return /bengaluru|bangalore/.test(t);
+  return false; // posts tabs, startups, communities: only what that tab itself found
+}
+
 export async function GET(req: Request) {
   const g = await guard(req);
   if (g) return g;
@@ -31,7 +41,7 @@ export async function GET(req: Request) {
       .filter(isFreshFind)
       .map(withRealDate)
       // a find shows on EVERY tab whose rule it satisfies (not only the tab that happened to find it)
-      .map((f) => ({ ...f, fits: MISSIONS.map((m) => m.id).filter((m) => (m === f.mission || (f.missions || []).includes(m) || Boolean(RULES[m])) && fitsMission(f, m)) }))
+      .map((f) => ({ ...f, fits: MISSIONS.map((m) => m.id).filter((m) => (m === f.mission || (f.missions || []).includes(m) || crossOk(f, m)) && fitsMission(f, m)) }))
       .map((f) => ({ ...f, locTags: locationTags({ title: f.title, company: f.company, location: f.location, url: f.url }) }))
       .filter((f) => f.kind !== 'job' || !f.location || locationAllowed(f.locTags, f.location)) // your location rule, applied to older finds too
       .sort((a, b) => b.foundAt.localeCompare(a.foundAt)),
