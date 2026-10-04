@@ -1,7 +1,7 @@
 import type { Category, CompanyEntry, Domain, RawJob } from './types';
 import { classify, domainOf, hashId, isExcluded, locationAllowed, locationTags } from './classify';
 import { atsFromUrl, probe } from './atsdetect';
-import { availableEngines, readPage, webSearch, type WebResult } from './search';
+import { availableEngines, readPage, searchUsage, webSearch, webSearchAll, type Recency, type WebResult } from './search';
 import { aiConfigured, chatJson } from './llm';
 import { getCv } from './cv';
 import { getSettings } from './settings';
@@ -9,33 +9,66 @@ import { DEFAULT_COMPANIES } from './companies';
 import { getJSON, hgetall, hset, setJSON } from './store';
 import { loadVault } from './secrets';
 import { pool } from './http';
+import { fetchTweet, tweetIdFromUrl } from './xposts';
+import { sendAlert } from './notify';
 
 /**
- * The job-hunting agent. Scope (your rule): ONLY FDE + AI/ML roles — in ANY company domain
- * (semiconductor, embedded, robotics, IT, fintech, health…). Places: Bengaluru, India, USA, remote-open-to-India.
- * Loop: plan queries → multi-engine web search (Google/LinkedIn posts/X posts/ATS boards/career pages)
- *       → detect company ATS boards in every link and verify them live → AI reads/filters the rest
- *       → deep-reads promising career pages → saves finds + discovered companies.
+ * The job-hunting agent. Scope (your rule): ONLY FDE + AI/ML roles, ANY company domain.
+ * Location rule: Bengaluru office, otherwise remote and open to people in India.
+ *
+ * Deep loop:
+ *   1. PLAN      — AI writes 14-18 queries (X posts, LinkedIn posts, ATS boards, career pages, news, communities)
+ *   2. SEARCH    — every query on EVERY configured engine (deep) with the right freshness (posts = last 7 days)
+ *   3. READ X    — every x.com post found is read in full (text, author, date, links) via the public embed endpoint
+ *   4. VERIFY    — company ATS boards in any link are opened live and their FDE/AI roles listed
+ *   5. CLASSIFY  — ALL results, in parallel batches, by AI (keeps "maybe" items too, flagged)
+ *   6. FOLLOW UP — AI writes follow-up queries from what was found (companies → careers pages, people → posts)
+ *   7. DEEP READ — promising careers pages are opened and their roles extracted
+ *   8. SAVE + ALERT
  */
-export interface Mission { id: string; title: string; desc: string; queries: string[] }
+export interface Mission { id: string; title: string; desc: string; queries: string[]; recency?: Recency }
 
 const ROLE = '("forward deployed" OR "applied AI" OR "AI engineer" OR "ML engineer" OR "machine learning engineer" OR "LLM engineer" OR "GenAI engineer")';
+const HIRE = '(hiring OR "we\'re hiring" OR "join us" OR "we\'re looking" OR "DM me")';
+
 export const MISSIONS: Mission[] = [
-  { id: 'li-posts', title: 'LinkedIn hiring posts', desc: 'Founders / hiring managers posting FDE & AI roles (often not on job boards yet)',
-    queries: [`site:linkedin.com/posts "forward deployed engineer" hiring (Bengaluru OR Bangalore OR India OR remote)`, `site:linkedin.com/posts "we are hiring" ("AI engineer" OR "ML engineer" OR "GenAI") Bengaluru`, `site:linkedin.com/posts hiring "applied AI" OR "founding AI engineer" India`] },
-  { id: 'x-posts', title: 'X / Twitter hiring posts', desc: 'Hiring tweets from founders and AI teams',
-    queries: [`site:x.com "forward deployed" hiring`, `site:x.com hiring ("AI engineer" OR "ML engineer") (Bangalore OR Bengaluru OR remote)`, `site:x.com "we're hiring" "founding engineer" AI remote`, `site:x.com hiring "applied AI" OR "GenAI engineer" Bengaluru`, `site:x.com "DM me" hiring "AI engineer" remote`] },
+  {
+    id: 'x-posts', title: 'X / Twitter hiring posts', desc: 'Founders & AI teams tweeting roles (Excel formula: hiring × AI/FDE × remote/India/Bangalore, last 7 days). Every post is read in full.', recency: 'week',
+    queries: [
+      `site:x.com ${HIRE} "forward deployed"`, `site:x.com hiring "forward deployed engineer" remote`, `site:x.com hiring "forward deployed" (India OR Bangalore OR Bengaluru)`,
+      `site:x.com ${HIRE} ("AI engineer" OR "ML engineer" OR "LLM engineer") remote`, `site:x.com ${HIRE} ("AI engineer" OR "ML engineer") (Bangalore OR Bengaluru OR India)`,
+      `site:x.com "we're hiring" "founding engineer" AI`, `site:x.com hiring "applied AI" engineer`, `site:x.com hiring (GenAI OR LLM OR agents) engineer "DM"`,
+      `site:x.com hiring "AI engineer" remote worldwide OR anywhere`, `site:x.com hiring "solutions engineer" OR "deployment engineer" AI`,
+      `site:x.com "is hiring" "forward deployed"`, `site:x.com "join our team" AI engineer startup`,
+    ],
+  },
+  {
+    id: 'li-posts', title: 'LinkedIn hiring posts', desc: 'Founders / hiring managers posting FDE & AI roles in their feed (often never on job boards)', recency: 'week',
+    queries: [
+      `site:linkedin.com/posts "forward deployed engineer" hiring`, `site:linkedin.com/posts hiring "forward deployed" (Bengaluru OR Bangalore OR remote)`,
+      `site:linkedin.com/posts "we are hiring" ("AI engineer" OR "ML engineer" OR "GenAI") Bengaluru`, `site:linkedin.com/posts hiring "AI engineer" remote India`,
+      `site:linkedin.com/posts hiring ("applied AI" OR "founding AI engineer") India`, `site:linkedin.com/posts "DM me" hiring ("LLM" OR "GenAI" OR "AI engineer")`,
+      `site:linkedin.com/posts "comment interested" OR "drop your CV" AI engineer Bangalore`, `site:linkedin.com/posts hiring "solutions engineer" OR "deployment engineer" AI India`,
+    ],
+  },
   { id: 'blr-hidden', title: 'Hidden Bengaluru AI startups', desc: 'Startup career boards (Ashby/Lever/Greenhouse/Workable) with Bengaluru FDE & AI roles',
-    queries: [`site:jobs.ashbyhq.com (Bengaluru OR Bangalore) ${ROLE}`, `site:jobs.lever.co (Bengaluru OR Bangalore) ("AI" OR "machine learning" OR "forward deployed")`, `site:job-boards.greenhouse.io (Bengaluru OR Bangalore) ("AI engineer" OR "machine learning" OR "forward deployed")`, `site:apply.workable.com Bangalore ("AI engineer" OR "machine learning")`, `Bengaluru AI startup careers "founding" ("AI engineer" OR "forward deployed")`] },
+    queries: [`site:jobs.ashbyhq.com (Bengaluru OR Bangalore) ${ROLE}`, `site:jobs.lever.co (Bengaluru OR Bangalore) ("AI" OR "machine learning" OR "forward deployed")`, `site:job-boards.greenhouse.io (Bengaluru OR Bangalore) ("AI engineer" OR "machine learning" OR "forward deployed")`, `site:apply.workable.com Bangalore ("AI engineer" OR "machine learning")`, `Bengaluru AI startup careers "founding" ("AI engineer" OR "forward deployed")`, `site:jobs.ashbyhq.com "Bengaluru" "LLM"`] },
   { id: 'remote-india', title: 'Remote roles open to India', desc: 'Worldwide / APAC remote FDE & AI roles Indians can take',
-    queries: [`"forward deployed engineer" remote ("anywhere" OR "worldwide" OR "APAC" OR "India")`, `remote "AI engineer" ("work from anywhere" OR worldwide OR "remote - India") hiring`, `remote "machine learning engineer" "India" contract OR full-time AI startup`, `site:jobs.ashbyhq.com remote ("India" OR "APAC") ("AI" OR "forward deployed")`] },
+    queries: [`"forward deployed engineer" remote ("anywhere" OR "worldwide" OR "APAC" OR "India")`, `remote "AI engineer" ("work from anywhere" OR worldwide OR "remote - India") hiring`, `remote "machine learning engineer" "India" contract OR full-time AI startup`, `site:jobs.ashbyhq.com remote ("India" OR "APAC") ("AI" OR "forward deployed")`, `site:jobs.lever.co "remote - india" ("AI" OR "machine learning")`] },
   { id: 'global-remote', title: 'US / EU startups hiring remote worldwide', desc: 'Remote FDE & AI roles at foreign companies that hire from India (contract or full-time)',
     queries: [`"forward deployed engineer" remote "worldwide" OR "anywhere in the world"`, `site:jobs.ashbyhq.com remote ("anywhere" OR "worldwide" OR "global") ("AI engineer" OR "forward deployed")`, `"AI engineer" remote "hire from India" OR "contractors in India" OR "EOR" startup`, `site:jobs.lever.co remote worldwide ("applied AI" OR "machine learning engineer")`] },
   { id: 'domains', title: 'AI roles in semiconductor / embedded / robotics', desc: 'FDE & AI/ML roles at chip, edge-AI, robotics, automotive companies',
     queries: [`(Bengaluru OR Bangalore) ("edge AI" OR "on-device AI" OR "embedded AI") engineer hiring`, `(Bengaluru OR Bangalore) semiconductor "machine learning engineer" OR "AI engineer"`, `"ML compiler" OR "AI compiler" engineer Bengaluru hiring`, `robotics startup Bengaluru "AI engineer" OR "perception engineer" OR "forward deployed"`] },
-  { id: 'new-startups', title: 'Newly funded AI startups hiring', desc: 'Recent seed / Series A AI startups (India + US) that are hiring',
-    queries: [`AI startup raises seed OR "Series A" Bengaluru hiring engineers`, `"raised" "Series A" AI agents startup hiring "forward deployed"`, `YC AI startup India hiring "founding engineer"`] },
+  { id: 'new-startups', title: 'Newly funded AI startups hiring', desc: 'Excel "Funding-alert pre-JD": startups that just raised — reach the founder before the JD exists', recency: 'week',
+    queries: [`AI startup raises seed OR "Series A" Bengaluru hiring engineers`, `"raised" "Series A" AI agents startup hiring "forward deployed"`, `YC AI startup India hiring "founding engineer"`, `site:inc42.com funding AI startup`, `site:yourstory.com funding AI startup raises`, `site:entrackr.com AI startup raises`] },
+  { id: 'communities', title: 'Communities & newsletters', desc: 'Excel channels: HN Who is Hiring, r/developersIndia referrals, r/MachineLearning, Latent Space, Indie Hackers, Product Hunt AI launches', recency: 'month',
+    queries: [`site:news.ycombinator.com "who is hiring" remote AI engineer`, `site:reddit.com/r/developersIndia referral AI engineer`, `site:reddit.com/r/MachineLearning hiring remote`, `site:indiehackers.com hiring AI engineer`, `site:latent.space jobs AI engineer`, `site:producthunt.com AI launch hiring`] },
 ];
+
+const SYSTEM = `You are a sharp job-hunting agent for Karthik (Bengaluru, India; moving into AI engineering).
+Target roles ONLY: Forward Deployed Engineer (incl. applied AI engineer/architect, AI solutions/deployment engineer, founding AI engineer) and AI/ML roles (ML engineer, AI engineer, LLM/GenAI engineer, MLOps, applied scientist, edge/embedded AI).
+ANY company domain is fine. Reject non-AI roles (pure firmware, RTL, sales, HR, marketing) and job seekers' own "open to work" posts.
+LOCATION RULE (strict): the ONLY office he can attend is Bengaluru. Everything else must be REMOTE and open to people living in India (worldwide / APAC / India remote). Reject onsite or hybrid roles in any other city or country, and remote roles restricted to US/EU/UK/Canada residents. If location is not stated, keep it.`;
 
 export interface Find {
   id: string;
@@ -54,145 +87,250 @@ export interface Find {
   foundAt: string;
   status: 'new' | 'saved' | 'dismissed' | 'applied';
   ats?: { ats: CompanyEntry['ats']; slug: string; total: number; relevant: number };
+  author?: string; // posts: "Name (@handle)"
+  postedAt?: string | null;
+  applyHow?: string; // "DM the author", "email jobs@acme.ai", "apply: <link>"
+  confidence?: 'high' | 'maybe';
 }
 
 export interface AgentRun {
-  id: string; mission: string; prompt?: string; startedAt: string; ms: number; queries: string[];
-  engines: string[]; ai: string | null; log: string[]; finds: number; companies: number; error?: string;
+  id: string; mission: string; prompt?: string; depth: 'quick' | 'deep'; startedAt: string; ms: number; queries: string[];
+  engines: string[]; ai: string | null; log: string[]; finds: number; total: number; companies: number; searches: number; findIds: string[]; error?: string;
 }
 
-const SYSTEM = `You are a sharp job-hunting agent for Karthik (Bengaluru, India; ~3 yrs automotive embedded → moving into AI engineering).
-Target roles ONLY: Forward Deployed Engineer (incl. applied AI engineer/architect, AI solutions/deployment engineer) and AI/ML roles (ML engineer, AI engineer, LLM/GenAI engineer, MLOps, applied scientist, edge/embedded AI).
-ANY company domain is fine (semiconductor, embedded, robotics, automotive, IT/SaaS, fintech, health…). Reject non-AI roles (pure firmware, RTL, sales, HR, marketing) and job seekers' own "open to work" posts.
-LOCATION RULE (strict): the ONLY office he can attend is Bengaluru. Everything else must be REMOTE and open to people living in India (worldwide / APAC / India remote). Reject onsite or hybrid roles in any other city or country, and remote roles restricted to US/EU/UK/Canada residents.`;
+type Hit = WebResult & { author?: string; stale?: boolean };
 
 const watchedKeys = (extra: CompanyEntry[]) => new Set([...DEFAULT_COMPANIES, ...extra].map((c) => `${c.ats}:${c.slug}`.toLowerCase()));
+const isPostUrl = (u: string) => /linkedin\.com\/(posts|feed)|(x|twitter)\.com\/[^/]+\/status|reddit\.com\/r\/.+\/comments|news\.ycombinator\.com\/item/.test(u);
+const HIRING_RX = /hiring|we('|’)re hiring|we are hiring|join (us|our)|open role|looking for|dm me|send (your )?(cv|resume)|apply|opening/i;
+const MAX_POST_AGE_DAYS = 30;
+const isJobLink = (u: string) => !atsFromUrl(u) || /\/(jobs?|j)\/|[0-9a-f-]{20,}/.test(u);
 
-function heuristic(r: WebResult): Partial<Find> | null {
+function heuristic(r: Hit): Partial<Find> | null {
   const text = `${r.title} ${r.snippet}`;
-  const role = classify({ title: r.title, company: '', location: '', url: r.url, description: r.snippet });
-  const roleFromSnippet = classify({ title: r.snippet.slice(0, 200), company: '', location: '', url: r.url });
-  const roles = Array.from(new Set([...role, ...roleFromSnippet]));
+  const roles = Array.from(new Set([...classify({ title: r.title, company: '', location: '', url: r.url, description: r.snippet }), ...classify({ title: r.snippet.slice(0, 300), company: '', location: '', url: r.url })]));
   if (!roles.length) return null;
-  const isPost = /linkedin\.com\/(posts|feed)|x\.com|twitter\.com|reddit\.com/.test(r.url);
-  if (isPost && !/hiring|we're hiring|we are hiring|join (us|our)|open role|looking for/i.test(text)) return null;
-  return { kind: isPost ? 'post' : 'job', title: r.title.slice(0, 200), role: roles, why: 'keyword match (add an AI provider for smarter filtering)' };
+  const isPost = isPostUrl(r.url);
+  if (isPost && !HIRING_RX.test(text)) return null;
+  return { kind: isPost ? 'post' : 'job', title: r.title.slice(0, 200), role: roles, why: 'keyword match (add an AI provider for smarter filtering)', confidence: 'maybe', author: r.author };
 }
 
-export async function runAgent(opts: { missionId?: string; prompt?: string; budgetMs?: number }): Promise<AgentRun> {
+function applyHowFrom(text: string): string {
+  const email = text.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i)?.[0];
+  if (email) return `email ${email}`;
+  if (/\bdm\b|dms open|message me/i.test(text)) return 'DM the author';
+  const link = text.match(/https?:\/\/[^\s)]+/)?.[0];
+  if (link && !/x\.com|twitter\.com|t\.co\//.test(link)) return `apply: ${link}`;
+  return '';
+}
+
+function fallbackPlan(prompt: string): string[] {
+  return [
+    prompt, `${prompt} hiring`, `site:x.com ${prompt} hiring`, `site:x.com hiring ${prompt} remote`, `site:linkedin.com/posts ${prompt} hiring`,
+    `${prompt} (site:jobs.ashbyhq.com OR site:jobs.lever.co OR site:job-boards.greenhouse.io)`, `${prompt} careers Bengaluru`, `${prompt} remote India`,
+  ];
+}
+
+export async function runAgent(opts: { missionId?: string; prompt?: string; budgetMs?: number; depth?: 'quick' | 'deep'; alert?: boolean }): Promise<AgentRun> {
   const t0 = Date.now();
-  const budget = opts.budgetMs ?? 240000;
+  const budget = opts.budgetMs ?? 260000;
   const left = () => budget - (Date.now() - t0);
+  const depth = opts.depth || 'deep';
   await loadVault();
   const settings = await getSettings();
   const mission = MISSIONS.find((m) => m.id === opts.missionId);
-  const run: AgentRun = { id: `r${Date.now().toString(36)}`, mission: mission?.id || 'custom', prompt: opts.prompt, startedAt: new Date().toISOString(), ms: 0, queries: [], engines: availableEngines().map((e) => e.id), ai: null, log: [], finds: 0, companies: 0 };
+  const run: AgentRun = { id: `r${Date.now().toString(36)}`, mission: mission?.id || 'custom', prompt: opts.prompt, depth, startedAt: new Date().toISOString(), ms: 0, queries: [], engines: availableEngines().map((e) => e.id), ai: null, log: [], finds: 0, total: 0, companies: 0, searches: 0, findIds: [] };
   const log = (s: string) => run.log.push(`${((Date.now() - t0) / 1000).toFixed(1)}s ${s}`);
   const hasAI = await aiConfigured();
+  const finds: Find[] = [];
+  const now = new Date().toISOString();
 
-  try {
-    if (!run.engines.length) throw new Error('No web-search engine configured. Add a free Tavily / Firecrawl / Exa / Linkup / Serper key (or your SearXNG URL) in "AI & Keys".');
+  const mk = (r: Hit, f: Partial<Find>): Find => {
+    const loc = f.location || '';
+    const raw: RawJob = { title: f.title || r.title, company: f.company || '', location: loc, url: r.url, description: r.snippet };
+    return {
+      id: hashId(r.url), kind: f.kind || 'job', title: (f.title || r.title).slice(0, 220), company: (f.company || '').slice(0, 100), location: loc.slice(0, 120),
+      url: r.url, snippet: r.snippet.slice(0, 1500), why: (f.why || '').slice(0, 300), role: f.role?.length ? f.role : classify(raw),
+      domain: f.domain || domainOf(raw), locTags: f.locTags || locationTags({ ...raw, location: loc }),
+      mission: run.mission, engine: r.engine, foundAt: now, status: 'new', ats: f.ats, author: f.author || r.author, postedAt: f.postedAt ?? r.date ?? null,
+      applyHow: f.applyHow || applyHowFrom(r.snippet), confidence: f.confidence || 'high',
+    };
+  };
 
-    // 1. PLAN
-    let queries = mission?.queries || [];
-    if (opts.prompt) {
-      if (hasAI) {
-        try {
-          const { data, meta } = await chatJson<{ queries: string[] }>(SYSTEM,
-            `Turn this request into 6 precise web-search queries (Google syntax: quotes, OR, site:). Mix: company career boards (site:jobs.ashbyhq.com, site:jobs.lever.co, site:job-boards.greenhouse.io, site:apply.workable.com), LinkedIn hiring posts (site:linkedin.com/posts), X posts (site:x.com) and general web.\nRequest: ${opts.prompt}\nJSON: {"queries":["..."]}`, { maxTokens: 600 });
-          run.ai = `${meta.provider} · ${meta.model}`;
-          if (data?.queries?.length) queries = data.queries.slice(0, 7);
-          log(`planned ${queries.length} queries with ${run.ai}`);
-        } catch (e) {
-          log(`AI planning failed (${(e as Error).message.slice(0, 120)}) → using keyword plan`);
-        }
-      }
-      if (!queries.length) queries = [opts.prompt, `${opts.prompt} site:linkedin.com/posts hiring`, `${opts.prompt} site:x.com hiring`, `${opts.prompt} (site:jobs.ashbyhq.com OR site:jobs.lever.co OR site:job-boards.greenhouse.io)`];
-    }
-    run.queries = queries;
-
-    // 2. SEARCH
-    const seen = new Set<string>();
-    const results: WebResult[] = [];
-    const sres = await pool(queries, 3, (q) => webSearch(q, 10));
-    sres.forEach((r, i) => {
-      if (r.status !== 'fulfilled') return log(`search failed: ${queries[i]}`);
+  const seen = new Set<string>();
+  const searchAll = async (queries: string[], rec: Recency): Promise<Hit[]> => {
+    const out: Hit[] = [];
+    const res = await pool(queries, 4, (q) => (depth === 'deep' ? webSearchAll(q, 20, rec) : webSearch(q, 10, rec).then((r) => ({ ...r, engines: r.engine ? [r.engine] : [] }))));
+    res.forEach((r, i) => {
+      if (r.status !== 'fulfilled') return void log(`search failed: ${queries[i]}`);
+      run.searches += Math.max(1, r.value.engines.length);
       r.value.errors.forEach((e) => log(`engine error ${e}`));
       for (const x of r.value.results) {
-        const k = x.url.split('#')[0].replace(/\?.*$/, '');
-        if (!seen.has(k)) { seen.add(k); results.push(x); }
+        const tid = tweetIdFromUrl(x.url);
+        if (tid) x.url = x.url.replace(/^(https?:\/\/)(?:www\.|mobile\.)?(?:x|twitter)\.com\/([^/]+)\/status(?:es)?\/(\d+).*$/i, 'https://x.com/$2/status/$3'); // one canonical URL per tweet
+        const k = tid ? `x:${tid}` : x.url.split('#')[0].replace(/\?.*$/, '');
+        if (!seen.has(k)) { seen.add(k); out.push(x); }
       }
     });
-    log(`search: ${results.length} unique results from ${queries.length} queries`);
+    return out;
+  };
 
-    const finds: Find[] = [];
-    const now = new Date().toISOString();
-    const mk = (r: WebResult, f: Partial<Find>): Find => {
-      const loc = f.location || '';
-      const raw: RawJob = { title: f.title || r.title, company: f.company || '', location: loc, url: r.url, description: r.snippet };
-      return {
-        id: hashId(r.url), kind: f.kind || 'job', title: (f.title || r.title).slice(0, 220), company: (f.company || '').slice(0, 100), location: loc.slice(0, 120),
-        url: r.url, snippet: r.snippet.slice(0, 500), why: (f.why || '').slice(0, 300), role: f.role?.length ? f.role : classify(raw),
-        domain: f.domain || domainOf(raw), locTags: f.locTags || locationTags({ ...raw, location: `${loc} ${r.snippet.slice(0, 160)}` }),
-        mission: run.mission, engine: r.engine, foundAt: now, status: 'new', ats: f.ats,
-      };
-    };
+  // X posts: read every one in full, drop old ones
+  const readX = async (results: Hit[]) => {
+    const xs = results.filter((r) => tweetIdFromUrl(r.url));
+    if (!xs.length) return;
+    const got = await pool(xs.slice(0, 80), 8, async (r) => ({ r, t: await fetchTweet(tweetIdFromUrl(r.url)!) }));
+    let read = 0, old = 0;
+    for (const g of got) {
+      if (g.status !== 'fulfilled' || !g.value.t) continue;
+      const { r, t } = g.value;
+      read++;
+      if (t.createdAt && Date.now() - Date.parse(t.createdAt) > MAX_POST_AGE_DAYS * 864e5) { old++; r.stale = true; continue; }
+      r.author = `${t.author} (@${t.handle})`;
+      r.title = r.author;
+      r.snippet = `${t.text}${t.links.length ? `\nLinks: ${t.links.join(' ')}` : ''}`;
+      r.date = t.createdAt;
+    }
+    log(`X: read ${read}/${xs.length} posts in full${old ? `, ${old} older than ${MAX_POST_AGE_DAYS} days dropped` : ''}`);
+  };
 
-    // 3. ATS BOARDS — verify live, add as companies + relevant jobs
-    const watched = watchedKeys(settings.extraCompanies);
-    const boards = new Map<string, { ats: CompanyEntry['ats']; slug: string; r: WebResult }>();
+  // ATS boards: verify live and list their FDE/AI roles in your locations
+  const watched = watchedKeys(settings.extraCompanies);
+  const probedKeys = new Set<string>();
+  const verifyBoards = async (results: Hit[]) => {
+    const boards = new Map<string, { ats: CompanyEntry['ats']; slug: string; r: Hit }>();
     for (const r of results) {
       const a = atsFromUrl(r.url);
-      if (a && !boards.has(`${a.ats}:${a.slug}`.toLowerCase())) boards.set(`${a.ats}:${a.slug}`.toLowerCase(), { ...a, r });
+      const k = a && `${a.ats}:${a.slug}`.toLowerCase();
+      if (a && k && !boards.has(k) && !probedKeys.has(k)) boards.set(k, { ...a, r });
     }
-    const toProbe = [...boards.entries()].filter(([k]) => !watched.has(k)).slice(0, 20);
+    const toProbe = [...boards.entries()].filter(([k]) => !watched.has(k)).slice(0, depth === 'deep' ? 30 : 15);
+    toProbe.forEach(([k]) => probedKeys.add(k));
     const probed = await pool(toProbe, 6, async ([, b]) => ({ b, d: await probe(b.ats, b.slug, b.slug) }));
+    let n = 0;
     for (const p of probed) {
       if (p.status !== 'fulfilled' || !p.value.d) continue;
       const { b, d } = p.value;
       const rel = d.jobs.filter((j) => classify(j).length && locationAllowed(locationTags(j), j.location));
       const company = d.jobs[0]?.company && d.jobs[0].company !== b.slug ? d.jobs[0].company : b.slug;
-      finds.push(mk({ ...b.r, url: b.r.url }, { kind: 'company', title: `${b.slug} — ${rel.length} FDE/AI roles open (${d.total} total) on ${b.ats}`, company, why: 'Company career board found in search results and verified live. Click "Watch" to pull its jobs every refresh.', ats: { ats: b.ats, slug: b.slug, total: d.total, relevant: rel.length } }));
-      for (const j of rel.slice(0, 8)) finds.push(mk({ title: j.title, url: j.url, snippet: j.description || '', engine: `ats:${b.ats}` }, { kind: 'job', title: j.title, company: b.slug, location: j.location, why: `Open on ${b.ats} board (verified)` }));
+      n++;
+      finds.push(mk(b.r, { kind: 'company', title: `${company} — ${rel.length} FDE/AI roles for you (${d.total} open) on ${b.ats}`, company, why: 'Career board found in search results and verified live. "Watch" pulls its jobs on every refresh.', ats: { ats: b.ats, slug: b.slug, total: d.total, relevant: rel.length } }));
+      for (const j of rel.slice(0, 10)) finds.push(mk({ title: j.title, url: j.url, snippet: j.description || '', engine: `ats:${b.ats}`, date: j.postedAt }, { kind: 'job', title: j.title, company, location: j.location, why: `Open on ${company}'s ${b.ats} board (verified live)` }));
     }
-    run.companies = finds.filter((f) => f.kind === 'company').length;
-    log(`ATS boards: ${boards.size} seen, ${toProbe.length} new probed, ${run.companies} verified`);
+    run.companies += n;
+    log(`ATS boards: ${boards.size} seen, ${toProbe.length} probed, ${n} verified`);
+  };
 
-    // 4. FILTER the rest (AI if configured, else keywords)
-    const rest = results.filter((r) => !atsFromUrl(r.url) || !boards.has(`${atsFromUrl(r.url)!.ats}:${atsFromUrl(r.url)!.slug}`.toLowerCase()) || /\/(jobs?|j)\/|[0-9a-f-]{20,}/.test(r.url));
-    const careerPages: WebResult[] = [];
-    if (hasAI && left() > 60000) {
-      const batch = rest.slice(0, 45).map((r, i) => ({ i, title: r.title, url: r.url, snippet: r.snippet.slice(0, 300) }));
-      try {
-        const { data, meta } = await chatJson<{ items: { i: number; relevant: boolean; kind: Find['kind']; title: string; company: string; location: string; role: string[]; domain: Domain; why: string }[] }>(SYSTEM,
-          `Classify these web results. Keep only real FDE or AI/ML job postings, real hiring posts by companies/founders, or company careers pages likely listing such roles.\nResults:\n${JSON.stringify(batch)}\nJSON: {"items":[{"i":0,"relevant":true,"kind":"job|post|careers_page","title":"clean role title","company":"","location":"city/country/remote scope","role":["FDE"|"AIML"],"domain":"AI_LAB|AI_INFRA|SEMI|EMBEDDED|IT|FINTECH|HEALTH|DEFENSE|CONSULTING|OTHER","why":"max 20 words"}]}`,
-          { maxTokens: 3500, timeoutMs: Math.min(90000, left() - 20000) });
-        run.ai = `${meta.provider} · ${meta.model}`;
-        for (const it of data?.items || []) {
-          const r = batch[it.i] && rest[it.i];
-          if (!r || !it.relevant) continue;
-          if (it.kind === 'careers_page') careerPages.push(r);
-          finds.push(mk(r, { kind: it.kind || 'job', title: it.title, company: it.company, location: it.location, role: (it.role || []).filter((x) => x === 'FDE' || x === 'AIML') as Category[], domain: it.domain, why: it.why }));
-        }
-        log(`AI filtered ${batch.length} results → ${(data?.items || []).filter((x) => x.relevant).length} relevant (${run.ai})`);
-      } catch (e) {
-        log(`AI filtering failed (${(e as Error).message.slice(0, 140)}) → keyword filter`);
-        for (const r of rest) { const h = heuristic(r); if (h) finds.push(mk(r, h)); }
-      }
-    } else {
+  // AI classification of everything (parallel batches of 30)
+  const careerPages: Hit[] = [];
+  const classifyAll = async (rest: Hit[]) => {
+    if (!rest.length) return;
+    if (!hasAI || left() < 40000) {
       for (const r of rest) { const h = heuristic(r); if (h) finds.push(mk(r, h)); }
-      log(`keyword filter → ${finds.filter((f) => f.kind !== 'company').length} candidates${hasAI ? '' : ' (no AI provider set)'}`);
+      log(`keyword filter → ${rest.length} results checked${hasAI ? ' (time budget low)' : ' (no AI provider set)'}`);
+      return;
+    }
+    const batches: Hit[][] = [];
+    for (let i = 0; i < rest.length; i += 18) batches.push(rest.slice(i, i + 18)); // small batches fit free-tier token limits
+    let kept = 0;
+    const res = await pool(batches, 2, async (batch) => {
+      const items = batch.map((r, i) => ({ i, title: r.title, url: r.url, date: r.date || '', text: r.snippet.slice(0, isPostUrl(r.url) ? 650 : 300) }));
+      const { data, meta } = await chatJson<{ items: { i: number; relevant: 'yes' | 'maybe' | 'no'; kind: Find['kind']; title: string; company: string; location: string; role: string[]; domain: Domain; why: string; apply_how: string }[] }>(SYSTEM,
+        `Classify these web results. Keep real FDE or AI/ML job postings, real hiring posts by companies/founders/employees (X, LinkedIn, Reddit, HN), and company careers pages likely listing such roles. Use "maybe" when it could be relevant but details are missing — do not drop possible opportunities.
+For posts: title = the role being hired for, company = hiring company, location = what the post says, apply_how = how to apply (email address, "DM", form/link) if stated.
+Results:\n${JSON.stringify(items)}\nJSON: {"items":[{"i":0,"relevant":"yes|maybe|no","kind":"job|post|careers_page","title":"clean role title","company":"","location":"city/country/remote scope or not stated","role":["FDE"|"AIML"],"domain":"AI_LAB|AI_INFRA|SEMI|EMBEDDED|IT|FINTECH|HEALTH|DEFENSE|CONSULTING|OTHER","why":"max 20 words","apply_how":""}]}`,
+        { maxTokens: 3000, timeoutMs: Math.min(100000, left() - 15000) });
+      run.ai = `${meta.provider} · ${meta.model}`;
+      for (const it of data?.items || []) {
+        const r = batch[it.i];
+        if (!r || it.relevant === 'no' || !it.relevant) continue;
+        if (it.kind === 'careers_page') careerPages.push(r);
+        kept++;
+        finds.push(mk(r, { kind: it.kind || (isPostUrl(r.url) ? 'post' : 'job'), title: it.title, company: /^(not (stated|provided|specified|mentioned)|unknown|n\/a|none)$/i.test((it.company || '').trim()) ? '' : it.company, location: /not stated/i.test(it.location || '') ? '' : it.location, role: (Array.isArray(it.role) ? it.role : String(it.role || '').split(/[,/ ]+/)).map((x) => (/fde|forward/i.test(x) ? 'FDE' : /ai|ml/i.test(x) ? 'AIML' : '')).filter(Boolean) as Category[], domain: it.domain, why: it.why, applyHow: it.apply_how, confidence: it.relevant === 'maybe' ? 'maybe' : 'high' }));
+      }
+    });
+    const failed = res.filter((r) => r.status === 'rejected');
+    if (failed.length) {
+      log(`AI classification failed for ${failed.length}/${batches.length} batches (${String(((failed[0] as PromiseRejectedResult).reason as Error)?.message).slice(0, 300)}) → keyword filter for those`);
+      res.forEach((r, i) => { if (r.status === 'rejected') for (const x of batches[i]) { const h = heuristic(x); if (h) finds.push(mk(x, h)); } });
+    }
+    log(`classified ${rest.length} results in ${batches.length} batches → ${kept} relevant (${run.ai || 'keywords'})`);
+  };
+
+  try {
+    if (!run.engines.length) throw new Error('No web-search engine configured. Add a free Tavily / Exa / Serper / Firecrawl / Linkup key (or your SearXNG URL) in "AI & Keys".');
+
+    // 1. PLAN
+    let queries = mission?.queries || [];
+    let rec: Recency = mission?.recency || 'month';
+    if (opts.prompt) {
+      const wantsPosts = /twitter|\bx\b|tweet|post|linkedin/i.test(opts.prompt);
+      rec = /today|24 ?h|last day/i.test(opts.prompt) ? 'day' : /week|7 days|recent|latest|new/i.test(opts.prompt) || wantsPosts ? 'week' : 'month';
+      if (hasAI) {
+        try {
+          const { data, meta } = await chatJson<{ queries: string[] }>(SYSTEM,
+            `Turn this request into ${depth === 'deep' ? 16 : 8} precise, DIFFERENT web-search queries (Google syntax: quotes, OR, site:) that together leave nothing out.
+Cover every angle that fits the request: X/Twitter posts (site:x.com with hiring phrases like hiring, "we're hiring", "join us", "DM me"), LinkedIn posts (site:linkedin.com/posts), company boards (site:jobs.ashbyhq.com, site:jobs.lever.co, site:job-boards.greenhouse.io, site:apply.workable.com), careers pages, startup/funding news, communities (news.ycombinator.com, reddit).
+Vary role wording (forward deployed / applied AI / AI engineer / ML engineer / LLM / GenAI / founding engineer) and location wording (Bengaluru, Bangalore, remote India, remote worldwide). Never put date words like "past week" in queries.
+Request: ${opts.prompt}\nJSON: {"queries":["..."]}`, { maxTokens: 1500 });
+          run.ai = `${meta.provider} · ${meta.model}`;
+          if (data?.queries?.length) queries = data.queries.map((q) => q.replace(/"?(past|last) (week|month|7 days|24 hours)"?/gi, '').trim()).filter(Boolean).slice(0, depth === 'deep' ? 18 : 9);
+          log(`planned ${queries.length} queries with ${run.ai}`);
+        } catch (e) {
+          log(`AI planning failed (${(e as Error).message.slice(0, 120)}) → keyword plan`);
+        }
+      }
+      if (!queries.length) queries = fallbackPlan(opts.prompt);
+      if (wantsPosts && !queries.some((q) => q.includes('site:x.com'))) queries.push(...MISSIONS[0].queries.slice(0, 4));
+    } else if (depth === 'quick') queries = queries.slice(0, 6);
+    run.queries = [...queries];
+
+    // 2. SEARCH
+    const results = await searchAll(queries, rec);
+    log(`search: ${results.length} unique results from ${queries.length} queries (${run.searches} engine calls, freshness: ${rec})`);
+
+    // 3. READ X posts in full
+    await readX(results);
+    const fresh = results.filter((r) => !r.stale);
+
+    // 4. VERIFY ATS boards
+    await verifyBoards(fresh);
+
+    // 5. CLASSIFY everything else
+    await classifyAll(fresh.filter((r) => isJobLink(r.url)));
+
+    // 6. FOLLOW UP (deep)
+    if (depth === 'deep' && hasAI && left() > 110000) {
+      const top = finds.filter((f) => f.kind !== 'company').slice(0, 25).map((f) => `${f.kind}: ${f.title} @ ${f.company} (${f.location || 'n/a'})`).join('\n');
+      if (top) {
+        try {
+          const { data } = await chatJson<{ queries: string[] }>(SYSTEM,
+            `Here is what a first search round found:\n${top}\n\nWrite 6 follow-up web-search queries that find MORE opportunities the first round missed: other roles at these companies (their careers pages / ATS boards), similar companies, and more hiring posts in the same niche. Google syntax. JSON: {"queries":["..."]}`, { maxTokens: 700, timeoutMs: 30000 });
+          const fq = (data?.queries || []).slice(0, 6);
+          if (fq.length) {
+            run.queries.push(...fq.map((q) => `↳ ${q}`));
+            const more = await searchAll(fq, rec === 'day' ? 'week' : rec);
+            log(`follow-up: ${more.length} new results from ${fq.length} queries`);
+            await readX(more);
+            const moreFresh = more.filter((r) => !r.stale);
+            await verifyBoards(moreFresh);
+            await classifyAll(moreFresh.filter((r) => isJobLink(r.url)));
+          }
+        } catch (e) {
+          log(`follow-up skipped: ${(e as Error).message.slice(0, 100)}`);
+        }
+      }
     }
 
-    // 5. DEEP READ promising careers pages (AI only) — "open the company website and list roles"
-    if (hasAI && careerPages.length && left() > 70000) {
-      const pages = careerPages.slice(0, 3);
-      const read = await pool(pages, 3, async (p) => ({ p, text: await readPage(p.url, 9000) }));
+    // 7. DEEP READ careers pages
+    if (hasAI && careerPages.length && left() > 60000) {
+      const pages = careerPages.slice(0, depth === 'deep' ? 6 : 3);
+      const read = await pool(pages, 3, async (p) => ({ p, text: await readPage(p.url, 12000) }));
       for (const x of read) {
-        if (x.status !== 'fulfilled' || left() < 30000) continue;
+        if (x.status !== 'fulfilled' || left() < 25000) continue;
         try {
           const { data } = await chatJson<{ jobs: { title: string; location: string; url: string }[]; company: string }>(SYSTEM,
-            `From this careers page, list ONLY FDE / AI-ML roles with their location and absolute apply URL (use the page URL if none).\nPage URL: ${x.value.p.url}\n---\n${x.value.text}\n---\nJSON: {"company":"","jobs":[{"title":"","location":"","url":""}]}`, { maxTokens: 1500, timeoutMs: Math.min(60000, left() - 15000) });
+            `From this careers page, list ONLY FDE / AI-ML roles with their location and absolute apply URL (use the page URL if none).\nPage URL: ${x.value.p.url}\n---\n${x.value.text}\n---\nJSON: {"company":"","jobs":[{"title":"","location":"","url":""}]}`, { maxTokens: 1500, timeoutMs: Math.min(50000, left() - 15000) });
           for (const j of data?.jobs || []) {
             const url = /^https?:/.test(j.url) ? j.url : x.value.p.url;
             finds.push(mk({ title: j.title, url, snippet: `From careers page ${x.value.p.url}`, engine: 'reader' }, { kind: 'job', title: j.title, company: data?.company || '', location: j.location, why: 'Read directly from the company careers page' }));
@@ -204,20 +342,35 @@ export async function runAgent(opts: { missionId?: string; prompt?: string; budg
       }
     }
 
-    // 6. SAVE (keep your status on finds you already triaged)
+    // 8. SAVE (keep your status on finds you already triaged) + ALERT
     const existing = await hgetall<Find>('agent:finds');
-    let fresh = 0;
+    const ids = new Set<string>();
+    const newOnes: Find[] = [];
     for (const f of finds) {
-      const prev = existing[f.id];
-      if (prev) continue;
+      if (ids.has(f.id)) continue;
       if (f.kind !== 'company' && !f.role.length) continue;
-      if (f.kind === 'job' && !locationAllowed(f.locTags, f.location)) continue; // onsite outside Bengaluru / remote not open to India
+      if (f.kind === 'job' && f.location && !locationAllowed(f.locTags, f.location)) continue;
       if (f.kind !== 'company' && isExcluded({ title: f.title, company: f.company, location: f.location, url: f.url }, settings)) continue;
+      ids.add(f.id);
+      const prev = existing[f.id];
+      if (prev) { await hset('agent:finds', f.id, { ...f, status: prev.status, foundAt: prev.foundAt }); continue; }
       await hset('agent:finds', f.id, f);
-      fresh++;
+      newOnes.push(f);
     }
-    run.finds = fresh;
-    log(`saved ${fresh} new finds`);
+    run.findIds = [...ids];
+    run.total = ids.size;
+    run.finds = newOnes.length;
+    log(`saved ${run.total} relevant (${run.finds} new, ${run.total - run.finds} seen before)`);
+
+    if (opts.alert !== false && newOnes.length) {
+      const hot = newOnes.filter((f) => f.kind !== 'company' && f.confidence !== 'maybe').slice(0, 15);
+      if (hot.length) {
+        await sendAlert(
+          hot.map((f) => ({ id: f.id, title: `${f.kind === 'post' ? '📣 ' : ''}${f.title}`, company: f.company || f.author || '', location: f.location || 'not stated', url: f.url, sources: [`agent:${f.mission}`], categories: f.role, domain: f.domain, seniority: 'mid' as const, hidden: true, locTags: f.locTags, score: 99, cvMatch: 0, firstSeen: now, lastSeen: now, description: f.snippet })),
+          `Agent found ${hot.length} new opportunities (${mission?.title || 'your search'})`,
+        ).catch(() => {});
+      }
+    }
   } catch (e) {
     run.error = (e as Error).message;
     log(`ERROR ${run.error}`);
@@ -228,17 +381,23 @@ export async function runAgent(opts: { missionId?: string; prompt?: string; budg
   return run;
 }
 
-/** For cron: run the mission that ran least recently, if the interval has passed. */
+/** For cron: run the mission that ran least recently, within the daily search budget of your free tiers. */
 export async function runDueMission(): Promise<AgentRun | { skipped: string }> {
-  const interval = Number(process.env.AGENT_INTERVAL_MIN) || 180;
+  const interval = Number(process.env.AGENT_INTERVAL_MIN) || 120;
   const runs = await getJSON<AgentRun[]>('agent:runs', []);
   const last = runs.find((r) => r.mission !== 'custom');
   if (last && Date.now() - Date.parse(last.startedAt) < interval * 60000) return { skipped: `next mission due after ${interval} min` };
   await loadVault();
   if (!availableEngines().length) return { skipped: 'no web-search key configured' };
+  const u = await searchUsage();
+  if (u.usedToday >= u.dailyBudget) return { skipped: `daily search budget used (${u.usedToday}/${u.dailyBudget}) — protects your free monthly quota (${u.used}/${u.limit})` };
   const lastRunOf = (id: string) => Date.parse(runs.find((r) => r.mission === id)?.startedAt || '1970-01-01');
-  const next = [...MISSIONS].sort((a, b) => lastRunOf(a.id) - lastRunOf(b.id))[0];
-  return runAgent({ missionId: next.id, budgetMs: 250000 });
+  // X + LinkedIn posts go stale fastest → every other slot is a posts mission
+  const postsDue = ['x-posts', 'li-posts'].sort((a, b) => lastRunOf(a) - lastRunOf(b))[0];
+  const other = MISSIONS.filter((m) => !['x-posts', 'li-posts'].includes(m.id)).sort((a, b) => lastRunOf(a.id) - lastRunOf(b.id))[0];
+  const lastWasPosts = last && ['x-posts', 'li-posts'].includes(last.mission);
+  const next = lastWasPosts ? other.id : postsDue;
+  return runAgent({ missionId: next, budgetMs: 250000, depth: u.dailyBudget - u.usedToday > 25 ? 'deep' : 'quick' });
 }
 
 /** Personal AI analysis of one job vs your CV. */

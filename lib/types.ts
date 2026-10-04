@@ -23,6 +23,8 @@ export interface Job extends RawJob {
   locTags: string[]; // BLR, INDIA, USA, REMOTE, REMOTE_IN (India-eligible remote), GLOBAL
   score: number;
   cvMatch: number;
+  flags?: string[]; // Excel red flags
+  payBand?: string; // estimated pay when salary is not published
   firstSeen: string;
   lastSeen: string;
 }

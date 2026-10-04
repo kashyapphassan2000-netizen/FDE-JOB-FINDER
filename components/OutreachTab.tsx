@@ -4,7 +4,8 @@ import { ago, api } from './api';
 
 type Contact = {
   id: string; name: string; role: string; email: string; confidence: 'verified' | 'found' | 'guess'; source: string; sourceUrl?: string; linkedin?: string;
-  priority: number; status: 'new' | 'drafted' | 'sent' | 'replied' | 'skip'; draft?: { subject: string; body: string; model?: string };
+  priority: number; status: 'new' | 'drafted' | 'sent' | 'replied' | 'skip'; draft?: { subject: string; body: string; model?: string; type?: string };
+  kind?: 'hiring' | 'referrer'; sentAt?: string; followUps?: number;
 };
 type Lead = { id: string; company: string; domain: string; about: string; hiringFor?: string; contacts: Contact[]; people: { name: string; role: string; url: string }[]; log: string[]; updatedAt: string };
 type Suggestion = { name: string; website?: string; why: string; roles: number };
@@ -39,12 +40,12 @@ export default function OutreachTab({ toast, seed }: { toast: (s: string) => voi
 
   const put = (lead: Lead) => setLeads((ls) => [lead, ...(ls || []).filter((l) => l.id !== lead.id)]);
 
-  async function find(name = company, domain?: string, forRole = role) {
+  async function find(name = company, domain?: string, forRole = role, mode: 'hiring' | 'referral' = 'hiring') {
     if (!name.trim()) return toast('Type a company name or website');
     setBusy('find');
     toast(`Searching ${name} — website, team pages, LinkedIn, web (20–60 s)…`);
     try {
-      const r = await api<{ lead: Lead }>('/api/outreach', { method: 'POST', body: JSON.stringify({ action: 'find', company: name, domain, hiringFor: forRole || undefined }) });
+      const r = await api<{ lead: Lead }>('/api/outreach', { method: 'POST', body: JSON.stringify({ action: 'find', company: name, domain, hiringFor: forRole || undefined, mode }) });
       put(r.lead);
       setOpen(r.lead.id);
       toast(`${r.lead.company}: ${r.lead.contacts.length} contacts (${r.lead.contacts.filter((c) => c.confidence !== 'guess').length} confirmed)`);
@@ -71,6 +72,9 @@ export default function OutreachTab({ toast, seed }: { toast: (s: string) => voi
 
   const shown = (leads || []).filter((l) => !q || `${l.company} ${l.domain}`.toLowerCase().includes(q.toLowerCase()));
   const sent = (leads || []).flatMap((l) => l.contacts).filter((c) => c.status === 'sent' || c.status === 'replied').length;
+  const today = new Date().toISOString().slice(0, 10);
+  const sentToday = (leads || []).flatMap((l) => l.contacts).filter((c) => c.sentAt?.startsWith(today)).length;
+  const due = (leads || []).flatMap((l) => l.contacts).filter((c) => c.status === 'sent' && c.sentAt && Date.now() - Date.parse(c.sentAt) > 5 * 864e5 && (c.followUps || 0) < 2).length;
   const replied = (leads || []).flatMap((l) => l.contacts).filter((c) => c.status === 'replied').length;
 
   return (
@@ -84,6 +88,8 @@ export default function OutreachTab({ toast, seed }: { toast: (s: string) => voi
           <div><b>{leads?.length ?? '–'}</b><span>companies</span></div>
           <div><b>{sent}</b><span>emails sent</span></div>
           <div><b>{replied}</b><span>replies</span></div>
+          <div className={sentToday > 10 ? 'warn' : ''}><b>{sentToday}</b><span>sent today</span></div>
+          <div className={due ? 'warn' : ''}><b>{due}</b><span>follow-ups due</span></div>
         </div>
       </div>
 
@@ -106,7 +112,7 @@ export default function OutreachTab({ toast, seed }: { toast: (s: string) => voi
           </div>
         )}
         <div className="hint">
-          <b>How the emails are found:</b> addresses published on the company site and on the web are marked <span className="badge b-AIML">found public</span>. With a Hunter.io key (AI &amp; Keys, 25 free searches a month) you also get <span className="badge b-ok">verified</span> ones. For people found on LinkedIn/X with no public email, the app builds a <span className="badge b-warn">guess · unverified</span> from the usual pattern (first@company), which is right for many startups but not all. Send 5–10 personal emails a day at most; mass sending gets your Gmail flagged.
+          <b>How the emails are found:</b> addresses published on the company site and on the web are marked <span className="badge b-AIML">found public</span>. With a Hunter.io key (AI &amp; Keys, 25 free searches a month) you also get <span className="badge b-ok">verified</span> ones. For people found on LinkedIn/X with no public email, the app builds a <span className="badge b-warn">guess · unverified</span> from the usual pattern (first@company), which is right for many startups but not all. <b>Rules from your Excel:</b> email the engineering manager (not HR) 3–5 days after applying on the portal; send Tue–Thu 9–11 AM their time; 75–120 words; one follow-up after 5–7 days, then move on after two; 5–10 personal emails a day at most (more gets Gmail flagged). For referrals ask mid-level engineers, not recruiters — and note Anthropic has no referral bonus, so only people who know your work will refer you there.
         </div>
       </div>
 
@@ -139,7 +145,7 @@ export default function OutreachTab({ toast, seed }: { toast: (s: string) => voi
                     <div className="row" style={{ alignItems: 'flex-start' }}>
                       <div className="avatar">{initials(c.name || c.email)}</div>
                       <div className="grow">
-                        <div><b>{c.name || c.role || 'Inbox'}</b>{c.name && c.role ? <span className="muted"> · {c.role}</span> : null}</div>
+                        <div><b>{c.name || c.role || 'Inbox'}</b>{c.name && c.role ? <span className="muted"> · {c.role}</span> : null}{c.kind === 'referrer' && <span className="badge b-SEMI" style={{ marginLeft: 6 }}>referrer</span>}{c.status === 'sent' && c.sentAt && <FollowBadge c={c} />}</div>
                         <div className="row small" style={{ gap: 6 }}>
                           <span className="mono">{c.email}</span>
                           <button className="link" onClick={() => copy(c.email)}>copy</button>
@@ -152,7 +158,7 @@ export default function OutreachTab({ toast, seed }: { toast: (s: string) => voi
                         {STATUS.map((s) => <option key={s} value={s}>{s}</option>)}
                       </select>
                       <button className="primary small-btn" disabled={!!busy} onClick={() => act({ action: 'draft', leadId: l.id, contactId: c.id }, `d${c.id}`)}>
-                        {busy === `d${c.id}` ? 'Writing…' : c.draft ? 'Rewrite' : '✨ Draft email'}
+                        {busy === `d${c.id}` ? 'Writing…' : c.status === 'sent' ? '↻ Draft follow-up' : c.kind === 'referrer' ? (c.draft ? 'Rewrite' : '🤝 Ask referral') : c.draft ? 'Rewrite' : '✨ Draft email'}
                       </button>
                     </div>
                     {c.draft && <Draft lead={l} c={c} onSave={(d) => patch(l, c, { draft: d })} onSent={() => patch(l, c, { status: 'sent' })} copy={copy} />}
@@ -167,6 +173,7 @@ export default function OutreachTab({ toast, seed }: { toast: (s: string) => voi
                 <div className="row" style={{ marginTop: 10, justifyContent: 'space-between' }}>
                   <span className="small muted">{l.log.join(' · ')}</span>
                   <span className="row">
+                    <button className="small-btn" disabled={!!busy} onClick={() => find(l.company, l.domain, l.hiringFor || role, 'referral')} title="Mid-level engineers at this company who can refer you (Excel Referral_System: ask ICs, not recruiters)">🤝 Find referrers</button>
                     <button className="small-btn" disabled={!!busy} onClick={() => find(l.company, l.domain)}>Search again</button>
                     <button className="small-btn danger" onClick={() => act({ action: 'delete', leadId: l.id }, 'del').then(load)}>Remove</button>
                   </span>
@@ -198,4 +205,11 @@ function Draft({ lead, c, onSave, onSent, copy }: { lead: Lead; c: Contact; onSa
       </div>
     </div>
   );
+}
+
+function FollowBadge({ c }: { c: Contact }) {
+  const days = Math.floor((Date.now() - Date.parse(c.sentAt!)) / 864e5);
+  if ((c.followUps || 0) >= 2) return <span className="badge b-skip" style={{ marginLeft: 6 }}>2 follow-ups sent — move on</span>;
+  if (days >= 5) return <span className="badge b-err" style={{ marginLeft: 6 }}>follow-up due ({days}d)</span>;
+  return <span className="badge b-ok" style={{ marginLeft: 6 }}>sent {days}d ago{c.followUps ? ` · ${c.followUps} follow-up` : ''}</span>;
 }

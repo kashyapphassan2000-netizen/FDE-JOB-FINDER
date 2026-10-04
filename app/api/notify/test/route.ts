@@ -8,7 +8,7 @@ export async function POST(req: Request) {
   if (g) return g;
   await loadVault();
   const c = notifyConfigured();
-  if (!c.telegram && !c.webhook) return bad('Set TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID (or ALERT_WEBHOOK_URL) on Vercel first.');
+  if (!c.telegram && !c.webhook && !c.email) return bad('Set RESEND_API_KEY + DIGEST_TO (email) or TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID in AI & Keys first.');
   const demo: Job = {
     id: 'test', title: 'Forward Deployed Engineer (test alert)', company: 'FDE Job Finder', location: 'Bengaluru, India', url: 'https://example.com',
     sources: ['test'], categories: ['FDE'], domain: 'IT', seniority: 'mid', hidden: false, locTags: ['BLR'], score: 99, cvMatch: 0, firstSeen: new Date().toISOString(), lastSeen: new Date().toISOString(),

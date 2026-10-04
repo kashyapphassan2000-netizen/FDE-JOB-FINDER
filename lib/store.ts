@@ -76,6 +76,16 @@ export async function hset(key: string, field: string, value: unknown): Promise<
   }
 }
 
+/** Atomic counter inside a hash (safe under parallel calls). */
+export async function hincr(key: string, field: string, by = 1): Promise<number> {
+  if (redis) return Number(await redis.hincrby(P + key, field, by));
+  const h = memHash.get(P + key) || new Map();
+  const v = Number(h.get(field) || 0) + by;
+  h.set(field, String(v));
+  memHash.set(P + key, h);
+  return v;
+}
+
 export async function hdel(key: string, field: string): Promise<void> {
   if (redis) await redis.hdel(P + key, field);
   else memHash.get(P + key)?.delete(field);

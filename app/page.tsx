@@ -4,6 +4,7 @@ import JobsTab from '@/components/JobsTab';
 import AgentTab from '@/components/AgentTab';
 import DiscoverTab from '@/components/DiscoverTab';
 import OutreachTab from '@/components/OutreachTab';
+import OpportunitiesTab from '@/components/OpportunitiesTab';
 import AiKeysTab from '@/components/AiKeysTab';
 import TrackerTab from '@/components/TrackerTab';
 import ExcelTab from '@/components/ExcelTab';
@@ -14,7 +15,7 @@ import SettingsTab from '@/components/SettingsTab';
 import { ago, api, type JobsPayload } from '@/components/api';
 
 const NAV = [
-  { group: 'Find', items: [['Jobs', '💼'], ['AI Agent', '🤖'], ['Hidden jobs & startups', '💎'], ['Outreach', '✉️']] },
+  { group: 'Find', items: [['Jobs', '💼'], ['AI Agent', '🤖'], ['Hidden jobs & startups', '💎'], ['Outreach', '✉️'], ['Opportunities', '🏆']] },
   { group: 'Track', items: [['Tracker', '📌'], ['CV', '📄']] },
   { group: 'Library', items: [['Excel sheets', '📊'], ['Platforms map', '🗺️']] },
   { group: 'Setup', items: [['Sources & APIs', '🔌'], ['AI & Keys', '🔑'], ['Settings', '⚙️']] },
@@ -120,9 +121,10 @@ export default function Home() {
           <div className="notice warn">Storage is in <b>memory mode</b> – data is lost on redeploy. Connect Upstash Redis (PDF step 4).</div>
         )}
         {tab === 'Jobs' && <JobsTab data={data} reload={load} toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}
-        {tab === 'AI Agent' && <AgentTab toast={setToast} />}
+        {tab === 'AI Agent' && <AgentTab toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}
         {tab === 'Hidden jobs & startups' && <DiscoverTab toast={setToast} />}
         {tab === 'Outreach' && <OutreachTab toast={setToast} seed={seed} />}
+        {tab === 'Opportunities' && <OpportunitiesTab toast={setToast} />}
         {tab === 'AI & Keys' && <AiKeysTab toast={setToast} />}
         {tab === 'Tracker' && <TrackerTab data={data} reload={load} toast={setToast} />}
         {tab === 'Excel sheets' && <ExcelTab toast={setToast} />}

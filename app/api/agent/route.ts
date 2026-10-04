@@ -1,7 +1,8 @@
 import { guard, bad } from '@/lib/guard';
 import { MISSIONS, runAgent, type AgentRun, type Find } from '@/lib/agent';
 import { getJSON, hdel, hgetall, hset } from '@/lib/store';
-import { availableEngines } from '@/lib/search';
+import { availableEngines, searchUsage } from '@/lib/search';
+import { boardSearchLinks, xSearchLinks } from '@/lib/xposts';
 import { aiConfigured } from '@/lib/llm';
 import { loadVault } from '@/lib/secrets';
 
@@ -18,15 +19,18 @@ export async function GET(req: Request) {
     finds: Object.values(finds).sort((a, b) => b.foundAt.localeCompare(a.foundAt)),
     engines: availableEngines().map((e) => e.id),
     ai: await aiConfigured(),
+    usage: await searchUsage(),
+    xLinks: xSearchLinks(),
+    boardLinks: boardSearchLinks(),
   });
 }
 
 export async function POST(req: Request) {
   const g = await guard(req);
   if (g) return g;
-  const { missionId, prompt } = (await req.json()) as { missionId?: string; prompt?: string };
+  const { missionId, prompt, depth } = (await req.json()) as { missionId?: string; prompt?: string; depth?: 'quick' | 'deep' };
   if (!missionId && !prompt?.trim()) return bad('mission or prompt required');
-  return Response.json(await runAgent({ missionId, prompt: prompt?.slice(0, 500), budgetMs: 270000 }));
+  return Response.json(await runAgent({ missionId, prompt: prompt?.slice(0, 500), budgetMs: 275000, depth: depth || 'deep' }));
 }
 
 export async function PATCH(req: Request) {

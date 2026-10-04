@@ -26,9 +26,9 @@ export async function POST(req: Request) {
   try {
     if (b.action === 'find') {
       if (!String(b.company || b.domain || '').trim()) return bad('Enter a company name or website');
-      return Response.json({ lead: await findContacts({ company: String(b.company || b.domain).slice(0, 120), domain: b.domain, hiringFor: b.hiringFor?.slice(0, 200) }) });
+      return Response.json({ lead: await findContacts({ company: String(b.company || b.domain).slice(0, 120), domain: b.domain, hiringFor: b.hiringFor?.slice(0, 200), mode: b.mode === 'referral' ? 'referral' : 'hiring' }) });
     }
-    if (b.action === 'draft') return Response.json({ lead: await draftEmail(b.leadId, b.contactId, b.extra?.slice(0, 400)) });
+    if (b.action === 'draft') return Response.json({ lead: await draftEmail(b.leadId, b.contactId, b.extra?.slice(0, 400), b.type) });
     if (b.action === 'update') return Response.json({ lead: await updateContact(b.leadId, b.contactId, b.patch || {}) });
     if (b.action === 'delete') { await deleteLead(b.leadId); return Response.json({ ok: true }); }
     return bad('unknown action');

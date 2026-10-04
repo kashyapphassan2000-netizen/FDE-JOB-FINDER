@@ -29,8 +29,12 @@ export interface Contact {
   linkedin?: string;
   priority: number; // higher = better person to email
   status: 'new' | 'drafted' | 'sent' | 'replied' | 'skip';
-  draft?: { subject: string; body: string; model?: string };
+  draft?: { subject: string; body: string; model?: string; type?: DraftType };
+  kind?: 'hiring' | 'referrer'; // referrer = mid-level engineer to ask for a referral (Excel Referral_System)
+  sentAt?: string;
+  followUps?: number;
 }
+export type DraftType = 'cold' | 'followup' | 'referral';
 export interface Lead {
   id: string;
   company: string;
@@ -103,7 +107,7 @@ const nameKey = (s: string) => s.toLowerCase().replace(/\b(ai|inc|labs?|technolo
 
 async function resolveDomain(company: string, log: (s: string) => void): Promise<{ domain: string; about: string }> {
   const key = nameKey(company);
-  const r = await webSearch(`${company} official website`, 10, false);
+  const r = await webSearch(`${company} official website`, 10, 'any');
   const hosts = r.results.map((x) => ({ h: domainFrom(x.url), x })).filter((y) => y.h && !SKIP_HOSTS.test(y.h));
   // 1. a result whose domain contains the company name (bolna.ai for "Bolna AI")
   const named = key.length >= 3 ? hosts.find((y) => nameKey(y.h.split('.').slice(0, -1).join('')).includes(key) || key.includes(nameKey(y.h.split('.')[0]))) : undefined;
@@ -189,7 +193,8 @@ async function hunter(domain: string, log: (s: string) => void): Promise<{ conta
   }
 }
 
-export async function findContacts(input: { company: string; domain?: string; hiringFor?: string }): Promise<Lead> {
+export async function findContacts(input: { company: string; domain?: string; hiringFor?: string; mode?: 'hiring' | 'referral' }): Promise<Lead> {
+  const referral = input.mode === 'referral';
   await loadVault();
   const lines: string[] = [];
   const log = (s: string) => lines.push(s);
@@ -229,13 +234,17 @@ export async function findContacts(input: { company: string; domain?: string; hi
   const people = new Map<string, { name: string; role: string; url: string }>();
   if (availableEngines().length) {
     // (people come from AI extraction when a provider is set, else LinkedIn result titles)
-    const qs = [
+    const qs = referral ? [
+      `site:linkedin.com/in "${company}" ("software engineer" OR "ML engineer" OR "machine learning engineer" OR "AI engineer" OR "data scientist")`,
+      `site:linkedin.com/in "${company}" ("senior software engineer" OR "SDE 2" OR "SDE II" OR "applied scientist") Bengaluru`,
+      `"${company}" engineer "@${domain}" github OR blog`,
+    ] : [
       `"@${domain}" email`,
       `${company} founder CEO CTO co-founder`,
       `site:linkedin.com/in ${company} founder OR CTO OR "engineering manager" OR "head of engineering"`,
       `${company} ${domain} recruiter OR "talent acquisition" OR "hiring manager" OR "head of engineering"`,
     ];
-    const res = await Promise.allSettled(qs.map((q) => webSearch(q, 10, false)));
+    const res = await Promise.allSettled(qs.map((q) => webSearch(q, 10, 'any')));
     const all: WebResult[] = [];
     for (const r of res) {
       if (r.status !== 'fulfilled') continue;
@@ -253,15 +262,16 @@ export async function findContacts(input: { company: string; domain?: string; hi
   // match people to found emails by first name; otherwise guess with the learned pattern
   const named = [...contacts.values()].filter((c) => c.name);
   const pattern = h.pattern || learnPattern(named);
-  for (const p of [...people.values()].sort((a, b) => rankRole(b.role) - rankRole(a.role)).slice(0, 6)) {
+  const rank = (role: string) => (referral ? (/recruit|talent|\bhr\b|founder|ceo|cto|vp|director|head of/i.test(role) ? 10 : /senior|sde ?(2|ii)|engineer|scientist|developer/i.test(role) ? 90 : 50) : rankRole(role));
+  for (const p of [...people.values()].sort((a, b) => rank(b.role) - rank(a.role)).slice(0, referral ? 8 : 6)) {
     const first = p.name.toLowerCase().split(' ')[0];
     const match = [...contacts.values()].find((c) => c.email.split('@')[0].startsWith(first));
     if (match) {
-      contacts.set(match.email, { ...match, name: match.name || p.name, role: match.role || p.role, linkedin: p.url, priority: rankRole(p.role) + 5 });
+      contacts.set(match.email, { ...match, name: match.name || p.name, role: match.role || p.role, linkedin: p.url, priority: rank(p.role) + 5, kind: referral ? 'referrer' : 'hiring' });
       continue;
     }
     const g = guessEmails(p.name, domain, pattern)[0];
-    if (g && !contacts.has(g)) add({ id: hashId(g), name: p.name, role: p.role, email: g, confidence: 'guess', source: pattern ? `pattern ${pattern}` : 'pattern (common)', sourceUrl: p.url, linkedin: p.url, priority: rankRole(p.role) - 15, status: 'new' });
+    if (g && !contacts.has(g)) add({ id: hashId(g), name: p.name, role: p.role, email: g, confidence: 'guess', source: pattern ? `pattern ${pattern}` : 'pattern (common)', sourceUrl: p.url, linkedin: p.url, priority: rank(p.role) - 15, status: 'new', kind: referral ? 'referrer' : 'hiring' });
   }
 
   const now = new Date().toISOString();
@@ -270,11 +280,12 @@ export async function findContacts(input: { company: string; domain?: string; hi
   // keep your status/drafts on contacts you already worked on
   const merged = [...contacts.values()].map((c) => {
     const old = prev?.contacts.find((o) => o.email === c.email);
-    return old ? { ...c, status: old.status, draft: old.draft } : c;
+    return old ? { ...c, status: old.status, draft: old.draft, sentAt: old.sentAt, followUps: old.followUps, kind: c.kind || old.kind } : c;
   });
+  for (const o of prev?.contacts || []) if (!merged.some((c) => c.email === o.email)) merged.push(o); // never lose contacts you already have
   const lead: Lead = {
     id, company: company.replace(/^\w/, (c) => c.toUpperCase()), domain, about: about.slice(0, 300), hiringFor: input.hiringFor || prev?.hiringFor,
-    contacts: merged.sort((a, b) => b.priority - a.priority).slice(0, 15),
+    contacts: merged.sort((a, b) => b.priority - a.priority).slice(0, 25),
     people: [...people.values()].slice(0, 10), log: lines, createdAt: prev?.createdAt || now, updatedAt: now,
   };
   await hset('outreach:leads', id, lead);
@@ -289,29 +300,44 @@ export async function deleteLead(id: string) {
   await hdel('outreach:leads', id);
 }
 
-export async function updateContact(leadId: string, contactId: string, patch: Partial<Pick<Contact, 'status' | 'draft' | 'email' | 'name' | 'role'>>): Promise<Lead> {
+export async function updateContact(leadId: string, contactId: string, patch: Partial<Pick<Contact, 'status' | 'draft' | 'email' | 'name' | 'role' | 'followUps' | 'sentAt'>>): Promise<Lead> {
   const lead = (await hgetall<Lead>('outreach:leads'))[leadId];
   if (!lead) throw new Error('Lead not found');
-  lead.contacts = lead.contacts.map((c) => (c.id === contactId ? { ...c, ...patch } : c));
+  lead.contacts = lead.contacts.map((c) => (c.id === contactId ? { ...c, ...patch, ...(patch.status === 'sent' && c.status !== 'sent' ? { sentAt: new Date().toISOString() } : {}) } : c));
   lead.updatedAt = new Date().toISOString();
   await hset('outreach:leads', leadId, lead);
   return lead;
 }
 
-export async function draftEmail(leadId: string, contactId: string, extra?: string): Promise<Lead> {
+const RULES: Record<DraftType, string> = {
+  cold: `Write a cold email following these rules (from the candidate's research, CareerPlug/Sec 8 data):
+- 75-120 words body, 4-5 sentences. Plain text, no markdown, no bullet lists.
+- Subject: "<Role> — <Candidate name>" or, for a founder, something specific to their product. Max 8 words.
+- Line 1 "Hi <first name>,". Then ONE specific concrete signal from the CV that maps to THEIR product/problem (e.g. "I built a RAG pipeline that ..."), then one line on what they seem to be working on.
+- If the recipient is a CEO/CTO/founder of a small startup: max 3 sentences — "I built <specific AI thing similar to your product> — here's the GitHub. I'd love to help with <specific challenge>."
+- Low-friction ask ONLY: "Happy to share more if useful." NEVER ask for a 30-minute call. NEVER "I hope this email finds you well", "I'm very excited", or a resume summary.
+- Sign off with the candidate's name and GitHub/LinkedIn link from the CV if present.`,
+  followup: `Write a short follow-up (2-3 sentences, under 60 words) to a cold email sent ~5-7 days ago that got no reply. Add ONE new useful thing (a relevant project link, a quick idea for their product, or a result) — never "just checking in". Keep the same subject prefixed with "Re: ". Low-friction close.`,
+  referral: `Write a referral request to a mid-level engineer at the company (signal-anchored outreach, converts 15-30% vs 1-3% generic):
+- Under 150 words, 3 short paragraphs. Open with a SPECIFIC shared signal or something concrete about their work/team; state the exact role and why the candidate fits (one proof point from the CV); ask: "Would you be open to referring me, or pointing me to the right person?"
+- Polite, no pressure, offer to send the resume. Plain text. Sign off with the candidate's name + GitHub/LinkedIn link from the CV.`,
+};
+
+export async function draftEmail(leadId: string, contactId: string, extra?: string, type?: DraftType): Promise<Lead> {
   await loadVault();
   if (!(await aiConfigured())) throw new Error('Add an AI provider in "AI & Keys" to draft emails.');
   const lead = (await hgetall<Lead>('outreach:leads'))[leadId];
   const c = lead?.contacts.find((x) => x.id === contactId);
   if (!lead || !c) throw new Error('Contact not found');
+  const kind: DraftType = type || (c.status === 'sent' ? 'followup' : c.kind === 'referrer' ? 'referral' : 'cold');
   const cv = await getCv();
   if (!cv.text && !cv.skills.length) throw new Error('Upload your CV in the CV tab first, so the email uses your real experience (nothing is invented).');
-  const profile = await getJSON<{ name?: string }>('profile', {});
   const { data, meta } = await chatJson<{ subject: string; body: string }>(
-    `You write short, specific cold emails from a job seeker to a person at a company. Rules: max 120 words in the body; no flattery, no buzzwords, no "I hope this email finds you well"; open with why THIS company; give 2 concrete proof points from the CV with numbers if present; one clear ask (15-min call or referral to the right person); sign off with the candidate's name taken from the CV. NEVER invent facts, numbers, employers or names: use only what is in the CV; if something is missing write a [placeholder] in square brackets. Plain text, no markdown.`,
-    `Candidate CV:\n${(cv.text || `Skills: ${cv.skills.join(', ')}`).slice(0, 5000)}\n\nCompany: ${lead.company} (${lead.domain}) — ${lead.about || 'no description'}\nRole the candidate wants: ${lead.hiringFor || 'Forward Deployed Engineer / AI Engineer'}\nRecipient: ${c.name || 'the team'}${c.role ? `, ${c.role}` : ''}\nLocation rule: candidate works from Bengaluru office or remote only.\n${extra ? `Extra instructions: ${extra}\n` : ''}${profile.name ? `Candidate name: ${profile.name}\n` : ''}\nJSON: {"subject":"<= 8 words","body":"..."}`,
+    `You write outreach emails for a job seeker. ${RULES[kind]}\nNEVER invent facts, numbers, employers, links or names: use only what is in the CV; if something is missing write a [placeholder] in square brackets.`,
+    `Candidate CV:\n${(cv.text || `Skills: ${cv.skills.join(', ')}`).slice(0, 5000)}\n\nCompany: ${lead.company} (${lead.domain}) — ${lead.about || 'no description'}\nRole the candidate wants: ${lead.hiringFor || 'Forward Deployed Engineer / AI Engineer'}\nRecipient: ${c.name || 'the team'}${c.role ? `, ${c.role}` : ''}\nCandidate works from the Bengaluru office or remote only.\n${kind === 'followup' && c.draft ? `Original email:\nSubject: ${c.draft.subject}\n${c.draft.body}\n` : ''}${extra ? `Extra instructions: ${extra}\n` : ''}\nJSON: {"subject":"...","body":"..."}`,
     { maxTokens: 900 },
   );
   if (!data?.body) throw new Error('AI returned no draft, try again');
-  return updateContact(leadId, contactId, { draft: { subject: String(data.subject || '').slice(0, 120), body: String(data.body).slice(0, 2500), model: `${meta.provider} · ${meta.model}` }, status: c.status === 'new' ? 'drafted' : c.status });
+  const draft = { subject: String(data.subject || '').slice(0, 120), body: String(data.body).slice(0, 2500), model: `${meta.provider} · ${meta.model}`, type: kind };
+  return updateContact(leadId, contactId, kind === 'followup' ? { draft, followUps: (c.followUps || 0) + 1 } : { draft, status: c.status === 'new' ? 'drafted' : c.status });
 }

@@ -1,5 +1,5 @@
 import { decrypt, encrypt } from './secrets';
-import { getJSON, setJSON } from './store';
+import { getJSON, hgetall, hset, setJSON } from './store';
 
 /**
  * Bring-your-own AI. Any provider works with two wire formats:
@@ -12,8 +12,8 @@ export type Wire = 'anthropic' | 'openai';
 export interface Preset { id: string; label: string; wire: Wire; baseUrl: string; keyUrl: string; free: string; prefer: RegExp[] }
 
 export const PRESETS: Preset[] = [
-  { id: 'gemini', label: 'Google Gemini', wire: 'openai', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', keyUrl: 'https://aistudio.google.com/apikey', free: 'Free tier on Flash models (limits shown in AI Studio)', prefer: [/flash-latest/, /flash(?!.*(image|tts|live|audio))/] },
-  { id: 'groq', label: 'Groq', wire: 'openai', baseUrl: 'https://api.groq.com/openai/v1', keyUrl: 'https://console.groq.com/keys', free: 'Free: ~1,000 requests/day per model, 30/min', prefer: [/gpt-oss-120b/, /llama-3\.3-70b/, /qwen/] },
+  { id: 'gemini', label: 'Google Gemini', wire: 'openai', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', keyUrl: 'https://aistudio.google.com/apikey', free: 'Free tier on Flash models (limits shown in AI Studio)', prefer: [/flash-lite-latest/, /\d-flash-lite$/, /flash-latest/, /\d-flash$/] },
+  { id: 'groq', label: 'Groq', wire: 'openai', baseUrl: 'https://api.groq.com/openai/v1', keyUrl: 'https://console.groq.com/keys', free: 'Free: ~1,000 requests/day per model, 30/min', prefer: [/gpt-oss-120b/, /qwen/, /gpt-oss-20b/, /llama-3\.3-70b/, /llama-4/] },
   { id: 'openrouter', label: 'OpenRouter (300+ models)', wire: 'openai', baseUrl: 'https://openrouter.ai/api/v1', keyUrl: 'https://openrouter.ai/keys', free: '":free" models: 50 req/day (1,000/day after a one-time $10 top-up)', prefer: [/:free$/] },
   { id: 'anthropic', label: 'Anthropic Claude', wire: 'anthropic', baseUrl: 'https://api.anthropic.com', keyUrl: 'https://console.anthropic.com/settings/keys', free: 'Paid (pay as you go)', prefer: [/haiku/, /sonnet/] },
   { id: 'openai', label: 'OpenAI', wire: 'openai', baseUrl: 'https://api.openai.com/v1', keyUrl: 'https://platform.openai.com/api-keys', free: 'Paid (pay as you go)', prefer: [/mini/, /^gpt-/] },
@@ -120,7 +120,12 @@ async function post(url: string, headers: Record<string, string>, body: unknown,
   try {
     const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body), signal: ctrl.signal });
     const text = await r.text();
-    if (!r.ok) throw Object.assign(new Error(`${r.status}: ${text.slice(0, 300)}`), { status: r.status });
+    if (!r.ok) {
+      const ra = Number(r.headers.get('retry-after'));
+      const m = text.match(/(?:retry|try again) in\s*(?:(\d+)h)?\s*(?:(\d+)m(?!s))?\s*(?:([\d.]+)s)?/i);
+      const retryAfterSec = Number.isFinite(ra) && ra > 0 ? ra : m ? Number(m[1] || 0) * 3600 + Number(m[2] || 0) * 60 + Math.ceil(Number(m[3] || 0)) : undefined;
+      throw Object.assign(new Error(`${r.status}: ${text.slice(0, 600)}`), { status: r.status, retryAfterSec });
+    }
     return JSON.parse(text);
   } catch (e) {
     if ((e as Error).name === 'AbortError') throw new Error(`timeout after ${timeoutMs / 1000}s`);
@@ -141,25 +146,61 @@ export async function listModels(p: Pick<Profile, 'wire' | 'baseUrl' | 'key'>): 
   return arr.map((m) => String(m.id || m.name || '').replace(/^models\//, '')).filter(Boolean).sort();
 }
 
-const modelCache = new Map<string, string>();
-async function resolveModel(p: Profile): Promise<string> {
-  if (p.model) return p.model;
-  if (modelCache.has(p.id)) return modelCache.get(p.id)!;
-  const models = await listModels(p);
-  const prefer = PRESETS.find((x) => x.id === p.preset)?.prefer || [];
-  let pick = '';
-  for (const rx of prefer) {
-    pick = models.find((m) => rx.test(m)) || '';
-    if (pick) break;
+const modelListCache = new Map<string, { at: number; models: string[] }>();
+const isRateLimit = (e: unknown) => (e as any)?.status === 429 || /quota|rate.?limit|resource.?exhausted|too many requests/i.test((e as Error)?.message || '');
+
+/** The profile's own model first, then other good models of the same provider (each has its own free quota). */
+async function modelCandidates(p: Profile): Promise<string[]> {
+  const preset = PRESETS.find((x) => x.id === p.preset);
+  const prefer = preset?.prefer || [];
+  let models: string[] = [];
+  if (!p.model || (prefer.length && !p.preset.startsWith('custom'))) {
+    const c = modelListCache.get(p.id);
+    if (c && Date.now() - c.at < 6 * 36e5) models = c.models;
+    else {
+      try {
+        models = await listModels(p);
+        modelListCache.set(p.id, { at: Date.now(), models });
+      } catch {}
+    }
   }
-  pick ||= models[0];
-  if (!pick) throw new Error('No model available — set one in AI & Keys');
-  modelCache.set(p.id, pick);
-  return pick;
+  const ranked: string[] = [];
+  for (const rx of prefer) for (const m of models) if (rx.test(m) && !ranked.includes(m) && !/image|tts|audio|live|embed|guard|whisper|orpheus|vision/i.test(m)) ranked.push(m);
+  const out = Array.from(new Set([p.model, ...ranked.slice(0, 4)].filter(Boolean)));
+  if (!out.length && models[0]) out.push(models[0]);
+  if (!out.length) throw new Error('No model available — set one in AI & Keys');
+  return out;
 }
 
+/** Tries the provider's models in order; a rate-limited model rests (until its reset time) and the next one answers. */
 async function callOne(p: Profile, system: string, user: string, maxTokens: number, timeoutMs: number): Promise<{ text: string; model: string }> {
-  const model = await resolveModel(p);
+  const cands = await modelCandidates(p);
+  let lastErr: unknown = null;
+  for (let pass = 0; pass < 2; pass++) {
+    const cool = await hgetall<number>('ai:cool');
+    let soonest = Infinity;
+    for (const model of cands) {
+      const until = cool[`${p.id}|${model}`] || 0;
+      if (until > Date.now()) { soonest = Math.min(soonest, until); continue; }
+      try {
+        return await callModel(p, model, system, user, maxTokens, timeoutMs);
+      } catch (e) {
+        if (!isRateLimit(e)) throw e;
+        lastErr = e;
+        const sec = (e as any).retryAfterSec ?? (/per.?day|daily|quota/i.test((e as Error).message) ? 6 * 3600 : 60);
+        await hset('ai:cool', `${p.id}|${model}`, Date.now() + Math.min(sec, 24 * 3600) * 1000 + 500);
+        if (sec <= 15) soonest = Math.min(soonest, Date.now() + sec * 1000);
+      }
+    }
+    // every model resting: wait once if one frees up within 15 s
+    const wait = soonest - Date.now();
+    if (pass === 0 && wait > 0 && wait <= 15000) await new Promise((r) => setTimeout(r, wait + 300));
+    else break;
+  }
+  throw lastErr || new Error(`all ${p.label} models are resting after hitting free-tier limits`);
+}
+
+async function callModel(p: Profile, model: string, system: string, user: string, maxTokens: number, timeoutMs: number): Promise<{ text: string; model: string }> {
   const base = trimSlash(p.baseUrl);
   if (p.wire === 'anthropic') {
     const d = await post(`${base}/v1/messages`, { 'x-api-key': p.key, 'anthropic-version': '2023-06-01' }, { model, max_tokens: maxTokens, system, messages: [{ role: 'user', content: user }] }, timeoutMs);

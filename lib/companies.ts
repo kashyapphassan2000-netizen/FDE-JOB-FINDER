@@ -78,6 +78,10 @@ export const DEFAULT_COMPANIES: CompanyEntry[] = [
   wd('mastercard', 'wd1', 'CorporateCareers', 'Mastercard'), wd('paypal', 'wd1', 'jobs', 'PayPal'), wd('thomsonreuters', 'wd5', 'External_Career_Site', 'Thomson Reuters'),
   wd('gehc', 'wd5', 'GEHC_ExternalSite', 'GE HealthCare'), wd('cisco', 'wd5', 'Cisco_Careers', 'Cisco'), wd('equinix', 'wd1', 'External', 'Equinix'),
   wd('autodesk', 'wd1', 'Ext', 'Autodesk'), wd('workday', 'wd5', 'Workday', 'Workday'), wd('harman', 'wd3', 'HARMAN', 'Harman', 'embedded'),
+  // From the AI Job Search Master Excel (verified live Oct 2026)
+  wd('gevernova', 'wd5', 'Vernova_ExternalSite', 'GE Vernova'), ab('surge-ai', 'Surge AI', 'fde'), sr('Swiggy', 'Swiggy', 'india'),
+  ab('lemon-io', 'Lemon.io'), gh('sigmoid', 'Sigmoid', 'india'), ab('bolna', 'Bolna AI', 'india'), gh('lightningai', 'Lightning AI', 'infra'),
+  gh('rubrik', 'Rubrik'),
 ];
 
 export const COMPANY_TAG = new Map<string, string>(DEFAULT_COMPANIES.filter((c) => c.tag).map((c) => [c.name.toLowerCase(), c.tag!]));

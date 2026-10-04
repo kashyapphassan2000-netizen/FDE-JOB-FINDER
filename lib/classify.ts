@@ -172,3 +172,35 @@ export function cvMatchScore(job: RawJob, cvSkills: string[]): number {
   const hit = jobSkills.filter((s) => set.has(s)).length;
   return Math.round((hit / jobSkills.length) * 100);
 }
+
+// ---------- Excel: Scam_Red_Flags + Salary_Intel ----------
+const IT_SERVICES = /\b(tcs|tata consultancy|infosys|wipro|hcl ?tech|hcl|tech mahindra|cognizant|capgemini|accenture|ltimindtree|lti mindtree|mphasis|hexaware|persistent systems|birlasoft|coforge|zensar)\b/i;
+const BIG_TECH = /\b(google|deepmind|microsoft|amazon|aws|meta|apple|nvidia|netflix|uber|linkedin)\b/i;
+const GCC = /\b(jpmorgan|jp morgan|goldman|morgan stanley|walmart|target|wells fargo|american express|amex|visa|mastercard|sap|intuit|adobe|salesforce|servicenow|atlassian|cisco|oracle|ibm|dell|hp|philips|ge |ge healthcare|ge vernova|bosch|siemens|lowe|best buy|tesco|shell|natwest|barclays|hsbc|deutsche|ubs|citi|bloomberg|thomson reuters|equinix|samsara|dolby|autodesk|paypal|workday)\b/i;
+
+/** Red flags from the Excel "Scam_Red_Flags" sheet. */
+export function jobFlags(job: { title: string; company: string; description?: string; salary?: string }): string[] {
+  const t = `${job.title} ${job.description || ''}`;
+  const f: string[] = [];
+  if (/registration fee|training fee|pay(ment)? (to|before) (apply|join)|placement guarantee|security deposit|refundable deposit|course fee/i.test(t)) f.push('⚠ asks for money — likely scam');
+  if (/whatsapp (only|us at|your cv)|telegram only|send (cv|resume) on whatsapp/i.test(t)) f.push('⚠ WhatsApp-only recruiting');
+  if (/cohere health/i.test(`${job.company} ${t}`)) f.push('Cohere Health ≠ Cohere (LLM lab)');
+  if (IT_SERVICES.test(job.company)) f.push('IT services: AI-washing risk, lowest AI pay');
+  if (/fresher/i.test(t) && /(30|40|50) ?lpa/i.test(t)) f.push('⚠ unrealistic pay for freshers');
+  return f;
+}
+
+/** Estimated pay band when a job doesn't publish salary (Excel "Salary_Intel" sheet, 2026). */
+export function payBand(job: { company: string; categories?: string[]; locTags?: string[]; domain?: string; seniority?: string; salary?: string }): string {
+  if (job.salary) return '';
+  const remote = job.locTags?.includes('REMOTE_IN') && !job.locTags?.includes('BLR');
+  const fde = job.categories?.includes('FDE');
+  if (IT_SERVICES.test(job.company)) return '₹8–25 LPA (IT services)';
+  if (job.domain === 'AI_LAB') return fde ? '₹35–70 LPA+ (frontier-lab FDE)' : '₹30–90 LPA (frontier lab)';
+  if (remote) return '₹25–60 LPA equiv (remote US/EU)';
+  if (BIG_TECH.test(job.company)) return '₹25–90 LPA (Big Tech)';
+  if (fde) return '₹35–70 LPA (FDE India)';
+  if (GCC.test(job.company)) return job.seniority === 'senior' ? '₹35–65 LPA (GCC senior)' : '₹25–50 LPA (GCC)';
+  if (job.seniority === 'senior') return '₹30–80 LPA (senior AI)';
+  return '₹16–55 LPA (mid AI, Bengaluru)';
+}

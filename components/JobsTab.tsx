@@ -176,7 +176,8 @@ export default function JobsTab({ data, reload, toast, onOutreach }: { data: Job
                   {j.categories.map((c) => <span key={c} className={`badge b-${c}`}>{c === 'AIML' ? 'AI/ML' : 'FDE'}</span>)}
                   {j.domain && j.domain !== 'OTHER' && <span className="badge b-dom">{DOMAIN_LABEL[j.domain] || j.domain}</span>}
                   {j.hidden && <span className="badge b-SEMI">hidden gem</span>}
-                  {j.salary && <span className="badge b-money">{j.salary}</span>}
+                  {j.salary ? <span className="badge b-money">{j.salary}</span> : j.payBand ? <span className="badge b-skip" title="Estimated from the Excel Salary_Intel sheet — not published by the employer">est. {j.payBand}</span> : null}
+                  {(j.flags || []).map((f) => <span key={f} className={`badge ${f.startsWith('⚠') ? 'b-err' : 'b-warn'}`}>{f}</span>)}
                 </div>
               </div>
               <div className="job-side">

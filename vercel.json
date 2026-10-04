@@ -1,7 +1,93 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
-    { "path": "/api/cron", "schedule": "0 1 * * *" },
-    { "path": "/api/cron/digest", "schedule": "30 2 * * *" }
+    {
+      "path": "/api/cron",
+      "schedule": "10 0 * * *"
+    },
+    {
+      "path": "/api/cron",
+      "schedule": "10 2 * * *"
+    },
+    {
+      "path": "/api/cron",
+      "schedule": "10 4 * * *"
+    },
+    {
+      "path": "/api/cron",
+      "schedule": "10 6 * * *"
+    },
+    {
+      "path": "/api/cron",
+      "schedule": "10 8 * * *"
+    },
+    {
+      "path": "/api/cron",
+      "schedule": "10 10 * * *"
+    },
+    {
+      "path": "/api/cron",
+      "schedule": "10 12 * * *"
+    },
+    {
+      "path": "/api/cron",
+      "schedule": "10 14 * * *"
+    },
+    {
+      "path": "/api/cron",
+      "schedule": "10 16 * * *"
+    },
+    {
+      "path": "/api/cron",
+      "schedule": "10 18 * * *"
+    },
+    {
+      "path": "/api/cron",
+      "schedule": "10 20 * * *"
+    },
+    {
+      "path": "/api/cron",
+      "schedule": "10 22 * * *"
+    },
+    {
+      "path": "/api/cron/agent",
+      "schedule": "40 1 * * *"
+    },
+    {
+      "path": "/api/cron/agent",
+      "schedule": "40 4 * * *"
+    },
+    {
+      "path": "/api/cron/agent",
+      "schedule": "40 7 * * *"
+    },
+    {
+      "path": "/api/cron/agent",
+      "schedule": "40 10 * * *"
+    },
+    {
+      "path": "/api/cron/agent",
+      "schedule": "40 13 * * *"
+    },
+    {
+      "path": "/api/cron/agent",
+      "schedule": "40 16 * * *"
+    },
+    {
+      "path": "/api/cron/agent",
+      "schedule": "40 19 * * *"
+    },
+    {
+      "path": "/api/cron/agent",
+      "schedule": "40 22 * * *"
+    },
+    {
+      "path": "/api/cron/digest",
+      "schedule": "30 2 * * *"
+    },
+    {
+      "path": "/api/cron/discover",
+      "schedule": "50 20 * * *"
+    }
   ]
 }

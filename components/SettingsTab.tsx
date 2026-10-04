@@ -44,7 +44,7 @@ export default function SettingsTab({ toast }: { toast: (s: string) => void }) {
   async function testAlert() {
     try {
       await api('/api/notify/test', { method: 'POST' });
-      toast('Test alert sent – check Telegram');
+      toast('Test alert sent – check your email (and Telegram if set)');
     } catch (e) {
       toast((e as Error).message);
     }
