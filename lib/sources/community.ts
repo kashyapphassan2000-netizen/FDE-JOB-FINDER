@@ -36,14 +36,15 @@ export const COMMUNITY_SOURCES: SourceDef[] = [
     keyless: true,
     envKeys: [],
     defaultIntervalMin: 0,
-    covers: 'linkedin.com/jobs — last 24 h, India + Remote',
+    covers: 'linkedin.com/jobs — last 24 h, Bengaluru + remote (India / worldwide)',
     docs: 'Unofficial public endpoint; if blocked use JSearch or Apify (see PDF)',
     run: async (ctx) => {
       const kws = ctx.keywords.slice(0, 6);
       const plans: { kw: string; loc: string; extra: string }[] = [];
       for (const kw of kws) {
-        plans.push({ kw, loc: 'India', extra: '' });
-        if (/forward|applied|embedded|edge/i.test(kw)) plans.push({ kw, loc: 'Worldwide', extra: '&f_WT=2' });
+        plans.push({ kw, loc: 'Bengaluru, Karnataka, India', extra: '' }); // office: Bengaluru only
+        plans.push({ kw, loc: 'India', extra: '&f_WT=2' }); // remote, India
+        if (/forward|applied|edge|ai engineer/i.test(kw)) plans.push({ kw, loc: 'Worldwide', extra: '&f_WT=2' }); // remote, worldwide
       }
       const out: RawJob[] = [];
       let blocked = 0;

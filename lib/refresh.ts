@@ -2,7 +2,7 @@ import type { Job, RawJob, SourceHealth } from './types';
 import { SOURCES, intervalFor, sourceConfigured } from './sources';
 import { getSettings } from './settings';
 import { acquireLock, getJSON, hgetall, releaseLock, setJSON } from './store';
-import { baseScore, classify, cvMatchScore, dedupeKey, domainOf, freshnessHours, hashId, isExcluded, isHiddenGem, locationTags, seniorityOf } from './classify';
+import { baseScore, classify, locationAllowed, cvMatchScore, dedupeKey, domainOf, freshnessHours, hashId, isExcluded, isHiddenGem, locationTags, seniorityOf } from './classify';
 import { getCv } from './cv';
 import { sendAlert } from './notify';
 import { loadVault } from './secrets';
@@ -167,7 +167,8 @@ export async function refresh(opts: { only?: string[]; force?: boolean; trigger:
     let jobs = [...byId.values()]
       .filter((j) => Date.parse(j.lastSeen) >= cutoff || tracked[j.id])
       .map((j) => rescore(j, cv.skills))
-      .filter((j) => j.categories.length > 0 || tracked[j.id]); // only FDE + AI/ML roles are kept
+      .filter((j) => j.categories.length > 0 || tracked[j.id]) // only FDE + AI/ML roles are kept
+      .filter((j) => locationAllowed(j.locTags, j.location) || tracked[j.id]); // only Bengaluru office or India-eligible remote
     jobs.sort((a, b) => b.score - a.score || Date.parse(b.postedAt || b.firstSeen) - Date.parse(a.postedAt || a.firstSeen));
     jobs = jobs.slice(0, MAX_JOBS);
     const kept = new Set(jobs.map((j) => j.id));

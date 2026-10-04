@@ -77,8 +77,19 @@ export function locationTags(job: RawJob): string[] {
     tags.push('REMOTE');
     if (tags.includes('INDIA') || (REMOTE_OPEN.test(l) && !REMOTE_CLOSED.test(l)) || (/^remote$/i.test(l.trim()) && !tags.includes('USA'))) tags.push('REMOTE_IN');
   }
-  if (!tags.length) tags.push('GLOBAL');
+  if (!l.trim() || /^\s*\d+\s+locations?\s*$/i.test(l)) tags.push('UNSTATED'); // Workday "3 Locations" etc.
+  else if (!tags.length) tags.push('GLOBAL');
   return tags;
+}
+
+/**
+ * YOUR LOCATION RULE: the only office you can go to is Bengaluru; everything else must be remote and open to India.
+ * Kept: Bengaluru onsite/hybrid · remote roles India-based people can take · "India" with no city named (often Bengaluru) · no location stated.
+ * Dropped: onsite anywhere else (Hyderabad, Pune, USA, Europe…) and remote roles locked to US/EU/UK etc.
+ */
+export function locationAllowed(tags: string[], location = ''): boolean {
+  if (tags.includes('BLR') || tags.includes('REMOTE_IN') || tags.includes('UNSTATED')) return true;
+  return /^\s*(india|in|ind|republic of india)\s*\.?$/i.test(location);
 }
 
 export function isExcluded(job: RawJob, s: Settings): boolean {
@@ -99,9 +110,8 @@ export function baseScore(cats: Category[], loc: string[], hours: number, hidden
   if (cats.includes('FDE')) s += 40;
   if (cats.includes('AIML')) s += 20;
   if (loc.includes('BLR')) s += 20;
-  else if (loc.includes('INDIA')) s += 15;
-  else if (loc.includes('REMOTE_IN')) s += 14;
-  else if (loc.includes('REMOTE')) s += 6;
+  else if (loc.includes('REMOTE_IN')) s += 18;
+  else if (loc.includes('INDIA')) s += 8;
   if (hours < 24) s += 15;
   else if (hours < 72) s += 10;
   else if (hours < 168) s += 5;

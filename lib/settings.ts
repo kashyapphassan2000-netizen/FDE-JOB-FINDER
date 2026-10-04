@@ -12,7 +12,7 @@ export const DEFAULT_SETTINGS: Settings = {
     'edge AI engineer',
     'AI solutions engineer',
   ],
-  locations: ['India', 'Bengaluru', 'Remote'],
+  locations: ['Bengaluru', 'Remote'],
   extraCompanies: [],
   disabledCompanies: [],
   disabledSources: [],

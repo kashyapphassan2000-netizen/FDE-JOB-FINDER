@@ -45,9 +45,17 @@ export async function setJSON(key: string, value: unknown): Promise<void> {
 export async function hgetall<T>(key: string): Promise<Record<string, T>> {
   try {
     if (redis) {
-      const r = (await redis.hgetall<Record<string, string>>(P + key)) || {};
+      // with automaticDeserialization:false Upstash returns the raw flat reply [field, value, field, value…]
+      const r = ((await redis.hgetall(P + key)) || {}) as unknown;
+      const pairs: [string, unknown][] = Array.isArray(r) ? Array.from({ length: r.length >> 1 }, (_, i) => [String(r[2 * i]), r[2 * i + 1]]) : Object.entries(r as Record<string, unknown>);
       const out: Record<string, T> = {};
-      for (const [k, v] of Object.entries(r)) out[k] = JSON.parse(typeof v === 'string' ? v : JSON.stringify(v)) as T;
+      for (const [k, v] of pairs) {
+        try {
+          out[k] = JSON.parse(typeof v === 'string' ? v : JSON.stringify(v)) as T;
+        } catch {
+          console.error('store hgetall: bad value', key, k);
+        }
+      }
       return out;
     }
     const h = memHash.get(P + key) || new Map();

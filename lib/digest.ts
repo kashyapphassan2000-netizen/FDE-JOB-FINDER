@@ -1,5 +1,5 @@
 import type { Job } from './types';
-import { extractSkills, freshnessHours } from './classify';
+import { extractSkills, freshnessHours, locationAllowed } from './classify';
 import { getCv } from './cv';
 import { aiConfigured, chatJson } from './llm';
 import { getJobs } from './refresh';
@@ -56,7 +56,7 @@ export function parseSalaryUsd(s?: string): number | null {
 
 function payScore(j: Job): { score: number; label: string } {
   const usd = parseSalaryUsd(j.salary);
-  const india = j.locTags.includes('INDIA') || j.locTags.includes('BLR');
+  const india = j.locTags.includes('INDIA') || j.locTags.includes('BLR') || j.locTags.includes('UNSTATED');
   if (usd) {
     // India pay benchmarked against ₹50 L (~$59k) = 100; elsewhere against $250k = 100
     const score = Math.min(100, Math.round((usd / (india ? 59000 : 250000)) * 100));
@@ -74,7 +74,6 @@ function payScore(j: Job): { score: number; label: string } {
   return { score: s, label: s >= 70 ? 'not listed · likely high (est.)' : s >= 50 ? 'not listed · likely good (est.)' : 'not listed' };
 }
 
-const WANTED_LOC = ['BLR', 'INDIA', 'USA', 'REMOTE_IN'];
 const MAINSTREAM = ['linkedin', 'jsearch', 'serpapi', 'apify_linkedin', 'adzuna', 'jooble'];
 
 function lowCompScore(j: Job, hours: number): { score: number; why: string[] } {
@@ -96,7 +95,7 @@ export async function digestCandidates(maxAgeH: number, exclude: Set<string>): P
   const out: DigestPick[] = [];
   for (const j of jobs) {
     if (exclude.has(j.id) || tracked[j.id] || !j.categories.length) continue;
-    if (!j.locTags.some((t) => WANTED_LOC.includes(t))) continue; // skip onsite jobs in countries you can't work in
+    if (!locationAllowed(j.locTags, j.location)) continue; // Bengaluru office or India-eligible remote only
     const hours = freshnessHours(j.postedAt, j.firstSeen);
     if (hours > maxAgeH) continue;
     const pay = payScore(j);

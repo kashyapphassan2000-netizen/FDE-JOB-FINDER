@@ -18,7 +18,7 @@ const EXAMPLES = [
   'Remote AI engineer jobs open to candidates in India, LLM / agents, posted this week',
   'AI/ML roles at semiconductor or edge-AI companies in Bengaluru (NVIDIA, Qualcomm, startups)',
   'LinkedIn posts from founders hiring forward deployed engineers in India',
-  'Applied AI engineer jobs in the USA with visa sponsorship',
+  'US startups hiring forward deployed engineers fully remote, worldwide',
 ];
 
 export default function AgentTab({ toast }: { toast: (s: string) => void }) {

@@ -27,6 +27,8 @@ export const VAULT_KEYS: { name: string; label: string; group: string; url: stri
   { name: 'BRAVE_API_KEY', label: 'Brave Search API', group: 'Web search (AI agent)', url: 'https://api-dashboard.search.brave.com/' },
   { name: 'JINA_API_KEY', label: 'Jina (search + page reader)', group: 'Web search (AI agent)', url: 'https://jina.ai/api-dashboard/' },
   { name: 'SEARXNG_URL', label: 'Your SearXNG instance URL (self-hosted = unlimited)', group: 'Web search (AI agent)', url: 'https://docs.searxng.org/' },
+  // outreach (find people's work emails)
+  { name: 'HUNTER_API_KEY', label: 'Hunter.io (finds work emails, 25 free searches/month)', group: 'Outreach', url: 'https://hunter.io/api-keys' },
   // daily email digest
   { name: 'RESEND_API_KEY', label: 'Resend API key (daily job email, free 100/day)', group: 'Email digest', url: 'https://resend.com/api-keys' },
   { name: 'DIGEST_TO', label: 'Send the daily job email to (your email)', group: 'Email digest', url: 'https://resend.com/docs' },

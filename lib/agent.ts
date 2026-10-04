@@ -1,5 +1,5 @@
 import type { Category, CompanyEntry, Domain, RawJob } from './types';
-import { classify, domainOf, hashId, isExcluded, locationTags } from './classify';
+import { classify, domainOf, hashId, isExcluded, locationAllowed, locationTags } from './classify';
 import { atsFromUrl, probe } from './atsdetect';
 import { availableEngines, readPage, webSearch, type WebResult } from './search';
 import { aiConfigured, chatJson } from './llm';
@@ -24,13 +24,13 @@ export const MISSIONS: Mission[] = [
   { id: 'li-posts', title: 'LinkedIn hiring posts', desc: 'Founders / hiring managers posting FDE & AI roles (often not on job boards yet)',
     queries: [`site:linkedin.com/posts "forward deployed engineer" hiring (Bengaluru OR Bangalore OR India OR remote)`, `site:linkedin.com/posts "we are hiring" ("AI engineer" OR "ML engineer" OR "GenAI") Bengaluru`, `site:linkedin.com/posts hiring "applied AI" OR "founding AI engineer" India`] },
   { id: 'x-posts', title: 'X / Twitter hiring posts', desc: 'Hiring tweets from founders and AI teams',
-    queries: [`site:x.com "forward deployed" hiring`, `site:x.com hiring ("AI engineer" OR "ML engineer") (Bangalore OR Bengaluru OR India OR remote)`, `site:x.com "we're hiring" "founding engineer" AI`] },
+    queries: [`site:x.com "forward deployed" hiring`, `site:x.com hiring ("AI engineer" OR "ML engineer") (Bangalore OR Bengaluru OR remote)`, `site:x.com "we're hiring" "founding engineer" AI remote`, `site:x.com hiring "applied AI" OR "GenAI engineer" Bengaluru`, `site:x.com "DM me" hiring "AI engineer" remote`] },
   { id: 'blr-hidden', title: 'Hidden Bengaluru AI startups', desc: 'Startup career boards (Ashby/Lever/Greenhouse/Workable) with Bengaluru FDE & AI roles',
     queries: [`site:jobs.ashbyhq.com (Bengaluru OR Bangalore) ${ROLE}`, `site:jobs.lever.co (Bengaluru OR Bangalore) ("AI" OR "machine learning" OR "forward deployed")`, `site:job-boards.greenhouse.io (Bengaluru OR Bangalore) ("AI engineer" OR "machine learning" OR "forward deployed")`, `site:apply.workable.com Bangalore ("AI engineer" OR "machine learning")`, `Bengaluru AI startup careers "founding" ("AI engineer" OR "forward deployed")`] },
   { id: 'remote-india', title: 'Remote roles open to India', desc: 'Worldwide / APAC remote FDE & AI roles Indians can take',
     queries: [`"forward deployed engineer" remote ("anywhere" OR "worldwide" OR "APAC" OR "India")`, `remote "AI engineer" ("work from anywhere" OR worldwide OR "remote - India") hiring`, `remote "machine learning engineer" "India" contract OR full-time AI startup`, `site:jobs.ashbyhq.com remote ("India" OR "APAC") ("AI" OR "forward deployed")`] },
-  { id: 'usa', title: 'USA FDE / AI roles (incl. visa)', desc: 'US roles, flags visa sponsorship / relocation',
-    queries: [`"forward deployed engineer" "visa sponsorship"`, `site:jobs.ashbyhq.com "forward deployed engineer" (San Francisco OR New York)`, `site:jobs.lever.co "forward deployed" OR "applied AI engineer"`, `"applied AI engineer" startup hiring "H-1B" OR "visa"`] },
+  { id: 'global-remote', title: 'US / EU startups hiring remote worldwide', desc: 'Remote FDE & AI roles at foreign companies that hire from India (contract or full-time)',
+    queries: [`"forward deployed engineer" remote "worldwide" OR "anywhere in the world"`, `site:jobs.ashbyhq.com remote ("anywhere" OR "worldwide" OR "global") ("AI engineer" OR "forward deployed")`, `"AI engineer" remote "hire from India" OR "contractors in India" OR "EOR" startup`, `site:jobs.lever.co remote worldwide ("applied AI" OR "machine learning engineer")`] },
   { id: 'domains', title: 'AI roles in semiconductor / embedded / robotics', desc: 'FDE & AI/ML roles at chip, edge-AI, robotics, automotive companies',
     queries: [`(Bengaluru OR Bangalore) ("edge AI" OR "on-device AI" OR "embedded AI") engineer hiring`, `(Bengaluru OR Bangalore) semiconductor "machine learning engineer" OR "AI engineer"`, `"ML compiler" OR "AI compiler" engineer Bengaluru hiring`, `robotics startup Bengaluru "AI engineer" OR "perception engineer" OR "forward deployed"`] },
   { id: 'new-startups', title: 'Newly funded AI startups hiring', desc: 'Recent seed / Series A AI startups (India + US) that are hiring',
@@ -64,7 +64,7 @@ export interface AgentRun {
 const SYSTEM = `You are a sharp job-hunting agent for Karthik (Bengaluru, India; ~3 yrs automotive embedded → moving into AI engineering).
 Target roles ONLY: Forward Deployed Engineer (incl. applied AI engineer/architect, AI solutions/deployment engineer) and AI/ML roles (ML engineer, AI engineer, LLM/GenAI engineer, MLOps, applied scientist, edge/embedded AI).
 ANY company domain is fine (semiconductor, embedded, robotics, automotive, IT/SaaS, fintech, health…). Reject non-AI roles (pure firmware, RTL, sales, HR, marketing) and job seekers' own "open to work" posts.
-Locations of interest: Bengaluru, anywhere in India, USA, and remote roles that people in India can take.`;
+LOCATION RULE (strict): the ONLY office he can attend is Bengaluru. Everything else must be REMOTE and open to people living in India (worldwide / APAC / India remote). Reject onsite or hybrid roles in any other city or country, and remote roles restricted to US/EU/UK/Canada residents.`;
 
 const watchedKeys = (extra: CompanyEntry[]) => new Set([...DEFAULT_COMPANIES, ...extra].map((c) => `${c.ats}:${c.slug}`.toLowerCase()));
 
@@ -150,7 +150,7 @@ export async function runAgent(opts: { missionId?: string; prompt?: string; budg
     for (const p of probed) {
       if (p.status !== 'fulfilled' || !p.value.d) continue;
       const { b, d } = p.value;
-      const rel = d.jobs.filter((j) => classify(j).length && locationTags(j).some((t) => ['BLR', 'INDIA', 'USA', 'REMOTE_IN', 'REMOTE'].includes(t)));
+      const rel = d.jobs.filter((j) => classify(j).length && locationAllowed(locationTags(j), j.location));
       const company = d.jobs[0]?.company && d.jobs[0].company !== b.slug ? d.jobs[0].company : b.slug;
       finds.push(mk({ ...b.r, url: b.r.url }, { kind: 'company', title: `${b.slug} — ${rel.length} FDE/AI roles open (${d.total} total) on ${b.ats}`, company, why: 'Company career board found in search results and verified live. Click "Watch" to pull its jobs every refresh.', ats: { ats: b.ats, slug: b.slug, total: d.total, relevant: rel.length } }));
       for (const j of rel.slice(0, 8)) finds.push(mk({ title: j.title, url: j.url, snippet: j.description || '', engine: `ats:${b.ats}` }, { kind: 'job', title: j.title, company: b.slug, location: j.location, why: `Open on ${b.ats} board (verified)` }));
@@ -211,6 +211,7 @@ export async function runAgent(opts: { missionId?: string; prompt?: string; budg
       const prev = existing[f.id];
       if (prev) continue;
       if (f.kind !== 'company' && !f.role.length) continue;
+      if (f.kind === 'job' && !locationAllowed(f.locTags, f.location)) continue; // onsite outside Bengaluru / remote not open to India
       if (f.kind !== 'company' && isExcluded({ title: f.title, company: f.company, location: f.location, url: f.url }, settings)) continue;
       await hset('agent:finds', f.id, f);
       fresh++;
