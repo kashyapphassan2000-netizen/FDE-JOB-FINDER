@@ -456,3 +456,18 @@ input:focus, select:focus, textarea:focus { border-color: var(--brand); box-shad
   .side { padding-top: max(20px, env(safe-area-inset-top)); }
   .main { padding-bottom: max(40px, env(safe-area-inset-bottom)); }
 }
+
+/* ---------- analyzer / referrals ---------- */
+.ana-head { display: grid; grid-template-columns: 1fr auto; gap: 12px 20px; align-items: center; }
+.ana-score { display: flex; flex-direction: column; align-items: center; gap: 4px; background: linear-gradient(160deg, var(--navy), var(--navy2)); color: #fff; border-radius: 16px; padding: 12px 18px; }
+.ana-score b { font-size: 11px; letter-spacing: .1em; color: var(--mint); }
+.ana-list { margin: 4px 0 10px; padding-left: 18px; font-size: 13px; }
+.ana-list li { margin: 3px 0; }
+.ana-list.good li::marker { content: '✓  '; color: var(--brand); }
+.ana-list.bad li::marker { content: '✗  '; color: var(--err); }
+.ana-rounds { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+.ana-q { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; background: var(--panel); }
+.ana-q summary { cursor: pointer; font-size: 13.5px; line-height: 1.5; }
+.ana-q[open] { background: var(--panel2); }
+.ana-msg { white-space: pre-wrap; font-family: var(--font); font-size: 13px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin: 8px 0; }
+@media (max-width: 760px) { .ana-head { grid-template-columns: 1fr; } }

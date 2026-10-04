@@ -91,6 +91,7 @@ export interface Settings {
   xAccounts: string[]; // extra X accounts to watch
   digestCount: number; // jobs per daily email
   digestMaxAgeHours: number; // only jobs posted within this window
+  extraCareerPages?: [string, string][]; // [company, careers URL] watched by the AI reader (custom careers sites)
 }
 
 export interface CvVersion {

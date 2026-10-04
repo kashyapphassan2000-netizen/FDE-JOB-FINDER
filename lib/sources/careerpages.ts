@@ -73,6 +73,14 @@ export const CAREER_PAGE_SOURCE: SourceDef = {
     const cursor = await getJSON<number>('cp:cursor', 0);
     const batch = Array.from({ length: PER_RUN }, (_, i) => CAREER_PAGES[(cursor + i) % CAREER_PAGES.length]);
     await setJSON('cp:cursor', (cursor + PER_RUN) % CAREER_PAGES.length);
+    // careers pages YOU added (Watch companies): up to 4 per run, rotating, read before the Excel ones
+    const mine = ctx.settings.extraCareerPages || [];
+    if (mine.length) {
+      const c2 = await getJSON<number>('cp:cursor2', 0);
+      const take = Math.min(4, mine.length);
+      batch.unshift(...Array.from({ length: take }, (_, i) => mine[(c2 + i) % mine.length]));
+      await setJSON('cp:cursor2', (c2 + take) % mine.length);
+    }
     const warnings: string[] = [];
     const res = await pool(batch, 3, async ([name, url]) => {
       const md = await readPage(url, 30000);

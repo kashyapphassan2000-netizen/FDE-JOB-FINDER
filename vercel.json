@@ -104,6 +104,14 @@
     {
       "path": "/api/cron/discover",
       "schedule": "50 8 * * *"
+    },
+    {
+      "path": "/api/cron/alerts",
+      "schedule": "5 3 * * *"
+    },
+    {
+      "path": "/api/cron/alerts",
+      "schedule": "5 5 * * *"
     }
   ]
 }

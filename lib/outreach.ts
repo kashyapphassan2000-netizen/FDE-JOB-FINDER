@@ -139,7 +139,7 @@ async function aiPeople(company: string, domain: string, results: WebResult[]): 
 }
 
 /** Parses LinkedIn result titles like "Priya Sharma - Co-founder & CTO - Acme AI | LinkedIn". */
-function personFromResult(r: WebResult, company: string): { name: string; role: string; url: string } | null {
+export function personFromResult(r: WebResult, company: string): { name: string; role: string; url: string } | null {
   if (!/linkedin\.com\/in\//.test(r.url) && !/x\.com\/[A-Za-z0-9_]+$/.test(r.url)) return null;
   const t = r.title.replace(/\s*\|\s*LinkedIn.*$/i, '').replace(/\s+on X.*$/i, '');
   const parts = t.split(/\s+[-–—|]\s+/).map((p) => p.trim()).filter(Boolean);
@@ -150,7 +150,7 @@ function personFromResult(r: WebResult, company: string): { name: string; role: 
   return { name: parts[0], role: role.slice(0, 120), url: r.url };
 }
 
-function guessEmails(name: string, domain: string, pattern?: string): string[] {
+export function guessEmails(name: string, domain: string, pattern?: string): string[] {
   const [first, ...rest] = name.toLowerCase().normalize('NFKD').replace(/[^a-z\s]/g, '').split(/\s+/).filter(Boolean);
   const last = rest[rest.length - 1] || '';
   if (!first) return [];
@@ -160,7 +160,7 @@ function guessEmails(name: string, domain: string, pattern?: string): string[] {
 }
 
 /** Learns the company's address pattern from a real personal email we found (e.g. priya.s@ → {first}.{l}). */
-function learnPattern(found: { email: string; name: string }[]): string | undefined {
+export function learnPattern(found: { email: string; name: string }[]): string | undefined {
   for (const f of found) {
     const [first, ...rest] = f.name.toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/).filter(Boolean);
     const last = rest[rest.length - 1] || '';
