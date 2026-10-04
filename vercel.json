@@ -160,6 +160,22 @@
     {
       "path": "/api/cron/watch",
       "schedule": "25 23 * * *"
+    },
+    {
+      "path": "/api/cron/careers",
+      "schedule": "55 2 * * *"
+    },
+    {
+      "path": "/api/cron/careers",
+      "schedule": "55 8 * * *"
+    },
+    {
+      "path": "/api/cron/careers",
+      "schedule": "55 14 * * *"
+    },
+    {
+      "path": "/api/cron/careers",
+      "schedule": "55 20 * * *"
     }
   ]
 }

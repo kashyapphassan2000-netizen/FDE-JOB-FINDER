@@ -1,7 +1,8 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import type { Category, Domain, Job, TrackStatus } from '@/lib/types';
-import { ago, setTrack, STATUS_LABEL, type JobsPayload } from './api';
+import { ago, api, setTrack, STATUS_LABEL, type JobsPayload } from './api';
+import { scoreJob, type Profile } from '@/lib/relevance';
 import FitDrawer from './FitDrawer';
 import ExportButton from './ExportButton';
 
@@ -29,7 +30,10 @@ export default function JobsTab({ data, reload, toast, onOutreach }: { data: Job
   const [quick, setQuick] = useState<'all' | 'blr' | 'remote' | 'fde' | 'saved'>('all');
   const [src, setSrc] = useState('');
   const [sen, setSen] = useState('');
-  const [sort, setSort] = useState<'blr' | 'score' | 'new' | 'cv'>('blr');
+  const [sort, setSort] = useState<'prio' | 'blr' | 'score' | 'new' | 'cv'>('prio');
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [onlyPrio, setOnlyPrio] = useState(false);
+  useEffect(() => { api<{ profile: Profile }>('/api/profile').then((d) => setProfile(d.profile)).catch(() => {}); }, []);
   const [exp, setExp] = useState('');
   const [hideTracked, setHideTracked] = useState(true);
   const [onlyNew, setOnlyNew] = useState(false);
@@ -43,7 +47,7 @@ export default function JobsTab({ data, reload, toast, onOutreach }: { data: Job
 
   useEffect(() => {
     try {
-      const f = JSON.parse(localStorage.getItem('fj_filters4') || '{}');
+      const f = JSON.parse(localStorage.getItem('fj_filters5') || '{}');
       if (f.roles) setRoles(f.roles);
       if (f.domains) setDomains(f.domains);
       if (f.regions) setRegions(f.regions);
@@ -55,7 +59,7 @@ export default function JobsTab({ data, reload, toast, onOutreach }: { data: Job
     } catch {}
   }, []);
   useEffect(() => {
-    try { localStorage.setItem('fj_filters4', JSON.stringify({ roles, domains, regions, win, sort, sen })); } catch {}
+    try { localStorage.setItem('fj_filters5', JSON.stringify({ roles, domains, regions, win, sort, sen })); } catch {}
   }, [roles, domains, regions, win, sort, sen]);
 
   const jobs = data?.jobs || [];
@@ -83,11 +87,16 @@ export default function JobsTab({ data, reload, toast, onOutreach }: { data: Job
       if (needle && !`${j.title} ${j.company} ${j.location} ${j.via || ''}`.toLowerCase().includes(needle)) return false;
       return true;
     });
+    if (profile && (sort === 'prio' || onlyPrio)) {
+      const sc = new Map(out.map((j) => [j.id, scoreJob({ title: j.title, company: j.company, location: j.location, description: j.description, postedAt: j.postedAt }, profile)]));
+      if (onlyPrio) out = out.filter((j) => sc.get(j.id)!.keep);
+      if (sort === 'prio') out = [...out].sort((a, b) => { const x = sc.get(a.id)!, y = sc.get(b.id)!; return Number(y.keep) - Number(x.keep) || (x.roleRank < 0 ? 99 : x.roleRank) - (y.roleRank < 0 ? 99 : y.roleRank) || (x.locRank < 0 ? 99 : x.locRank) - (y.locRank < 0 ? 99 : y.locRank) || Date.parse(b.postedAt || b.firstSeen) - Date.parse(a.postedAt || a.firstSeen); });
+    }
     if (sort === 'blr') out = [...out].sort((a, b) => rank(a.locTags) - rank(b.locTags) || Date.parse(b.postedAt || b.firstSeen) - Date.parse(a.postedAt || a.firstSeen));
     if (sort === 'new') out = [...out].sort((a, b) => Date.parse(b.postedAt || b.firstSeen) - Date.parse(a.postedAt || a.firstSeen));
     if (sort === 'cv') out = [...out].sort((a, b) => b.cvMatch - a.cvMatch || b.score - a.score);
     return out;
-  }, [jobs, track, q, roles, domains, regions, win, src, sen, sort, hideTracked, onlyNew, lastVisit, hiddenOnly, salaryOnly, exp, quick]);
+  }, [jobs, track, q, roles, domains, regions, win, src, sen, sort, hideTracked, onlyNew, lastVisit, hiddenOnly, salaryOnly, exp, quick, profile, onlyPrio]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { new24: 0, hidden: 0 };
@@ -134,9 +143,10 @@ export default function JobsTab({ data, reload, toast, onOutreach }: { data: Job
           <input className="grow" placeholder="Search title, company, location…" value={q} onChange={(e) => setQ(e.target.value)} />
           <select value={win} onChange={(e) => setWin(e.target.value)}>{WINDOWS.map(([v, l]) => <option key={v} value={v}>Posted: {l}</option>)}</select>
           <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
-            <option value="blr">Sort: Bengaluru first, then remote</option><option value="score">Sort: best match</option><option value="new">Sort: newest</option><option value="cv">Sort: CV match</option>
+            <option value="prio">Sort: my priorities (roles → locations → newest)</option><option value="blr">Sort: Bengaluru first, then remote</option><option value="score">Sort: best match</option><option value="new">Sort: newest</option><option value="cv">Sort: CV match</option>
           </select>
           <select value={exp} onChange={(e) => setExp(e.target.value)}>{EXP.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+          <label className="small"><input type="checkbox" checked={onlyPrio} onChange={(e) => setOnlyPrio(e.target.checked)} /> only my priority roles & locations</label>
           <button onClick={() => setShowFilters(!showFilters)}>{showFilters ? 'Hide filters' : 'Filters'}</button>
           <button onClick={clear}>Clear</button>
         </div>

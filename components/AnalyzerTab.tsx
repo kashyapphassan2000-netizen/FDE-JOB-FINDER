@@ -6,10 +6,11 @@ import type { Analysis } from '@/lib/analyzer';
 
 type Item = { id: string; at: string; title: string; company: string; score: number };
 
-export default function AnalyzerTab({ toast, onReferrals }: { toast: (s: string) => void; onReferrals?: (company: string, role: string) => void }) {
+export default function AnalyzerTab({ toast, onReferrals, seed }: { toast: (s: string) => void; onReferrals?: (company: string, role: string) => void; seed?: { url: string; company: string; n: number } | null }) {
   const [url, setUrl] = useState('');
   const [text, setText] = useState('');
   const [company, setCompany] = useState('');
+  useEffect(() => { if (seed) { setUrl(seed.url); setCompany(seed.company); window.scrollTo({ top: 0 }); } }, [seed]);
   const [busy, setBusy] = useState(false);
   const [secs, setSecs] = useState(0);
   const [list, setList] = useState<Item[]>([]);

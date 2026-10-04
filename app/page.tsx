@@ -11,6 +11,7 @@ import IntelTab from '@/components/IntelTab';
 import ExportAllButton from '@/components/ExportAllButton';
 import DirectoryTab from '@/components/DirectoryTab';
 import WatchTab from '@/components/WatchTab';
+import CareersSearchTab from '@/components/CareersSearchTab';
 import AnalyzerTab from '@/components/AnalyzerTab';
 import ReferralsTab from '@/components/ReferralsTab';
 import AlertsTab from '@/components/AlertsTab';
@@ -25,7 +26,7 @@ import SettingsTab from '@/components/SettingsTab';
 import { ago, api, type JobsPayload } from '@/components/api';
 
 const NAV = [
-  { group: 'Companies', items: [['Global companies hiring', '🌍'], ['Watch companies', '👁️']] },
+  { group: 'Companies', items: [['Careers search', '🎯'], ['Global companies hiring', '🌍'], ['Watch companies', '👁️']] },
   { group: 'Get the job', items: [['Job analyzer & prep', '🔬'], ['Recruiters & referrals', '🤝'], ['Job alerts for others', '📬']] },
   { group: 'Find', items: [['My dashboard', '🏠'], ['Search any role', '🔍'], ['Jobs', '💼'], ['AI Agent', '🤖'], ['Trends', '📈'], ['Hiring radar', '📡'], ['Layoffs', '📉'], ['Hidden jobs & startups', '💎'], ['Outreach', '✉️'], ['Opportunities', '🏆']] },
   { group: 'Agent searches', items: [['X / Twitter', '𝕏'], ['LinkedIn posts', '🔗'], ['Hidden Bengaluru', '📍'], ['Remote India', '🏠'], ['US / EU remote', '🌍'], ['Semi & Embedded AI', '🔧'], ['New startups', '🚀'], ['Communities', '👥']] },
@@ -47,6 +48,7 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [menu, setMenu] = useState(false);
   const [seed, setSeed] = useState<{ company: string; role: string; n: number } | null>(null);
+  const [anaSeed, setAnaSeed] = useState<{ url: string; company: string; n: number } | null>(null);
   const [refSeed, setRefSeed] = useState<{ company: string; role: string; n: number } | null>(null);
   const [sq, setSq] = useState('');
   const [sqInput, setSqInput] = useState('');
@@ -149,8 +151,9 @@ export default function Home() {
         {tab === 'Jobs' && <JobsTab data={data} reload={load} toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}
         {tab === 'AI Agent' && <AgentTab toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}
         {tab === 'Hidden jobs & startups' && <DiscoverTab toast={setToast} />}
+        {tab === 'Careers search' && <CareersSearchTab toast={setToast} onAnalyze={(url, company) => { setAnaSeed({ url, company, n: Date.now() }); go('Job analyzer & prep'); }} />}
         {tab === 'Watch companies' && <WatchTab toast={setToast} />}
-        {tab === 'Job analyzer & prep' && <AnalyzerTab toast={setToast} onReferrals={(company, role) => { setRefSeed({ company, role, n: Date.now() }); go('Recruiters & referrals'); }} />}
+        {tab === 'Job analyzer & prep' && <AnalyzerTab toast={setToast} seed={anaSeed} onReferrals={(company, role) => { setRefSeed({ company, role, n: Date.now() }); go('Recruiters & referrals'); }} />}
         {tab === 'Recruiters & referrals' && <ReferralsTab toast={setToast} seed={refSeed} />}
         {tab === 'Job alerts for others' && <AlertsTab toast={setToast} />}
         {tab === 'Global companies hiring' && <DirectoryTab toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}

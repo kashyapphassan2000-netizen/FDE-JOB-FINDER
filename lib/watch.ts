@@ -8,6 +8,7 @@ import { getJSON, hdel, hgetall, hset, setJSON } from './store';
 import { classify, hashId, locationAllowed, locationTags } from './classify';
 import { atsCareersUrl, dirKey } from './directory';
 import { readPage, webSearch } from './search';
+import { resolveDomain } from './outreach';
 import { pool } from './http';
 import { esc, sendMail } from './mailer';
 import { loadVault, secret } from './secrets';
@@ -91,22 +92,54 @@ async function mapOne(input: string, careersUrl?: string): Promise<Omit<WatchEnt
   if (det && !found && !careersUrl) return { id: `${det.ats}:${det.slug}`, name: name || det.slug, kind: 'page', url: '', status: 'unreadable', note: `❌ “${det.slug}” has no open jobs on ${det.ats} (wrong board name or the company moved). Type the company name instead.` };
   if (!found && name) found = await guessAts(name).catch(() => null);
   let pageUrl = url;
+  const AGG = /linkedin|glassdoor|naukri|indeed|ambitionbox|apna\.co|foundit|instahyre|wellfound|cutshort|iimjobs|hirist|shine\.com|timesjobs|monster|simplyhired|ziprecruiter|jooble|talent\.com|careerjet|internshala|unstop|jobrapido|builtin|levels\.fyi|crunchbase|tracxn|wikipedia|youtube|reddit|quora/i;
+  const key = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+  // a board only counts if it is THIS company's: slug ≈ name, or the job page title says "… at <Company>"
+  const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const isTheirs = (slug: string, title = '') => { const sk = slug.toLowerCase().replace(/[^a-z0-9]/g, ''); return (key.length >= 3 && (sk.includes(key.slice(0, Math.min(6, key.length))) || key.includes(sk))) || new RegExp(`(\\bat\\s+|@\\s*|[-|–]\\s*)${esc}\\b`, 'i').test(title); };
+  // 2) search the job-board sites for this company (finds boards whose slug ≠ the company name, e.g. "PHONEPELIMITED")
+  if (!found && name) {
+    const r = await webSearch(`"${name}" (site:jobs.ashbyhq.com OR site:job-boards.greenhouse.io OR site:boards.greenhouse.io OR site:jobs.lever.co OR site:apply.workable.com OR site:jobs.smartrecruiters.com OR site:myworkdayjobs.com)`, 10, 'any').catch(() => null);
+    const cands = (r?.results || []).map((x) => ({ x, a: atsFromUrl(x.url) })).filter((c) => c.a && isTheirs(c.a.slug, c.x.title));
+    for (const c of cands.slice(0, 3)) { found = await probe(c.a!.ats, c.a!.slug, name); if (found) break; }
+  }
+  // 3) official website → its /careers, /jobs, careers.<domain>, jobs.<domain> (the careers page often links to the real board)
+  const tried: string[] = [];
+  if (!found && !pageUrl && name) {
+    const { domain } = await resolveDomain(name, () => {}).catch(() => ({ domain: '' }));
+    if (domain) {
+      const guesses = [`https://${domain}/careers`, `https://careers.${domain}`, `https://${domain}/jobs`, `https://jobs.${domain}`, `https://${domain}/careers/jobs`, `https://${domain}/company/careers`, `https://${domain}/join-us`];
+      for (const g of guesses) {
+        tried.push(g);
+        try {
+          const res = await fetch(g, { redirect: 'follow', signal: AbortSignal.timeout(8000), headers: { 'User-Agent': 'Mozilla/5.0' } });
+          if (!res.ok) continue;
+          const final = res.url || g;
+          const a = atsFromUrl(final);
+          if (a) { found = await probe(a.ats, a.slug, name); if (found) break; }
+          const html = await res.text();
+          const link = (html.match(/https?:\/\/[^\s"'<>]+/g) || []).map((u) => atsFromUrl(u)).find(Boolean);
+          if (link) { found = await probe(link.ats, link.slug, name); if (found) break; }
+          if (html.length > 1500) { pageUrl = final; break; }
+        } catch {}
+      }
+    }
+  }
+  // 4) general web search for its careers page
   if (!found && !pageUrl && name) {
     const r = await webSearch(`${name} careers jobs openings`, 8, 'any').catch(() => null);
     const res = r?.results || [];
-    const atsHit = res.find((x) => atsFromUrl(x.url));
+    const atsHit = res.find((x) => { const a = atsFromUrl(x.url); return a && isTheirs(a.slug, x.title); });
     if (atsHit) { det = atsFromUrl(atsHit.url); found = det ? await probe(det.ats, det.slug, name) : null; }
-    const AGG = /linkedin|glassdoor|naukri|indeed|ambitionbox|apna\.co|foundit|instahyre|wellfound|cutshort|iimjobs|hirist|shine\.com|timesjobs|monster|simplyhired|ziprecruiter|jooble|talent\.com|careerjet|internshala|unstop|jobrapido|builtin|levels\.fyi|crunchbase|tracxn|wikipedia|youtube|reddit|quora/i;
-    const key = name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8);
     const ok = res.filter((x) => !AGG.test(x.url) && /career|jobs|join|work-with-us|opening|hiring/i.test(x.url));
-    if (!found) pageUrl = (ok.find((x) => new URL(x.url).hostname.replace(/[^a-z0-9]/g, '').includes(key)) || ok[0])?.url || '';
+    if (!found) pageUrl = (ok.find((x) => new URL(x.url).hostname.replace(/[^a-z0-9]/g, '').includes(key.slice(0, 8))) || ok[0])?.url || '';
   }
   if (found) {
     name = name || found.slug.replace(/[-_]+/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
     const rel = found.jobs.filter((j) => relevantForAiFde(j).ok).length;
     return { id: `${found.ats}:${found.slug}`, name, kind: 'ats', ats: found.ats, slug: found.slug, url: atsCareersUrl({ ats: found.ats, slug: found.slug }), status: 'ok', note: `✅ Mapped to its ${found.ats} board — ${found.total} open roles (${rel} need AI/FDE). Checked automatically ~every 2 h.` };
   }
-  if (!pageUrl) return { id: `x:${dirKey(raw)}`, name: raw, kind: 'page', url: '', status: 'unreadable', note: '❌ Could not find a careers page. Add it again with its careers link.' };
+  if (!pageUrl) return { id: `x:${dirKey(raw)}`, name: raw, kind: 'page', url: '', status: 'unreadable', note: `❌ Could not find a careers page for “${raw}”${tried.length ? ` (tried ${tried.slice(0, 3).join(', ')}…)` : ''}. Paste its careers page link (open the company site → Careers → copy the address) — that always works.` };
   if (!name) { try { const h = new URL(pageUrl).hostname.replace(/^(www|careers|jobs)\./, '').split('.')[0]; name = h[0].toUpperCase() + h.slice(1); } catch { name = pageUrl; } }
   // test-read the page now so you know if watching it can work
   try {
@@ -145,7 +178,7 @@ export async function bulkAdd(text: string, defaultLocations: string[]) {
     const locs = third ? third.split(/[,;]/).map((x) => x.trim()).filter(Boolean) : defaultLocations;
     return addWatch(name, link && link !== name ? link : undefined, locs);
   });
-  return res.map((r, i) => (r.status === 'fulfilled' ? { line: lines[i], ok: r.value.status !== 'unreadable', name: r.value.name, note: r.value.note } : { line: lines[i], ok: false, name: lines[i], note: `❌ ${(r.reason as Error).message.slice(0, 140)}` }));
+  return res.map((r, i) => (r.status === 'fulfilled' ? { line: lines[i], ok: r.value.status !== 'unreadable', name: r.value.name, note: r.value.note, url: r.value.url } : { line: lines[i], ok: false, name: lines[i], note: `❌ ${(r.reason as Error).message.slice(0, 140)}` }));
 }
 
 export async function setLocations(id: string, locations: string[]) {

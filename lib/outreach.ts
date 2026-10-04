@@ -105,7 +105,7 @@ export function extractEmails(text: string, domain?: string): string[] {
 
 const nameKey = (s: string) => s.toLowerCase().replace(/\b(ai|inc|labs?|technologies|tech|pvt|ltd|private|limited|llc|hq)\b/g, '').replace(/[^a-z0-9]/g, '');
 
-async function resolveDomain(company: string, log: (s: string) => void): Promise<{ domain: string; about: string }> {
+export async function resolveDomain(company: string, log: (s: string) => void): Promise<{ domain: string; about: string }> {
   const key = nameKey(company);
   const r = await webSearch(`${company} official website`, 10, 'any');
   const hosts = r.results.map((x) => ({ h: domainFrom(x.url), x })).filter((y) => y.h && !SKIP_HOSTS.test(y.h));

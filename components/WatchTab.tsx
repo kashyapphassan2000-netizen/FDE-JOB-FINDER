@@ -31,7 +31,7 @@ export default function WatchTab({ toast }: { toast: (s: string) => void }) {
   const [bulk, setBulk] = useState('');
   const [locs, setLocs] = useState<string[]>(DEFAULT_LOCS);
   const [busy, setBusy] = useState('');
-  const [results, setResults] = useState<{ line: string; ok: boolean; name: string; note: string }[]>([]);
+  const [results, setResults] = useState<{ line: string; ok: boolean; name: string; note: string; url?: string }[]>([]);
   const [edit, setEdit] = useState<string | null>(null);
   const [editLocs, setEditLocs] = useState<string[]>([]);
   const [q, setQ] = useState('');
@@ -46,7 +46,7 @@ export default function WatchTab({ toast }: { toast: (s: string) => void }) {
         setResults(r.results); toast(`${r.results.filter((x) => x.ok).length}/${r.results.length} mapped`); setBulk('');
       } else {
         const r = await api<{ entry: W; note: string }>('/api/watch', { method: 'POST', body: JSON.stringify({ action: 'add', input, careersUrl: page || undefined, locations: locs }) });
-        setResults([{ line: input, ok: r.entry.status !== 'unreadable', name: r.entry.name, note: r.note }]); setInput(''); setPage('');
+        setResults([{ line: input, ok: r.entry.status !== 'unreadable', name: r.entry.name, note: r.note, url: r.entry.url }]); setInput(''); setPage('');
       }
       load();
     } catch (e) { toast((e as Error).message); } finally { setBusy(''); }
@@ -85,7 +85,7 @@ export default function WatchTab({ toast }: { toast: (s: string) => void }) {
         </div>
         {mode === 'one' ? (
           <div className="row">
-            <input className="grow big" placeholder="e.g. Sarvam AI  ·  https://jobs.lever.co/…  ·  https://careers.company.com" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && input.trim() && add()} />
+            <input className="grow big" placeholder="Best: paste the careers page link (https://careers.company.com). A name also works: e.g. Sarvam AI" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && input.trim() && add()} />
             <input className="grow" placeholder="Careers page link (optional)" value={page} onChange={(e) => setPage(e.target.value)} />
           </div>
         ) : (
@@ -94,7 +94,8 @@ export default function WatchTab({ toast }: { toast: (s: string) => void }) {
         <div style={{ margin: '10px 0' }}><div className="small muted" style={{ marginBottom: 4 }}>Locations to watch (hiring differs by location — pick all that work for you):</div><LocPicker value={locs} onChange={setLocs} presets={presets} /></div>
         <button className="primary" disabled={!!busy || (mode === 'one' ? !input.trim() : !bulk.trim())} onClick={add}>{busy === 'add' ? 'Mapping careers pages…' : mode === 'bulk' ? '＋ Map & watch all' : '＋ Map & watch'}</button>
         {results.length > 0 && (
-          <div style={{ marginTop: 10 }}>{results.map((r, i) => <div key={i} className={`notice small ${r.ok ? 'ok' : 'warn'}`} style={{ marginBottom: 6 }}><b>{r.name}</b> — {r.note}</div>)}</div>
+          <div style={{ marginTop: 10 }}>{results.map((r, i) => <div key={i} className={`notice small ${r.ok ? 'ok' : 'warn'}`} style={{ marginBottom: 6 }}><b>{r.name}</b> — {r.note}{r.url ? <> · <a href={r.url} target="_blank" rel="noreferrer">check it’s the right company ↗</a></> : null}</div>)}
+          <div className="small muted">Wrong company (same name, other country)? Click “Stop watching” on it and paste that company’s careers page link instead — a link always maps exactly.</div></div>
         )}
       </div>
 
