@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import type { CompanyEntry, Settings } from '@/lib/types';
 import { api } from './api';
 
+type DigestRes = { sent: boolean; count: number; to?: string; skipped?: string; ai?: string; picks: { id: string; title: string; company: string; total: number; cv: number; pay: string; url: string }[] };
+
 const lines = (s: string) => s.split(/\n|,/).map((x) => x.trim()).filter(Boolean);
 
 export default function SettingsTab({ toast }: { toast: (s: string) => void }) {
@@ -13,6 +15,7 @@ export default function SettingsTab({ toast }: { toast: (s: string) => void }) {
   const [detected, setDetected] = useState<{ ats: CompanyEntry['ats']; count: number }[] | null>(null);
   const [cq, setCq] = useState('');
   const [sources, setSources] = useState<{ id: string; name: string }[]>([]);
+  const [dg, setDg] = useState<DigestRes | null>(null);
 
   useEffect(() => {
     api<{ settings: Settings; defaultCompanies: CompanyEntry[] }>('/api/settings').then((r) => { setS(r.settings); setDefaults(r.defaultCompanies); }).catch((e) => toast(e.message));
@@ -47,6 +50,17 @@ export default function SettingsTab({ toast }: { toast: (s: string) => void }) {
     }
   }
 
+  async function digest(send: boolean) {
+    setDg(null);
+    try {
+      const r = await api<DigestRes>('/api/digest', send ? { method: 'POST' } : undefined);
+      setDg(r);
+      toast(send ? (r.sent ? `Sent ${r.count} jobs to ${r.to}` : `Not sent: ${r.skipped}`) : `${r.count} jobs would be sent`);
+    } catch (e) {
+      toast((e as Error).message);
+    }
+  }
+
   if (!s) return <div className="panel muted">Loading…</div>;
   const allCompanies = [...defaults, ...s.extraCompanies];
   const key = (c: CompanyEntry) => `${c.ats}:${c.slug}`;
@@ -69,6 +83,25 @@ export default function SettingsTab({ toast }: { toast: (s: string) => void }) {
           })}>Save</button>
           <button onClick={testAlert}>Send test alert</button>
         </div>
+      </div>
+
+      <div className="panel">
+        <h3 style={{ marginTop: 0 }}>Daily job email</h3>
+        <p className="small muted">Every morning (~08:00 IST) the best fresh jobs are emailed to you: posted within the window below, ranked by CV fit (40%), pay (30%) and low competition (30%). A job is never emailed twice. Needs <b>RESEND_API_KEY</b> and <b>DIGEST_TO</b> in the “AI &amp; Keys” tab.</p>
+        <div className="row">
+          <label className="small">Jobs per email <input id="dgn" type="number" min={1} max={30} defaultValue={s.digestCount} style={{ width: 70 }} /></label>
+          <label className="small">Posted within (hours) <input id="dgh" type="number" min={1} max={168} defaultValue={s.digestMaxAgeHours} style={{ width: 70 }} /></label>
+          <button className="primary" onClick={() => save({ digestCount: Number((document.getElementById('dgn') as HTMLInputElement).value), digestMaxAgeHours: Number((document.getElementById('dgh') as HTMLInputElement).value) })}>Save</button>
+          <button onClick={() => digest(false)}>Preview</button>
+          <button onClick={() => digest(true)}>Send now</button>
+        </div>
+        {dg && (
+          <div className="small" style={{ marginTop: 8 }}>
+            {dg.skipped && <div className="notice warn">{dg.skipped}</div>}
+            {dg.ai && <div className="muted">Matched to your CV by {dg.ai}</div>}
+            <ol>{dg.picks.map((p) => <li key={p.id}><a href={p.url} target="_blank" rel="noreferrer">{p.title}</a> – {p.company} · CV {p.cv}% · {p.pay}</li>)}</ol>
+          </div>
+        )}
       </div>
 
       <div className="panel">

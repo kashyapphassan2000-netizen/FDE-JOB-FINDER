@@ -53,7 +53,7 @@ export const KEYED_SOURCES: SourceDef[] = [
     run: (ctx) =>
       multi(quotaQueries(ctx, num('JSEARCH_QUERIES', 3)), async (q) => {
         const d = await getJson<{ data: any[] }>(
-          `https://jsearch.p.rapidapi.com/search?query=${encodeURIComponent(q)}&page=1&num_pages=1&date_posted=week&country=in`,
+          `https://jsearch.p.rapidapi.com/search?query=${encodeURIComponent(q)}&page=1&num_pages=1&date_posted=today&country=in`,
           { signal: ctx.signal, headers: { 'x-rapidapi-key': env('RAPIDAPI_KEY'), 'x-rapidapi-host': 'jsearch.p.rapidapi.com' } },
         );
         return (d.data || []).map((j) => ({
@@ -110,7 +110,7 @@ export const KEYED_SOURCES: SourceDef[] = [
     run: (ctx) =>
       multi(ctx.keywords.slice(0, 4), async (q) => {
         const d = await getJson<{ results: any[] }>(
-          `https://api.adzuna.com/v1/api/jobs/in/search/1?app_id=${env('ADZUNA_APP_ID')}&app_key=${env('ADZUNA_APP_KEY')}&results_per_page=50&what=${encodeURIComponent(q)}&max_days_old=14&sort_by=date&content-type=application/json`,
+          `https://api.adzuna.com/v1/api/jobs/in/search/1?app_id=${env('ADZUNA_APP_ID')}&app_key=${env('ADZUNA_APP_KEY')}&results_per_page=50&what=${encodeURIComponent(q)}&max_days_old=2&sort_by=date&content-type=application/json`,
           { signal: ctx.signal },
         );
         return (d.results || []).map((j) => ({

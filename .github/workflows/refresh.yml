@@ -2,6 +2,7 @@
 #   every 30 min  → refresh all job sources
 #   every 3 h     → AI agent mission (Google / LinkedIn posts / X posts / career pages)
 #   daily 01:15   → hidden companies + newly funded startups scan
+#   daily 02:45 UTC (08:15 IST) → email digest: top fresh jobs (skips if Vercel cron already sent it)
 # Repo → Settings → Secrets and variables → Actions → add:
 #   APP_URL      = https://your-app.vercel.app   (no trailing slash)
 #   CRON_SECRET  = same value as the CRON_SECRET env var on Vercel
@@ -11,10 +12,11 @@ on:
     - cron: '*/30 * * * *'
     - cron: '10 */3 * * *'
     - cron: '15 1 * * *'
+    - cron: '45 2 * * *'
   workflow_dispatch:
     inputs:
       task:
-        description: 'refresh | agent | discover'
+        description: 'refresh | agent | discover | digest'
         default: 'refresh'
 jobs:
   run:
@@ -32,6 +34,7 @@ jobs:
           TASK="${INPUT_TASK:-refresh}"
           if [ "$SCHEDULE" = "10 */3 * * *" ]; then TASK=agent; fi
           if [ "$SCHEDULE" = "15 1 * * *" ]; then TASK=discover; fi
+          if [ "$SCHEDULE" = "45 2 * * *" ]; then TASK=digest; fi
           echo "task=$TASK"
           code=$(curl -s -o out.json -w "%{http_code}" --max-time 300 -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron?task=$TASK")
           cat out.json; echo

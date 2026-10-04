@@ -18,10 +18,10 @@ export default function JobsTab({ data, reload, toast }: { data: JobsPayload | n
   const [roles, setRoles] = useState<Category[]>([]);
   const [domains, setDomains] = useState<Domain[]>([]);
   const [regions, setRegions] = useState<string[]>([]);
-  const [win, setWin] = useState('168');
+  const [win, setWin] = useState('24');
   const [src, setSrc] = useState('');
   const [sen, setSen] = useState('');
-  const [sort, setSort] = useState<'score' | 'new' | 'cv'>('score');
+  const [sort, setSort] = useState<'score' | 'new' | 'cv'>('new');
   const [hideTracked, setHideTracked] = useState(true);
   const [onlyNew, setOnlyNew] = useState(false);
   const [hiddenOnly, setHiddenOnly] = useState(false);
@@ -33,7 +33,7 @@ export default function JobsTab({ data, reload, toast }: { data: JobsPayload | n
 
   useEffect(() => {
     try {
-      const f = JSON.parse(localStorage.getItem('fj_filters2') || '{}');
+      const f = JSON.parse(localStorage.getItem('fj_filters3') || '{}');
       if (f.roles) setRoles(f.roles);
       if (f.domains) setDomains(f.domains);
       if (f.regions) setRegions(f.regions);
@@ -45,7 +45,7 @@ export default function JobsTab({ data, reload, toast }: { data: JobsPayload | n
     } catch {}
   }, []);
   useEffect(() => {
-    try { localStorage.setItem('fj_filters2', JSON.stringify({ roles, domains, regions, win, sort, sen })); } catch {}
+    try { localStorage.setItem('fj_filters3', JSON.stringify({ roles, domains, regions, win, sort, sen })); } catch {}
   }, [roles, domains, regions, win, sort, sen]);
 
   const jobs = data?.jobs || [];
@@ -85,7 +85,7 @@ export default function JobsTab({ data, reload, toast }: { data: JobsPayload | n
   }, [jobs]);
 
   const toggle = <T,>(arr: T[], v: T, set: (a: T[]) => void) => set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
-  const clear = () => { setRoles([]); setDomains([]); setRegions([]); setSrc(''); setSen(''); setHiddenOnly(false); setSalaryOnly(false); setQ(''); setWin('168'); };
+  const clear = () => { setRoles([]); setDomains([]); setRegions([]); setSrc(''); setSen(''); setHiddenOnly(false); setSalaryOnly(false); setQ(''); setWin('24'); };
 
   async function mark(job: Job, status: TrackStatus | 'none') {
     try {

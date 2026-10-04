@@ -20,6 +20,7 @@ Private, owner-only job portal for **Forward Deployed Engineer (FDE)** and **AI/
 | **Platforms map** | All 286 platforms named in the Excel, each mapped to how it's tracked (live API, live ATS, via aggregator, 1-click search, resource) with "last checked" tracking |
 | **Tracker** | Saved → Applied → Referral → Interview → Offer / Rejected, notes, CSV export |
 | **CV** | Upload/update PDF/DOCX to a **private** Vercel Blob store, version history, skills auto-extracted for CV-match scoring |
+| **Daily email** | Every morning (~08:00 IST): top 10 jobs posted in the last 24 h, ranked by CV fit (AI-checked against your CV text when an AI key is set) 40%, pay 30%, low competition 30%; never repeats a job. Resend (free). Preview / Send now in Settings |
 | **Alerts** | Telegram (and/or Discord/Slack webhook) for new high-score jobs |
 | **Refresh** | Manual button, GitHub Action every 30 min, Vercel Cron daily backup |
 | **Security** | Single password (APP_PASSWORD), HMAC-signed httpOnly cookie, every API route re-checks auth, cron protected by CRON_SECRET, noindex headers |

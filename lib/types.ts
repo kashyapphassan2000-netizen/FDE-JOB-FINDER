@@ -85,6 +85,8 @@ export interface Settings {
   subreddits: string[];
   alertMinScore: number;
   excludeTitleWords: string[];
+  digestCount: number; // jobs per daily email
+  digestMaxAgeHours: number; // only jobs posted within this window
 }
 
 export interface CvVersion {

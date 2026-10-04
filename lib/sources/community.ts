@@ -36,7 +36,7 @@ export const COMMUNITY_SOURCES: SourceDef[] = [
     keyless: true,
     envKeys: [],
     defaultIntervalMin: 0,
-    covers: 'linkedin.com/jobs — last 7 days, India + Remote',
+    covers: 'linkedin.com/jobs — last 24 h, India + Remote',
     docs: 'Unofficial public endpoint; if blocked use JSearch or Apify (see PDF)',
     run: async (ctx) => {
       const kws = ctx.keywords.slice(0, 6);
@@ -49,7 +49,7 @@ export const COMMUNITY_SOURCES: SourceDef[] = [
       let blocked = 0;
       for (const p of plans) {
         for (const start of [0, 25]) {
-          const u = `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=${encodeURIComponent(p.kw)}&location=${encodeURIComponent(p.loc)}&f_TPR=r604800${p.extra}&sortBy=DD&start=${start}`;
+          const u = `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=${encodeURIComponent(p.kw)}&location=${encodeURIComponent(p.loc)}&f_TPR=r86400${p.extra}&sortBy=DD&start=${start}`;
           try {
             const html = await getText(u, { signal: ctx.signal, timeoutMs: 12000, headers: { Accept: 'text/html' } });
             const jobs = parseLinkedInCards(html);
