@@ -17,12 +17,16 @@ const REGIONS = [['BLR', 'Bengaluru office'], ['REMOTE_IN', 'Remote · India-eli
 const WINDOWS = [['24', '24h'], ['72', '3 days'], ['168', '7 days'], ['720', '30 days'], ['0', 'Any time']] as const;
 const DOMAIN_LABEL = Object.fromEntries(DOMAINS) as Record<Domain, string>;
 
+const hue = (s: string) => [...(s || 'x')].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7);
+const matchLabel = (n: number) => (n >= 80 ? 'STRONG MATCH' : n >= 60 ? 'GOOD MATCH' : n >= 40 ? 'FAIR MATCH' : 'LOW MATCH');
+
 export default function JobsTab({ data, reload, toast, onOutreach }: { data: JobsPayload | null; reload: () => void; toast: (s: string) => void; onOutreach?: (company: string, role: string) => void }) {
   const [q, setQ] = useState('');
   const [roles, setRoles] = useState<Category[]>([]);
   const [domains, setDomains] = useState<Domain[]>([]);
   const [regions, setRegions] = useState<string[]>([]);
   const [win, setWin] = useState('24');
+  const [quick, setQuick] = useState<'all' | 'blr' | 'remote' | 'fde' | 'saved'>('all');
   const [src, setSrc] = useState('');
   const [sen, setSen] = useState('');
   const [sort, setSort] = useState<'blr' | 'score' | 'new' | 'cv'>('blr');
@@ -34,7 +38,7 @@ export default function JobsTab({ data, reload, toast, onOutreach }: { data: Job
   const [limit, setLimit] = useState(100);
   const [lastVisit, setLastVisit] = useState<number>(0);
   const [fit, setFit] = useState<Job | null>(null);
-  const [showFilters, setShowFilters] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
   useEffect(() => { if (window.innerWidth < 900) setShowFilters(false); }, []);
 
   useEffect(() => {
@@ -62,7 +66,10 @@ export default function JobsTab({ data, reload, toast, onOutreach }: { data: Job
     const needle = q.trim().toLowerCase();
     const maxH = Number(win);
     let out = jobs.filter((j) => {
-      if (hideTracked && track[j.id]) return false;
+      if (quick === 'saved') { if (!track[j.id] || track[j.id].status === 'ignored') return false; } else if (hideTracked && track[j.id]) return false;
+      if (quick === 'blr' && !j.locTags.includes('BLR')) return false;
+      if (quick === 'remote' && !j.locTags.includes('REMOTE_IN')) return false;
+      if (quick === 'fde' && !j.categories.includes('FDE')) return false;
       if (roles.length && !roles.some((c) => j.categories.includes(c))) return false;
       if (domains.length && !domains.includes(j.domain)) return false;
       if (regions.length && !regions.some((l) => j.locTags.includes(l))) return false;
@@ -80,7 +87,7 @@ export default function JobsTab({ data, reload, toast, onOutreach }: { data: Job
     if (sort === 'new') out = [...out].sort((a, b) => Date.parse(b.postedAt || b.firstSeen) - Date.parse(a.postedAt || a.firstSeen));
     if (sort === 'cv') out = [...out].sort((a, b) => b.cvMatch - a.cvMatch || b.score - a.score);
     return out;
-  }, [jobs, track, q, roles, domains, regions, win, src, sen, sort, hideTracked, onlyNew, lastVisit, hiddenOnly, salaryOnly, exp]);
+  }, [jobs, track, q, roles, domains, regions, win, src, sen, sort, hideTracked, onlyNew, lastVisit, hiddenOnly, salaryOnly, exp, quick]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { new24: 0, hidden: 0 };
@@ -109,13 +116,15 @@ export default function JobsTab({ data, reload, toast, onOutreach }: { data: Job
 
   return (
     <>
-      <div className="stats">
-        <div className="stat"><b>{jobs.length}</b><span>FDE + AI/ML jobs</span></div>
-        <div className="stat hot"><b>{counts.new24}</b><span>new in last 24 h</span></div>
-        <div className="stat"><b>{counts.BLR || 0}</b><span>Bengaluru office</span></div>
-        <div className="stat"><b>{counts.REMOTE_IN || 0}</b><span>remote, open to India</span></div>
-        <div className="stat"><b>{counts.FDE || 0}</b><span>FDE roles</span></div>
-        <div className="stat"><b>{counts.hidden}</b><span>hidden gems</span></div>
+      <div className="jr-head">
+        <div className="jr-tabs">
+          {([['all', 'Recommended', jobs.length], ['blr', 'Bengaluru', counts.BLR || 0], ['remote', 'Remote · India', counts.REMOTE_IN || 0], ['fde', 'FDE', counts.FDE || 0], ['saved', 'Saved', Object.values(track).filter((t) => t.status !== 'ignored').length]] as const).map(([k, l, n]) => (
+            <button key={k} className={quick === k ? 'on' : ''} onClick={() => setQuick(k)}>{l} <span>{n}</span></button>
+          ))}
+        </div>
+        <div className="jr-kpis">
+          <span><b>{counts.new24}</b> new today</span><span><b>{counts.hidden}</b> hidden gems</span>
+        </div>
       </div>
 
       {!jobs.length && <div className="notice warn">No jobs yet. Click <b>⟳ Refresh now</b> (top right). First run takes 30–90 seconds.</div>}
@@ -183,41 +192,46 @@ export default function JobsTab({ data, reload, toast, onOutreach }: { data: Job
           const isNew = lastVisit && Date.parse(j.firstSeen) >= lastVisit;
           const where = j.locTags.includes('BLR') ? ['b-blr', 'Bengaluru office'] : j.locTags.includes('REMOTE_IN') ? ['b-ok', 'Remote · India OK'] : j.locTags.includes('UNSTATED') ? ['b-skip', 'Location not stated'] : ['b-skip', 'India · city not stated'];
           return (
-            <div key={j.id} className="job">
-              <div className="logo">{(j.company || '?').slice(0, 2).toUpperCase()}</div>
-              <div className="job-main">
-                <a className="job-title" href={j.url} target="_blank" rel="noreferrer noopener">{j.title}</a>
-                {isNew ? <span className="badge b-new">NEW</span> : null}
-                <div className="job-sub">
-                  <b>{j.company || '—'}</b>
-                  <span>· {j.location || 'location not stated'}</span>
-                  <span title={j.postedAt || `first seen ${j.firstSeen}`}>· {j.postedAt ? 'posted' : 'seen'} {ago(j.postedAt || j.firstSeen)}</span>
-                  <span className="hide-sm">· {j.sources.join(', ')}{j.via ? ` via ${j.via}` : ''}</span>
+            <div key={j.id} className="jr-card">
+              <div className="jr-body">
+                <div className="jr-top">
+                  <span className="jr-when">{j.postedAt ? `${ago(j.postedAt)} ago` : `seen ${ago(j.firstSeen)} ago`}</span>
+                  {isNew ? <span className="jr-pill new">NEW</span> : null}
+                  {j.postedAt && Date.now() - Date.parse(j.postedAt) < 864e5 && <span className="jr-pill early">⚡ Be an early applicant</span>}
+                  {j.hidden && <span className="jr-pill gem">💎 Low competition</span>}
+                  {(j.flags || []).map((f) => <span key={f} className={`jr-pill ${f.startsWith('⚠') ? 'bad' : 'warn'}`}>{f}</span>)}
                 </div>
-                <div className="job-tags">
-                  <span className={`badge ${where[0]}`}>{where[1]}</span>
-                  {j.categories.map((c) => <span key={c} className={`badge b-${c}`}>{c === 'AIML' ? 'AI/ML' : 'FDE'}</span>)}
-                  {j.domain && j.domain !== 'OTHER' && <span className="badge b-dom">{DOMAIN_LABEL[j.domain] || j.domain}</span>}
-                  {j.hidden && <span className="badge b-SEMI">hidden gem</span>}
-                  {j.exp && <span className="badge b-dom" title={j.exp.estimated ? 'estimated from seniority' : 'from the job post'}>{j.exp.min}–{j.exp.max} yrs{j.exp.estimated ? '*' : ''}</span>}
-                  {j.salary ? <span className="badge b-money">{j.salary}</span> : j.payBand ? <span className="badge b-skip" title="Estimated from the Excel Salary_Intel sheet — not published by the employer">est. {j.payBand}</span> : null}
-                  {(j.flags || []).map((f) => <span key={f} className={`badge ${f.startsWith('⚠') ? 'b-err' : 'b-warn'}`}>{f}</span>)}
+                <div className="jr-id">
+                  <div className="jr-logo" style={{ ['--h' as string]: hue(j.company) }}>{(j.company || '?').replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase()}</div>
+                  <div className="jr-names">
+                    <a className="jr-title" href={j.url} target="_blank" rel="noreferrer noopener">{j.title}</a>
+                    <div className="jr-co">{j.company || '—'}{j.domain && j.domain !== 'OTHER' ? <span> · {DOMAIN_LABEL[j.domain] || j.domain}</span> : null}</div>
+                  </div>
                 </div>
-              </div>
-              <div className="job-side">
-                <div className="scores">
-                  <div className="ring" style={{ ['--p' as string]: Math.min(100, j.score) }} title="Overall score"><span>{j.score}</span></div>
-                  <div className="cvm" title="Skills matched with your CV">{j.cvMatch ? `${j.cvMatch}% CV` : 'CV –'}</div>
+                <div className="jr-facts">
+                  <span>📍 {j.location || 'Not stated'}</span>
+                  <span className={where[0] === 'b-blr' ? 'hl' : where[0] === 'b-ok' ? 'hl2' : ''}>🏢 {where[1]}</span>
+                  {j.exp && <span title={j.exp.estimated ? 'estimated from seniority' : 'from the job post'}>🎓 {j.exp.min}–{j.exp.max} yrs{j.exp.estimated ? '*' : ''}</span>}
+                  <span>⏱ Full-time</span>
+                  {j.salary ? <span className="money">💰 {j.salary}</span> : j.payBand ? <span title="Estimate (Excel Salary_Intel)">💰 est. {j.payBand}</span> : null}
+                  {j.categories.map((c) => <span key={c} className="role">{c === 'AIML' ? 'AI / ML' : 'FDE'}</span>)}
                 </div>
-                <div className="job-actions">
-                  <a className="btn primary" href={j.url} target="_blank" rel="noreferrer noopener">Apply</a>
-                  <button title="AI fit check vs your CV" onClick={() => setFit(j)}>✨ Fit</button>
-                  {onOutreach && <button title="Find founders / managers to email" onClick={() => onOutreach(j.company, j.title)}>✉ People</button>}
-                  <select value={track[j.id]?.status || ''} onChange={(e) => mark(j, (e.target.value || 'none') as TrackStatus | 'none')}>
+                <div className="jr-actions">
+                  <a className="jr-apply" href={j.url} target="_blank" rel="noreferrer noopener">Apply now</a>
+                  <button className="jr-ghost" onClick={() => setFit(j)}>✨ Ask AI: am I a fit?</button>
+                  {onOutreach && <button className="jr-ghost" onClick={() => onOutreach(j.company, j.title)}>✉ Find people</button>}
+                  <button className={`jr-icon ${track[j.id]?.status === 'saved' ? 'on' : ''}`} title="Save" onClick={() => mark(j, track[j.id]?.status === 'saved' ? 'none' : 'saved')}>{track[j.id]?.status === 'saved' ? '♥' : '♡'}</button>
+                  <select className="jr-track" value={track[j.id]?.status || ''} onChange={(e) => mark(j, (e.target.value || 'none') as TrackStatus | 'none')}>
                     <option value="">Track…</option>
                     {(Object.keys(STATUS_LABEL) as TrackStatus[]).map((st) => <option key={st} value={st}>{STATUS_LABEL[st]}</option>)}
                   </select>
+                  <span className="jr-src hide-sm">via {j.sources[0]}{j.sources.length > 1 ? ` +${j.sources.length - 1}` : ''}</span>
                 </div>
+              </div>
+              <div className="jr-match">
+                <div className="jr-ring" style={{ ['--p' as string]: Math.min(100, Math.max(j.score, j.cvMatch)) }}><span>{Math.min(100, Math.max(j.score, j.cvMatch))}<small>%</small></span></div>
+                <b>{matchLabel(Math.max(j.score, j.cvMatch))}</b>
+                <small>{j.cvMatch ? `${j.cvMatch}% skills match your CV` : 'upload CV for skill match'}</small>
               </div>
             </div>
           );
