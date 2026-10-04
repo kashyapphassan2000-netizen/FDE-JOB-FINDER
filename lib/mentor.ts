@@ -139,7 +139,7 @@ export async function getWorld(force = false): Promise<World> {
 
 // ---------- Excel knowledge (retrieval) ----------
 type WB = { sheets: { name: string; title: string; header: string[]; rows: { cells: string[]; section: boolean }[] }[] };
-function excelContext(question: string, max = 18): string {
+export function excelContext(question: string, max = 18): string {
   const words = question.toLowerCase().split(/[^a-z0-9+#]+/).filter((w) => w.length > 3 && !['what', 'which', 'should', 'would', 'about', 'there', 'their', 'with', 'from', 'this', 'that', 'have', 'into', 'your', 'when', 'where', 'how'].includes(w));
   if (!words.length) return '';
   const scored: { s: number; t: string }[] = [];

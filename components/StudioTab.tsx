@@ -1,0 +1,214 @@
+'use client';
+import { Fragment, useCallback, useEffect, useState } from 'react';
+import { ago, api } from './api';
+import ExportButton from './ExportButton';
+
+type ToolId = string;
+type Member = { name: string; role: string; instructions: string; tools: ToolId[] };
+type Agent = {
+  id?: string; name: string; emoji: string; type: 'autonomous' | 'team' | 'monitor'; goal: string; rules: string; tools: ToolId[]; members: Member[];
+  schedule: string; dailyHour: number; report: { email: string; whatsapp: boolean; webhook: string; onlyIfNew: boolean }; maxSteps: number; enabled: boolean; lastRun?: string; lastStatus?: string;
+};
+type Step = { who: string; thought: string; tool?: string; args?: unknown; observation?: string; at: number };
+type Report = { title: string; summary: string; findings: { title: string; detail: string; url?: string }[]; actions: string[]; newSinceLast?: boolean };
+type Run = { id: string; at: string; ms: number; trigger: string; steps: Step[]; report: Report | null; delivered: string[]; error?: string };
+type ChatMsg = { role: 'user' | 'agent'; text: string; at: string };
+
+const SCHEDULES: [string, string][] = [['manual', 'Only when I run it'], ['hourly', 'Every hour (24×7)'], ['2h', 'Every 2 hours'], ['6h', 'Every 6 hours'], ['12h', 'Every 12 hours'], ['daily', 'Daily'], ['weekly', 'Weekly']];
+const TYPES: Record<Agent['type'], [string, string]> = { autonomous: ['🧠 Autonomous agent', 'Reasons, picks tools, acts, checks results and repeats until the job is done.'], team: ['👥 Multi-agent team', 'A lead splits the work; members with their own roles and tools work in parallel; a critic reviews; the lead reports.'], monitor: ['📡 24×7 monitor', 'Runs on a schedule and reports to you only when something new shows up.'] };
+const BLANK: Agent = { name: '', emoji: '🤖', type: 'autonomous', goal: '', rules: '', tools: ['web_search', 'read_page', 'news'], members: [], schedule: 'manual', dailyHour: 8, report: { email: '', whatsapp: false, webhook: '', onlyIfNew: false }, maxSteps: 8, enabled: true };
+const TEMPLATES: (Partial<Agent> & { label: string; blurb: string })[] = [
+  { label: 'FDE job hunter', blurb: 'Every 6 h: new FDE / AI roles in Bengaluru or remote-India across every company board, LinkedIn and X — with apply links.', emoji: '🎯', type: 'monitor', schedule: '6h', tools: ['company_jobs', 'web_search', 'read_page', 'my_jobs', 'memory'], report: { email: 'me', whatsapp: true, webhook: '', onlyIfNew: true },
+    goal: 'Find NEW Forward Deployed Engineer and AI/ML engineer roles posted in the last 24 hours that I can take: Bengaluru office, or remote open to India. Search all company boards (company_jobs), then LinkedIn posts (site:linkedin.com/posts) and X posts (site:x.com) for hiring posts. Open the promising ones and capture role, company, location, experience asked, salary if stated and EVERY way to apply. Remember what you already reported (memory) and only report new ones.',
+    rules: 'Never report onsite roles outside Bengaluru. Never report US/EU-only remote roles. Newest first. Always include the apply link.' },
+  { label: 'Layoff & risk radar', blurb: 'Daily: who is cutting jobs, why, and whether it touches me or companies I applied to.', emoji: '📉', type: 'monitor', schedule: 'daily', tools: ['news', 'market', 'web_search', 'memory'], report: { email: 'me', whatsapp: false, webhook: '', onlyIfNew: true },
+    goal: 'Track layoffs, hiring freezes and restructurings in tech and AI (India first, then global) from the last 48 hours. For each: company, how many, reason, teams hit, what they do next. Tell me bluntly what it means for an FDE / AI engineer job seeker in Bengaluru.', rules: 'Only events from the last 48 hours. Cite the source link for every item.' },
+  { label: 'Research team', blurb: 'A multi-agent team: researcher, analyst, critic and writer for any deep question.', emoji: '👥', type: 'team', schedule: 'manual', tools: ['web_search', 'read_page', 'news'],
+    goal: 'Answer the research question I give you with a deep, sourced, decision-ready report.', rules: 'Cite every claim. Separate facts from judgement. End with a clear recommendation.',
+    members: [{ name: 'Researcher', role: 'finds and reads primary sources', instructions: 'Search widely, open the best 4-6 pages, extract facts with links.', tools: ['web_search', 'read_page', 'news'] }, { name: 'Analyst', role: 'numbers, comparisons, market view', instructions: 'Compare options with numbers; use market data.', tools: ['web_search', 'market'] }, { name: 'Contrarian', role: 'finds risks and counter-evidence', instructions: 'Look for what could go wrong and evidence against the obvious answer.', tools: ['web_search', 'news'] }] },
+  { label: 'Company tracker', blurb: 'Every 12 h: news, funding, leadership changes and new FDE/AI roles at companies you name.', emoji: '🏢', type: 'monitor', schedule: '12h', tools: ['news', 'web_search', 'company_jobs', 'read_page', 'memory'], report: { email: 'me', whatsapp: false, webhook: '', onlyIfNew: true },
+    goal: 'Track these companies: Sarvam AI, Databricks, Glean, Cursor, Anthropic (edit this list). For each: news from the last 24 h (funding, launches, leadership, layoffs) and any new FDE / AI roles. Tell me who to reach out to and why now.', rules: 'Only new items since the last report. Include links.' },
+  { label: 'Daily learning coach', blurb: 'Every morning: the one thing to learn today, why, where and how — from the market and my CV.', emoji: '📚', type: 'autonomous', schedule: 'daily', tools: ['market', 'my_cv', 'web_search', 'excel'], report: { email: 'me', whatsapp: true, webhook: '', onlyIfNew: false },
+    goal: 'Look at today\'s AI market (hot skills, new roles) and my CV. Pick the single most valuable thing for me to learn today (60-90 min), why it matters for FDE / AI roles right now, the best FREE resource, and a tiny hands-on exercise. Be strict like a coach.', rules: 'One topic only. Free resources first. No fluff.' },
+  { label: 'Blank custom agent', blurb: 'Start from scratch — any instruction, any tools, any schedule.', emoji: '✳️', type: 'autonomous', schedule: 'manual', goal: '' },
+];
+
+function Md({ text }: { text: string }) {
+  const inline = (s: string) => s.split(/(\*\*[^*]+\*\*|https?:\/\/[^\s)]+)/g).map((p, i) => (p.startsWith('**') ? <b key={i}>{p.slice(2, -2)}</b> : /^https?:\/\//.test(p) ? <a key={i} href={p} target="_blank" rel="noreferrer">{p.replace(/^https?:\/\/(www\.)?/, '').slice(0, 50)}</a> : <Fragment key={i}>{p}</Fragment>));
+  return <div className="md">{text.split('\n').map((l, i) => { const t = l.trim(); if (!t) return null; if (/^[-*•]\s/.test(t)) return <div key={i} className="md-li">• {inline(t.replace(/^[-*•]\s/, ''))}</div>; return <p key={i}>{inline(t)}</p>; })}</div>;
+}
+
+export default function StudioTab({ toast }: { toast: (s: string) => void }) {
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [tools, setTools] = useState<Record<string, { label: string; desc: string }>>({});
+  const [channels, setChannels] = useState<{ whatsapp: boolean; canEmailAnyone: boolean; email: boolean } | null>(null);
+  const [sel, setSel] = useState<string | null>(null);
+  const [mode, setMode] = useState<'gallery' | 'edit' | 'view' | null>(null);
+  const [draft, setDraft] = useState<Agent>(BLANK);
+  const [tab, setTab] = useState<'chat' | 'runs' | 'settings'>('chat');
+  const [runs, setRuns] = useState<Run[]>([]);
+  const [chat, setChat] = useState<ChatMsg[]>([]);
+  const [text, setText] = useState('');
+  const [task, setTask] = useState('');
+  const [busy, setBusy] = useState('');
+  const [secs, setSecs] = useState(0);
+  const [openRun, setOpenRun] = useState<string | null>(null);
+  useEffect(() => { if (!busy) return; setSecs(0); const t = setInterval(() => setSecs((x) => x + 1), 1000); return () => clearInterval(t); }, [busy]);
+
+  const load = useCallback(() => api<{ agents: Agent[]; tools: Record<string, { label: string; desc: string }>; channels: { whatsapp: boolean; canEmailAnyone: boolean; email: boolean } }>('/api/studio').then((d) => { setAgents(d.agents); setTools(d.tools); setChannels(d.channels); if (!d.agents.length) setMode((m) => m || 'gallery'); }).catch((e) => toast(e.message)), [toast]);
+  useEffect(() => { load(); }, [load]);
+  const open = useCallback(async (id: string) => {
+    setSel(id); setMode('view'); setOpenRun(null);
+    const d = await api<{ agent: Agent; runs: Run[]; chat: ChatMsg[] }>(`/api/studio?id=${id}`);
+    setDraft(d.agent); setRuns(d.runs); setChat(d.chat);
+  }, []);
+
+  async function save() {
+    setBusy('save');
+    try { const r = await api<{ agent: Agent }>('/api/studio', { method: 'POST', body: JSON.stringify({ action: 'save', agent: draft }) }); toast(`Saved “${r.agent.name}”${r.agent.schedule !== 'manual' ? ' — it now runs on its own' : ''}`); await load(); await open(r.agent.id!); setTab(draft.id ? 'settings' : 'chat'); }
+    catch (e) { toast((e as Error).message); } finally { setBusy(''); }
+  }
+  async function run() {
+    if (!sel) return;
+    setBusy('run');
+    try { const r = await api<{ run: Run }>('/api/studio', { method: 'POST', body: JSON.stringify({ action: 'run', id: sel, task: task || undefined }) }); toast(r.run.error ? `Failed: ${r.run.error}` : `Done: ${r.run.report?.title}`); setTask(''); await open(sel); setTab('runs'); setOpenRun(r.run.id); }
+    catch (e) { toast((e as Error).message); } finally { setBusy(''); }
+  }
+  async function send() {
+    if (!sel || !text.trim()) return;
+    const t = text; setText(''); setChat((c) => [...c, { role: 'user', text: t, at: new Date().toISOString() }]); setBusy('chat');
+    try { await api('/api/studio', { method: 'POST', body: JSON.stringify({ action: 'chat', id: sel, text: t }) }); await open(sel); setTab('chat'); }
+    catch (e) { toast((e as Error).message); } finally { setBusy(''); }
+  }
+  async function del() { if (!sel || !confirm(`Delete agent “${draft.name}”?`)) return; await api('/api/studio', { method: 'POST', body: JSON.stringify({ action: 'delete', id: sel }) }); setSel(null); setMode(null); load(); }
+  const set = <K extends keyof Agent>(k: K, v: Agent[K]) => setDraft((d) => ({ ...d, [k]: v }));
+  const toggleTool = (t: string, list: string[]) => (list.includes(t) ? list.filter((x) => x !== t) : [...list, t]);
+  const runSections = (r: Run) => [{ title: r.report?.title || 'Run', text: r.report?.summary || r.error || '' }, { title: 'Findings', headers: ['Item', 'Detail', 'Link'], rows: (r.report?.findings || []).map((f) => [f.title, f.detail, f.url || '']) }, { title: 'Do next', text: (r.report?.actions || []).map((x) => `• ${x}`).join('\n') }, { title: 'How the agent worked', headers: ['Who', 'Thought', 'Tool', 'Result (short)'], rows: r.steps.map((s) => [s.who, s.thought, s.tool || '', (s.observation || '').slice(0, 300)]) }];
+
+  const editor = (
+    <div className="panel">
+      <div className="row" style={{ justifyContent: 'space-between' }}><h3 style={{ margin: 0 }}>{draft.id ? `Edit ${draft.emoji} ${draft.name}` : 'Create an agent'}</h3>{!draft.id && <button className="small-btn" onClick={() => setMode('gallery')}>← templates</button>}</div>
+      <div className="st-types">{(Object.keys(TYPES) as Agent['type'][]).map((t) => <div key={t} className={`st-type ${draft.type === t ? 'on' : ''}`} onClick={() => set('type', t)}><b>{TYPES[t][0]}</b><span>{TYPES[t][1]}</span></div>)}</div>
+      <div className="row" style={{ marginTop: 10 }}>
+        <input style={{ width: 64, textAlign: 'center', fontSize: 20 }} value={draft.emoji} onChange={(e) => set('emoji', e.target.value)} />
+        <input className="grow big" placeholder="Agent name — e.g. My FDE job hunter" value={draft.name} onChange={(e) => set('name', e.target.value)} />
+      </div>
+      <label className="st-label">Instructions — tell it exactly what to do (it follows your orders directly)</label>
+      <textarea className="st-area" rows={6} placeholder="e.g. Every 6 hours find new FDE roles in Bengaluru posted in the last 24 h on company boards, LinkedIn and X. Report role, company, experience, salary, apply link…" value={draft.goal} onChange={(e) => set('goal', e.target.value)} />
+      <label className="st-label">Rules it must never break (optional)</label>
+      <textarea className="st-area" rows={3} placeholder="e.g. Only Bengaluru or remote-India. Always include the source link. Never repeat something already reported." value={draft.rules} onChange={(e) => set('rules', e.target.value)} />
+      <label className="st-label">Tools it can use</label>
+      <div className="st-tools">{Object.entries(tools).map(([id, t]) => <label key={id} className={`st-tool ${draft.tools.includes(id) ? 'on' : ''}`} title={t.desc}><input type="checkbox" checked={draft.tools.includes(id)} onChange={() => set('tools', toggleTool(id, draft.tools))} />{t.label}</label>)}</div>
+      {draft.type === 'team' && (
+        <>
+          <label className="st-label">Team members (each with its own role, instructions and tools)</label>
+          {draft.members.map((m, i) => (
+            <div key={i} className="st-member">
+              <div className="row"><input placeholder="Name" value={m.name} onChange={(e) => set('members', draft.members.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} /><input className="grow" placeholder="Role — e.g. finds primary sources" value={m.role} onChange={(e) => set('members', draft.members.map((x, j) => (j === i ? { ...x, role: e.target.value } : x)))} /><button className="small-btn danger" onClick={() => set('members', draft.members.filter((_, j) => j !== i))}>✕</button></div>
+              <textarea className="st-area" rows={2} placeholder="This member's own instructions" value={m.instructions} onChange={(e) => set('members', draft.members.map((x, j) => (j === i ? { ...x, instructions: e.target.value } : x)))} />
+              <div className="st-tools">{Object.entries(tools).map(([id, t]) => <label key={id} className={`st-tool sm ${m.tools.includes(id) ? 'on' : ''}`}><input type="checkbox" checked={m.tools.includes(id)} onChange={() => set('members', draft.members.map((x, j) => (j === i ? { ...x, tools: toggleTool(id, x.tools) } : x)))} />{t.label}</label>)}</div>
+            </div>
+          ))}
+          <button className="small-btn" onClick={() => set('members', [...draft.members, { name: `Member ${draft.members.length + 1}`, role: '', instructions: '', tools: draft.tools }])}>＋ Add member</button>
+        </>
+      )}
+      <div className="grid2" style={{ marginTop: 12 }}>
+        <div>
+          <label className="st-label">When does it run?</label>
+          <div className="row"><select value={draft.schedule} onChange={(e) => set('schedule', e.target.value)}>{SCHEDULES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+            {(draft.schedule === 'daily' || draft.schedule === 'weekly') && <label className="small">at <select value={draft.dailyHour} onChange={(e) => set('dailyHour', Number(e.target.value))}>{Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}:00 IST</option>)}</select></label>}</div>
+          <label className="small" style={{ display: 'block', marginTop: 6 }}>Thinking depth: <select value={draft.maxSteps} onChange={(e) => set('maxSteps', Number(e.target.value))}>{[4, 6, 8, 10, 12, 14].map((n) => <option key={n} value={n}>{n} steps</option>)}</select></label>
+          <label className="small" style={{ display: 'block', marginTop: 6 }}><input type="checkbox" checked={draft.enabled} onChange={(e) => set('enabled', e.target.checked)} /> Active (scheduled runs on)</label>
+        </div>
+        <div>
+          <label className="st-label">Report to</label>
+          <div className="small">✅ This page (always)</div>
+          <label className="small" style={{ display: 'block' }}><input type="checkbox" checked={draft.report.email === 'me'} onChange={(e) => set('report', { ...draft.report, email: e.target.checked ? 'me' : '' })} /> Email me</label>
+          <input style={{ width: '100%', margin: '4px 0' }} placeholder="…or email to another address" value={draft.report.email === 'me' ? '' : draft.report.email} onChange={(e) => set('report', { ...draft.report, email: e.target.value })} />
+          <label className="small" style={{ display: 'block' }}><input type="checkbox" checked={draft.report.whatsapp} onChange={(e) => set('report', { ...draft.report, whatsapp: e.target.checked })} /> WhatsApp me {channels && !channels.whatsapp && <span className="muted">(connect in Settings first)</span>}</label>
+          <input style={{ width: '100%', margin: '4px 0' }} placeholder="Webhook URL (Slack / Discord / Zapier / n8n) — optional" value={draft.report.webhook} onChange={(e) => set('report', { ...draft.report, webhook: e.target.value })} />
+          <label className="small" style={{ display: 'block' }}><input type="checkbox" checked={draft.report.onlyIfNew} onChange={(e) => set('report', { ...draft.report, onlyIfNew: e.target.checked })} /> Only report when something is new</label>
+        </div>
+      </div>
+      <div className="row" style={{ marginTop: 12 }}><button className="primary" disabled={busy === 'save' || !draft.goal.trim()} onClick={save}>{draft.id ? 'Save changes' : '✨ Create agent'}</button>{draft.id && <button className="danger" onClick={del}>Delete agent</button>}</div>
+    </div>
+  );
+
+  return (
+    <>
+      <div className="hero">
+        <div>
+          <h2>Agent studio — build your own AI agents</h2>
+          <p>Create any agent with one click on ＋: autonomous agents that reason and use tools, multi-agent teams that split the work and review each other, or 24×7 monitors on a schedule. Give your instructions and rules — it follows them directly — pick its tools, and choose where it reports: this page, email, WhatsApp or any webhook. Every agent has its own chat and its own memory; every result exports to PDF.</p>
+        </div>
+        <div className="hero-stats"><div><b>{agents.length}</b><span>agents</span></div><div><b>{agents.filter((a) => a.enabled && a.schedule !== 'manual').length}</b><span>running 24×7</span></div></div>
+      </div>
+      {channels && !channels.canEmailAnyone && <div className="notice warn small">Emails to <b>your own</b> address work. To email reports to other addresses add a Gmail app password or a free Brevo key (AI &amp; Keys → Access).</div>}
+      <div className="st-layout">
+        <aside className="st-list">
+          <button className="st-plus" onClick={() => { setDraft(BLANK); setSel(null); setMode('gallery'); }}>＋ <span>New agent</span></button>
+          {agents.map((a) => (
+            <button key={a.id} className={`st-item ${sel === a.id ? 'on' : ''}`} onClick={() => open(a.id!)}>
+              <span className="st-emoji">{a.emoji}</span>
+              <span className="st-meta"><b>{a.name}</b><small>{TYPES[a.type][0].replace(/^\S+\s/, '')} · {SCHEDULES.find(([v]) => v === a.schedule)?.[1]}{!a.enabled ? ' · paused' : ''}</small><small>{a.lastRun ? `ran ${ago(a.lastRun)} ago · ${a.lastStatus?.startsWith('failed') ? '⚠ failed' : 'ok'}` : 'not run yet'}</small></span>
+            </button>
+          ))}
+        </aside>
+        <section className="st-main">
+          {mode === 'gallery' && (
+            <div className="panel">
+              <h3 style={{ marginTop: 0 }}>What should your new agent do?</h3>
+              <div className="st-gallery">{TEMPLATES.map((t) => <div key={t.label} className="st-tpl" onClick={() => { setDraft({ ...BLANK, ...t, report: { ...BLANK.report, ...(t.report || {}) }, members: t.members || [] } as Agent); setMode('edit'); }}><span className="st-emoji big">{t.emoji}</span><b>{t.label}</b><span className="small muted">{t.blurb}</span></div>)}</div>
+            </div>
+          )}
+          {mode === 'edit' && editor}
+          {mode === 'view' && sel && (
+            <>
+              <div className="panel st-head">
+                <span className="st-emoji big">{draft.emoji}</span>
+                <div className="grow"><h3 style={{ margin: 0 }}>{draft.name}</h3><div className="small muted">{TYPES[draft.type][0]} · {SCHEDULES.find(([v]) => v === draft.schedule)?.[1]} · reports: page{draft.report.email ? ', email' : ''}{draft.report.whatsapp ? ', WhatsApp' : ''}{draft.report.webhook ? ', webhook' : ''}</div></div>
+                <span className="seg">{(['chat', 'runs', 'settings'] as const).map((t) => <button key={t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t === 'chat' ? '💬 Chat' : t === 'runs' ? `📋 Results (${runs.length})` : '⚙ Settings'}</button>)}</span>
+              </div>
+              {tab === 'settings' && editor}
+              {tab === 'chat' && (
+                <div className="panel mentor-chat">
+                  <div className="mentor-msgs">
+                    {!chat.length && <div className="mentor-empty">Talk to <b>{draft.name}</b>. Give it a task or a new order — it uses its tools, reasons it through, and answers. </div>}
+                    {chat.map((m, i) => <div key={i} className={`bubble ${m.role === 'user' ? 'user' : 'mentor'}`}>{m.role === 'agent' ? <Md text={m.text} /> : m.text}<span className="bubble-at">{ago(m.at)} ago</span></div>)}
+                    {busy === 'chat' && <div className="bubble mentor typing">{draft.emoji} working with its tools… {secs}s</div>}
+                  </div>
+                  <div className="mentor-input"><textarea rows={2} placeholder={`Order ${draft.name}… (Enter to send)`} value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} /><button className="primary" disabled={!!busy || !text.trim()} onClick={send}>Send</button></div>
+                </div>
+              )}
+              {tab === 'runs' && (
+                <>
+                  <div className="panel row">
+                    <input className="grow" placeholder="Optional: a specific task for this run (empty = its normal job)" value={task} onChange={(e) => setTask(e.target.value)} />
+                    <button className="primary" disabled={!!busy} onClick={run}>{busy === 'run' ? `Running… ${secs}s` : '▶ Run now'}</button>
+                  </div>
+                  {runs.map((r) => (
+                    <div key={r.id} className="panel st-run">
+                      <div className="row" style={{ justifyContent: 'space-between', cursor: 'pointer' }} onClick={() => setOpenRun(openRun === r.id ? null : r.id)}>
+                        <div><b>{r.error ? '⚠ Failed' : r.report?.title}</b><div className="small muted">{new Date(r.at).toLocaleString('en-IN')} · {r.trigger} · {Math.round(r.ms / 1000)}s · {r.steps.length} steps · sent to: {r.delivered.join(', ') || '—'}</div></div>
+                        <span className="row" style={{ gap: 6 }} onClick={(e) => e.stopPropagation()}><ExportButton title={`${draft.emoji} ${draft.name} — ${r.report?.title || 'run'}`} filename={`${draft.name}-${r.at.slice(0, 10)}`} subtitle={new Date(r.at).toLocaleString('en-IN')} sections={runSections(r)} /></span>
+                      </div>
+                      {openRun === r.id && (
+                        <div style={{ marginTop: 10 }}>
+                          {r.error && <div className="notice warn small">{r.error}</div>}
+                          {r.report && <><p>{r.report.summary}</p>{r.report.findings.map((f, i) => <div key={i} className="tline"><b>{f.url ? <a href={f.url} target="_blank" rel="noreferrer">{f.title} ↗</a> : f.title}</b><div className="small">{f.detail}</div></div>)}{r.report.actions.length > 0 && <div className="notice ok small"><b>Do next:</b><ul style={{ margin: '4px 0 0' }}>{r.report.actions.map((x, i) => <li key={i}>{x}</li>)}</ul></div>}</>}
+                          <details className="small"><summary>How it reasoned ({r.steps.length} steps)</summary>{r.steps.map((s, i) => <div key={i} className="st-step"><b>{s.who}</b>{s.tool && <span className="badge b-dom">{s.tool}</span>}<div>{s.thought}</div>{s.observation && <pre>{s.observation}</pre>}</div>)}</details>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {!runs.length && <div className="empty">No results yet — click ▶ Run now{draft.schedule !== 'manual' ? ' or wait for its schedule' : ''}.</div>}
+                </>
+              )}
+            </>
+          )}
+          {!mode && <div className="empty">Pick an agent on the left, or press ＋ to create one.</div>}
+        </section>
+      </div>
+    </>
+  );
+}

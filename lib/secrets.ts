@@ -34,6 +34,8 @@ export const VAULT_KEYS: { name: string; label: string; group: string; url: stri
   // outreach (find people's work emails)
   { name: 'HUNTER_API_KEY', label: 'Hunter.io (finds work emails, 25 free searches/month)', group: 'Outreach', url: 'https://hunter.io/api-keys' },
   // sign-in emails to people you give access (any address; Gmail app password: myaccount.google.com/apppasswords)
+  { name: 'BREVO_API_KEY', label: 'Brevo API key — free 300 emails/day to anyone (alternative to Gmail)', group: 'Access', url: 'https://app.brevo.com/settings/keys/api' },
+  { name: 'BREVO_SENDER', label: 'Brevo verified sender email (your Gmail is fine — verify it in Brevo → Senders)', group: 'Access', url: 'https://app.brevo.com/senders' },
   { name: 'GMAIL_USER', label: 'Gmail address that sends sign-in links', group: 'Access', url: 'https://myaccount.google.com/apppasswords' },
   { name: 'GMAIL_APP_PASSWORD', label: 'Gmail app password (16 letters)', group: 'Access', url: 'https://myaccount.google.com/apppasswords' },
   // daily email digest

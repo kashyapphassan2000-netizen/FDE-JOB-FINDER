@@ -125,16 +125,11 @@ export async function consumeLinkToken(token: string): Promise<string | null> {
 }
 
 export async function sendSignInEmail(to: string, link: string): Promise<'gmail' | 'resend' | 'none'> {
-  const html = `<div style="font-family:system-ui,sans-serif"><h3>Sign in to FDE Job Finder</h3><p><a href="${link}" style="background:#5b4cf0;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none">Sign in</a></p><p style="color:#666;font-size:13px">This link works once and expires in 20 minutes. If you didn't ask for it, ignore this email.</p></div>`;
-  if (secret('GMAIL_USER') && secret('GMAIL_APP_PASSWORD')) {
-    const nodemailer = (await import('nodemailer')).default;
-    const t = nodemailer.createTransport({ host: 'smtp.gmail.com', port: 465, secure: true, auth: { user: secret('GMAIL_USER'), pass: secret('GMAIL_APP_PASSWORD') } });
-    await t.sendMail({ from: `FDE Job Finder <${secret('GMAIL_USER')}>`, to, subject: 'Your sign-in link', html });
-    return 'gmail';
+  const html = `<div style="font-family:system-ui,sans-serif"><h3>Sign in to FDE Job Finder</h3><p><a href="${link}" style="background:#00f0a0;color:#08110d;padding:10px 16px;border-radius:99px;text-decoration:none;font-weight:700">Sign in</a></p><p style="color:#666;font-size:13px">This link works once and expires in 20 minutes. If you didn't ask for it, ignore this email.</p></div>`;
+  try {
+    const { sendMail } = await import('./mailer');
+    return (await sendMail(to, 'Your sign-in link', html)) as 'gmail' | 'resend';
+  } catch {
+    return 'none';
   }
-  if (secret('RESEND_API_KEY')) {
-    const r = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${secret('RESEND_API_KEY')}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from: secret('DIGEST_FROM') || 'FDE Job Finder <onboarding@resend.dev>', to: [to], subject: 'Your sign-in link', html }) });
-    if (r.ok) return 'resend';
-  }
-  return 'none';
 }
