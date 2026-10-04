@@ -169,6 +169,8 @@ async function callOne(p: Profile, system: string, user: string, maxTokens: numb
   if (p.preset === 'openrouter') Object.assign(headers, { 'HTTP-Referer': 'https://fde-job-finder.vercel.app', 'X-Title': 'FDE Job Finder' });
   const messages = [{ role: 'system', content: system }, { role: 'user', content: user }];
   const reasoningStyle = p.preset === 'openai' && /^(o\d|gpt-5)/.test(model);
+  // Thinking models (Gemini 2.5+/3, gpt-oss, DeepSeek-R1…) spend tokens on hidden reasoning first; a small budget returns nothing.
+  maxTokens = Math.max(maxTokens, 1024);
   const body: Record<string, unknown> = reasoningStyle ? { model, messages, max_completion_tokens: maxTokens * 4 } : { model, messages, max_tokens: maxTokens, temperature: 0.2 };
   let d;
   try {
@@ -179,8 +181,15 @@ async function callOne(p: Profile, system: string, user: string, maxTokens: numb
       d = await post(`${base}/chat/completions`, headers, { model, messages, max_completion_tokens: maxTokens * 4 }, timeoutMs);
     } else throw e;
   }
-  const msg = d.choices?.[0]?.message;
-  const text = typeof msg?.content === 'string' ? msg.content : Array.isArray(msg?.content) ? msg.content.map((c: any) => c.text || '').join('') : '';
+  const extract = (r: any) => {
+    const msg = r.choices?.[0]?.message;
+    return typeof msg?.content === 'string' ? msg.content : Array.isArray(msg?.content) ? msg.content.map((c: any) => c.text || '').join('') : '';
+  };
+  let text = extract(d);
+  // still cut off while thinking → one retry with a bigger budget
+  if (!text.trim() && d.choices?.[0]?.finish_reason === 'length') {
+    text = extract(await post(`${base}/chat/completions`, headers, { ...body, ...(reasoningStyle ? { max_completion_tokens: maxTokens * 8 } : { max_tokens: maxTokens * 4 }) }, timeoutMs));
+  }
   return { text, model };
 }
 

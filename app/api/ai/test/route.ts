@@ -9,7 +9,7 @@ export async function POST(req: Request) {
   const { id } = (await req.json().catch(() => ({}))) as { id?: string };
   try {
     const t0 = Date.now();
-    const r = await chat('You are a test endpoint.', 'Reply with exactly: OK FDE', { maxTokens: 20, timeoutMs: 45000, profileId: id });
+    const r = await chat('You are a test endpoint.', 'Reply with exactly: OK FDE', { maxTokens: 200, timeoutMs: 45000, profileId: id });
     return Response.json({ ok: true, reply: r.text.slice(0, 100), provider: r.provider, model: r.model, ms: Date.now() - t0, tried: r.tried });
   } catch (e) {
     return bad((e as Error).message, 502);
