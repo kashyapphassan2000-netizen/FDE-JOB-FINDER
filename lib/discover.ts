@@ -1,6 +1,7 @@
 import type { CompanyEntry, RawJob } from './types';
 import { classify, isExcluded, locationAllowed, locationTags } from './classify';
-import { guessAts } from './atsdetect';
+import { atsFromUrl, guessAts, probe } from './atsdetect';
+import { webSearch } from './search';
 import { decodeEntities, getJson, getText, parseRss, pool, relativeToIso } from './http';
 import { DEFAULT_COMPANIES } from './companies';
 import { getSettings, saveSettings } from './settings';
@@ -75,6 +76,23 @@ function hiddenScore(c: Omit<DiscoveredCompany, 'hiddenScore'>): number {
   if (c.tags.some((t) => AI_HINT.test(t))) s += 2;
   s += Math.min(5, c.roles.length * 2);
   return s;
+}
+
+type Cand = Omit<DiscoveredCompany, 'hiddenScore' | 'roles' | 'checkedAt' | 'status'> & { atsHint?: { ats: CompanyEntry['ats']; slug: string } };
+
+/** Smart hunt: companies posting FDE / AI roles on public ATS boards this week, found by web search (any company, worldwide). */
+async function atsHuntCandidates(): Promise<Cand[]> {
+  const qs = ['site:jobs.ashbyhq.com "forward deployed"', 'site:job-boards.greenhouse.io "forward deployed"', 'site:jobs.lever.co "forward deployed"', 'site:apply.workable.com "forward deployed"',
+    'site:jobs.ashbyhq.com ("AI engineer" OR "applied AI") (Bengaluru OR India OR remote)', 'site:job-boards.greenhouse.io ("AI engineer" OR "LLM") (Bengaluru OR India OR remote)', 'site:jobs.lever.co ("AI engineer" OR "machine learning") (Bengaluru OR India OR remote)', '"deployment strategist" OR "AI deployment engineer" careers'];
+  const res = await pool(qs, 4, (q) => webSearch(q, 20, 'week'));
+  const out = new Map<string, Cand>();
+  for (const r of res) if (r.status === 'fulfilled') for (const x of r.value.results) {
+    const a = atsFromUrl(x.url);
+    if (!a || out.has(`${a.ats}:${a.slug}`)) continue;
+    const name = a.slug.replace(/[-_]+/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+    out.set(`${a.ats}:${a.slug}`, { key: keyOf(name), name, location: '', region: [], source: `Hiring FDE/AI on ${a.ats} (web, this week)`, sourceUrl: x.url, tags: ['found hiring FDE/AI'], atsHint: a });
+  }
+  return [...out.values()];
 }
 
 async function ycCandidates(): Promise<Omit<DiscoveredCompany, 'hiddenScore' | 'roles' | 'checkedAt' | 'status'>[]> {
@@ -163,28 +181,29 @@ export async function runDiscover(budgetMs = 240000): Promise<{ added: number; c
   const existing = await getDiscovered(true);
   const byKey = new Map(existing.map((c) => [c.key, c]));
 
-  const [yc, fund] = await Promise.allSettled([ycCandidates(), fundingCandidates()]);
-  const cands = [...(fund.status === 'fulfilled' ? fund.value : []), ...(yc.status === 'fulfilled' ? yc.value : [])];
-  log.push(`candidates: ${fund.status === 'fulfilled' ? fund.value.length : 'funding feeds failed'} from funding news, ${yc.status === 'fulfilled' ? yc.value.length : 'YC failed'} from YC`);
+  const [yc, fund, hunt] = await Promise.allSettled([ycCandidates(), fundingCandidates(), atsHuntCandidates()]);
+  const cands: Cand[] = [...(hunt.status === 'fulfilled' ? hunt.value : []), ...(fund.status === 'fulfilled' ? fund.value : []), ...(yc.status === 'fulfilled' ? yc.value : [])];
+  log.push(`candidates: ${hunt.status === 'fulfilled' ? hunt.value.length : 'web hunt failed'} companies found posting FDE/AI roles on ATS boards this week, ${fund.status === 'fulfilled' ? fund.value.length : 'funding feeds failed'} from funding news, ${yc.status === 'fulfilled' ? yc.value.length : 'YC failed'} from YC`);
 
   // check companies not seen in the last 7 days; recently-funded first, then India/BLR, then small teams
   const due = cands
     .filter((c) => !watched.has(c.key))
     .filter((c) => { const p = byKey.get(c.key); return !p || Date.now() - Date.parse(p.checkedAt) > 3 * 864e5; })
-    .sort((a, b) => (b.fundedAt ? 1 : 0) - (a.fundedAt ? 1 : 0) || (b.region.includes('BLR') ? 1 : 0) - (a.region.includes('BLR') ? 1 : 0) || (a.teamSize || 999) - (b.teamSize || 999));
-  const batch = due.slice(0, 150);
+    .sort((a, b) => (b.atsHint ? 1 : 0) - (a.atsHint ? 1 : 0) || (b.fundedAt ? 1 : 0) - (a.fundedAt ? 1 : 0) || (b.region.includes('BLR') ? 1 : 0) - (a.region.includes('BLR') ? 1 : 0) || (a.teamSize || 999) - (b.teamSize || 999));
+  const batch = due.slice(0, 400);
   let added = 0;
-  const res = await pool(batch, 6, async (c) => {
+  const res = await pool(batch, 10, async (c) => {
     if (Date.now() - t0 > budgetMs) return null;
     let roles: DiscoveredCompany['roles'] = [];
     let ats: DiscoveredCompany['ats'];
-    const d = await guessAts(c.name).catch(() => null);
+    const d = c.atsHint ? await probe(c.atsHint.ats, c.atsHint.slug, c.name) : await guessAts(c.name).catch(() => null);
     if (d) {
       ats = { ats: d.ats, slug: d.slug, total: d.total };
       roles = d.jobs.filter((j) => classify(j).length && !isExcluded(j, settings)).slice(0, 10).map((j) => ({ title: j.title, location: j.location, url: j.url }));
     }
     if (!roles.length && c.ycSlug) roles = (await ycRoles(c.ycSlug).catch(() => [])).filter((r) => !isExcluded({ ...r, company: '' }, settings));
-    const base = { ...c, ats, roles, checkedAt: new Date().toISOString(), status: (byKey.get(c.key)?.status || 'new') as DiscoveredCompany['status'] };
+    const { atsHint: _h, ...cc } = c;
+    const base = { ...cc, ats, roles, checkedAt: new Date().toISOString(), status: (byKey.get(c.key)?.status || 'new') as DiscoveredCompany['status'] };
     return { ...base, hiddenScore: hiddenScore(base) } as DiscoveredCompany;
   });
   for (const r of res) {

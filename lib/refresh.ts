@@ -7,7 +7,7 @@ import { getCv } from './cv';
 import { sendAlert } from './notify';
 import { loadVault } from './secrets';
 import { saveTrendSnapshot } from './trends';
-import { recordDirectory } from './directory';
+import { recordDirectory, recordGlobal } from './directory';
 
 const MAX_JOBS = 2500;
 const KEEP_DAYS = 5; // not seen on its board for 5 days → treated as closed and removed
@@ -81,6 +81,7 @@ export async function refresh(opts: { only?: string[]; force?: boolean; trigger:
     const targets = SOURCES.filter((s) => !opts.only || opts.only.includes(s.id));
     const ran: string[] = [], skipped: string[] = [], failed: string[] = [];
 
+    const globalSeen: RawJob[] = [];
     const results = await Promise.all(
       targets.map(async (s) => {
         const prev = health[s.id];
@@ -108,6 +109,7 @@ export async function refresh(opts: { only?: string[]; force?: boolean; trigger:
           const raw = await s.run({ ...ctxBase, signal: ctrl.signal });
           const warnings = (raw as RawJob[] & { warnings?: string[] }).warnings;
           const rel = raw.filter((j) => valid(j) && !isExcluded(j, settings) && classify(j).length > 0);
+          globalSeen.push(...rel); // every FDE / AI role anywhere in the world (before your location rule) → Companies hiring
           ran.push(s.id);
           health[s.id] = {
             id: s.id,
@@ -129,6 +131,8 @@ export async function refresh(opts: { only?: string[]; force?: boolean; trigger:
         }
       }),
     );
+
+    await recordGlobal(globalSeen).catch(() => null);
 
     // ---- merge ----
     const byId = new Map<string, Job>(existing.map((j) => [j.id, j]));

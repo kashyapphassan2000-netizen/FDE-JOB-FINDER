@@ -100,6 +100,10 @@
     {
       "path": "/api/cron/intel?task=report",
       "schedule": "35 0 * * *"
+    },
+    {
+      "path": "/api/cron/discover",
+      "schedule": "50 8 * * *"
     }
   ]
 }

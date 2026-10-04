@@ -57,7 +57,7 @@ export async function GET(req: Request) {
 
   const dir = await getDirectory();
   const hiring = dir.companies.filter((c) => c.fde + c.aiml > 0 || c.roles.length);
-  S.push({ title: `Companies hiring (${hiring.length} with FDE/AI roles; ${dir.counts.fdeNow} with FDE roles)`, headers: ['Company', 'FDE', 'AI/ML', 'BLR', 'Remote', 'New 24h', 'Open roles', 'Careers page'],
+  S.push({ title: `Global companies hiring (${hiring.length} with FDE/AI roles; ${dir.counts.fdeNow} with FDE roles)`, headers: ['Company', 'FDE', 'AI/ML', 'BLR', 'Remote', 'New 24h', 'Open roles', 'Careers page'],
     rows: hiring.slice(0, 400).map((c) => [c.name, String(c.fde), String(c.aiml), String(c.blr), String(c.remoteIn), String(c.new24h || ''), c.roles.slice(0, 3).map((r) => r.title).join('; '), c.careersUrl]) });
 
   const withRoles = disc.filter((c) => c.roles.length).slice(0, 200);

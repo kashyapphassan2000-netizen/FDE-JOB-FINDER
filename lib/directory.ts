@@ -1,5 +1,6 @@
-import type { CompanyEntry, Job } from './types';
+import type { CompanyEntry, Job, RawJob } from './types';
 import { DEFAULT_COMPANIES } from './companies';
+import { classify } from './classify';
 import { CAREER_PAGES } from './sources/careerpages';
 import { getSettings } from './settings';
 import { getJobs } from './refresh';
@@ -19,7 +20,34 @@ export interface DirCompany {
   ats?: string; source: string; tags: string[]; newStartup: boolean; fundedAt?: string; teamSize?: number;
   fde: number; aiml: number; blr: number; remoteIn: number; new24h: number; latest: string | null; roles: DirRole[];
   hiresFde: boolean; firstSeen: string; lastFdeSeen?: string;
+  fdeWorld: number; aiWorld: number; worldRoles: DirRole[]; // every FDE / AI role at this company, any country
 }
+type GlobalEntry = { name: string; fde: number; ai: number; at: string; roles: DirRole[] };
+const FDE_RX = /forward[\s-]?deploy|deployed engineer|deployment (engineer|strategist|lead)|solutions? engineer.*\b(ai|llm|genai)\b|applied ai (engineer|architect)/i;
+export const isFdeTitle = (t: string) => FDE_RX.test(t);
+
+/** Called on every refresh with ALL relevant roles before the location rule: worldwide FDE / AI counts per company. */
+export async function recordGlobal(raws: RawJob[]) {
+  if (!raws.length) return;
+  const cur = await getJSON<Record<string, GlobalEntry>>('dir:global', {});
+  const now = new Date().toISOString();
+  const fresh = new Map<string, GlobalEntry>();
+  for (const j of raws) {
+    if (!j.company || AGGREGATOR.test(j.company)) continue;
+    const name = j.company.split(/\s+[—|–]\s+|\s+-\s+/)[0].replace(/\s*\(.*$/, '').trim();
+    const k = dirKey(name);
+    if (!k || name.length > 50) continue;
+    const e = fresh.get(k) || { name, fde: 0, ai: 0, at: now, roles: [] };
+    const fde = classify(j).includes('FDE') || isFdeTitle(j.title);
+    if (fde) e.fde++; else e.ai++;
+    if (e.roles.length < 12 && !e.roles.some((r) => r.url === j.url)) e.roles.push({ title: j.title, url: j.url, location: j.location || '', posted: j.postedAt || null, fde });
+    fresh.set(k, e);
+  }
+  for (const [k, e] of fresh) cur[k] = e; // companies fetched this round get today's numbers
+  for (const k of Object.keys(cur)) if (Date.now() - Date.parse(cur[k].at) > 4 * 864e5) delete cur[k]; // not seen for 4 days → gone
+  await setJSON('dir:global', cur);
+}
+
 type Hist = Record<string, { firstSeen: string; lastFdeSeen?: string; lastAiSeen?: string }>;
 
 export const dirKey = (n: string) => n.toLowerCase().replace(/\(.*?\)/g, '').replace(/\b(inc|ltd|llc|pvt|private|limited|technologies|technology|labs|corp|corporation|co|hq)\b/g, '').replace(/[^a-z0-9]/g, '');
@@ -52,11 +80,11 @@ export async function recordDirectory(jobs: Job[]) {
 }
 
 export async function getDirectory(): Promise<{ companies: DirCompany[]; at: string; counts: Record<string, number> }> {
-  const [settings, jobs, disc, hist, findsH] = await Promise.all([getSettings(), getJobs(), getDiscovered(), getJSON<Hist>('dir:hist', {}), hgetall<Find>('agent:finds')]);
+  const [settings, jobs, disc, hist, findsH, world] = await Promise.all([getSettings(), getJobs(), getDiscovered(), getJSON<Hist>('dir:hist', {}), hgetall<Find>('agent:finds'), getJSON<Record<string, GlobalEntry>>('dir:global', {})]);
   const now = new Date().toISOString();
   const map = new Map<string, DirCompany>();
   const base = (name: string, careersUrl: string, careersKind: DirCompany['careersKind'], source: string, extra: Partial<DirCompany> = {}): DirCompany => ({
-    key: dirKey(name), name, careersUrl, careersKind, source, tags: [], newStartup: false, fde: 0, aiml: 0, blr: 0, remoteIn: 0, new24h: 0, latest: null, roles: [], hiresFde: false, firstSeen: now, ...extra,
+    key: dirKey(name), name, careersUrl, careersKind, source, tags: [], newStartup: false, fdeWorld: 0, aiWorld: 0, worldRoles: [], fde: 0, aiml: 0, blr: 0, remoteIn: 0, new24h: 0, latest: null, roles: [], hiresFde: false, firstSeen: now, ...extra,
   });
   const put = (c: DirCompany) => { if (c.key && !map.has(c.key)) map.set(c.key, c); };
 
@@ -106,17 +134,25 @@ export async function getDirectory(): Promise<{ companies: DirCompany[]; at: str
     if ((f.kind !== 'company' && f.kind !== 'careers_page') || f.status === 'dismissed' || !f.company || AGGREGATOR.test(f.company)) continue;
     put(base(f.company, f.ats ? atsCareersUrl({ ats: f.ats.ats, slug: f.ats.slug }) : f.url, f.ats ? 'ats' : 'careers page', 'Found by AI agent', { ats: f.ats?.ats }));
   }
+  // worldwide numbers (any country) — also adds companies that only have roles outside your location rule
+  for (const [k, w] of Object.entries(world)) {
+    if (!map.has(k)) put(base(w.name, w.roles[0] && /greenhouse|lever\.co|ashbyhq|workable|smartrecruiters|myworkdayjobs/.test(w.roles[0].url) ? w.roles[0].url.replace(/(\.com|\.io|\.co)\/([^/]+).*/, '$1/$2') : `https://www.google.com/search?q=${encodeURIComponent(`${w.name} careers`)}`, 'search', 'Seen in job feeds (worldwide)'));
+    const c = map.get(k);
+    if (!c) continue;
+    c.fdeWorld = w.fde; c.aiWorld = w.ai; c.worldRoles = w.roles.sort((a, b) => Number(b.fde) - Number(a.fde)).slice(0, 8);
+    if (c.careersKind === 'search' && /greenhouse|lever\.co|ashbyhq|workable|smartrecruiters|myworkdayjobs/.test(w.roles[0]?.url || '')) { c.careersUrl = w.roles[0].url.replace(/(\.com|\.io|\.co)\/([^/]+).*/, '$1/$2'); c.careersKind = 'ats'; }
+  }
   const companies = [...map.values()].map((c) => {
     const h = hist[c.key];
     const roles = c.roles.sort((a, b) => Number(b.fde) - Number(a.fde) || Date.parse(b.posted || '1970') - Date.parse(a.posted || '1970')).slice(0, 8);
     const fdeRoles = c.fde || roles.filter((r) => r.fde).length;
-    return { ...c, fde: fdeRoles, roles, firstSeen: h?.firstSeen || c.firstSeen, lastFdeSeen: h?.lastFdeSeen, hiresFde: c.hiresFde || fdeRoles > 0 || Boolean(h?.lastFdeSeen) };
+    return { ...c, fde: fdeRoles, roles, firstSeen: h?.firstSeen || c.firstSeen, lastFdeSeen: h?.lastFdeSeen, hiresFde: c.hiresFde || fdeRoles > 0 || c.fdeWorld > 0 || Boolean(h?.lastFdeSeen) };
   });
   companies.sort((a, b) => b.fde - a.fde || b.new24h - a.new24h || b.aiml - a.aiml || Date.parse(b.latest || '1970') - Date.parse(a.latest || '1970'));
   const counts = {
     total: companies.length, hiringNow: companies.filter((c) => c.fde + c.aiml > 0 || c.roles.length > 0).length, fdeNow: companies.filter((c) => c.fde > 0).length,
     hiresFde: companies.filter((c) => c.hiresFde).length, newStartups: companies.filter((c) => c.newStartup).length, new24h: companies.filter((c) => c.new24h > 0).length,
-    blr: companies.filter((c) => c.blr > 0).length,
+    blr: companies.filter((c) => c.blr > 0).length, fdeWorld: companies.filter((c) => c.fdeWorld > 0).length, aiWorld: companies.filter((c) => c.fdeWorld + c.aiWorld > 0).length,
   };
   return { companies, at: now, counts };
 }
