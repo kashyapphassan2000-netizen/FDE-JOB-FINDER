@@ -4,7 +4,7 @@ import { atsFromUrl, probe } from '../atsdetect';
 import { classify, locationAllowed, locationTags } from '../classify';
 import { aiConfigured, chatJson } from '../llm';
 import { readPage } from '../search';
-import { getJSON, setJSON } from '../store';
+import { getJSON, hset, setJSON } from '../store';
 
 /**
  * Companies from the Excel that have NO public ATS API (custom careers sites): the page is opened with a
@@ -80,10 +80,18 @@ export const CAREER_PAGE_SOURCE: SourceDef = {
       return extract(name, url, md);
     });
     const out: RawJob[] = [];
-    res.forEach((r, i) => {
-      if (r.status === 'fulfilled') out.push(...r.value.filter((j) => classify(j).length && locationAllowed(locationTags(j), j.location)));
-      else warnings.push(`${batch[i][0]}: ${(r.reason as Error).message.slice(0, 80)}`);
-    });
+    const at = new Date().toISOString();
+    for (let i = 0; i < res.length; i++) {
+      const r = res[i];
+      if (r.status === 'fulfilled') {
+        const mine = r.value.filter((j) => classify(j).length && locationAllowed(locationTags(j), j.location));
+        out.push(...mine);
+        await hset('cp:status', batch[i][0], { at, ok: true, roles: r.value.length, mine: mine.length });
+      } else {
+        warnings.push(`${batch[i][0]}: ${(r.reason as Error).message.slice(0, 80)}`);
+        await hset('cp:status', batch[i][0], { at, ok: false, error: (r.reason as Error).message.slice(0, 120) });
+      }
+    }
     if (ctx.signal.aborted) warnings.push('time budget reached');
     return Object.assign(out, { warnings });
   },

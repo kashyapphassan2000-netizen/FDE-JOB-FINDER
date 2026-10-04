@@ -2,7 +2,7 @@ import platforms from '@/data/platforms.json';
 import { guard, bad } from '@/lib/guard';
 import { getJSON, hgetall, hset } from '@/lib/store';
 import { SOURCES, sourceConfigured } from '@/lib/sources';
-import { coverage } from '@/lib/coverage';
+import { coverage, type CpStatus } from '@/lib/coverage';
 import { getHealth } from '@/lib/refresh';
 import { getSettings } from '@/lib/settings';
 import { loadVault } from '@/lib/secrets';
@@ -13,9 +13,9 @@ export async function GET(req: Request) {
   const g = await guard(req);
   if (g) return g;
   await loadVault();
-  const [checks, health, settings, disc] = await Promise.all([hgetall<Check>('pchk'), getHealth(), getSettings(), getJSON<{ at: string } | null>('disc:meta', null)]);
+  const [checks, health, settings, disc, cp] = await Promise.all([hgetall<Check>('pchk'), getHealth(), getSettings(), getJSON<{ at: string } | null>('disc:meta', null), hgetall<CpStatus[string]>('cp:status')]);
   const live = Object.fromEntries(SOURCES.map((s) => [s.id, sourceConfigured(s)]));
-  const eff = Object.fromEntries(coverage(health, settings.extraCompanies, Boolean(disc && Date.now() - Date.parse(disc.at) < 3 * 864e5), settings.subreddits, settings.telegramChannels).map((c) => [c.id, c]));
+  const eff = Object.fromEntries(coverage(health, settings.extraCompanies, Boolean(disc && Date.now() - Date.parse(disc.at) < 3 * 864e5), settings.subreddits, settings.telegramChannels, cp).map((c) => [c.id, c]));
   return Response.json({ platforms, checks, live, eff });
 }
 

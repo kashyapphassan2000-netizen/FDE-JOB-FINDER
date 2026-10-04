@@ -29,7 +29,8 @@ const EXTRA: [RegExp, string[]][] = [
 const FEEDLESS_KINDS = new Set(['tool', 'certification', 'oss_program', 'devrel', 'resource', 'referral', 'newsletter', 'staffing']);
 const KEYED = new Set(SOURCES.filter((s) => !s.keyless).map((s) => s.id));
 
-export function coverage(health: Record<string, SourceHealth>, extraCompanies: { ats: string; slug: string }[], discOk: boolean, subs: string[] = [], channels: string[] = []) {
+export type CpStatus = Record<string, { at: string; ok: boolean; roles?: number; mine?: number; error?: string }>;
+export function coverage(health: Record<string, SourceHealth>, extraCompanies: { ats: string; slug: string }[], discOk: boolean, subs: string[] = [], channels: string[] = [], cp: CpStatus = {}) {
   const subSet = new Set(subs.map((x) => x.toLowerCase()));
   const chSet = new Set(channels.map((x) => x.toLowerCase()));
   const watched = new Set([...DEFAULT_COMPANIES, ...extraCompanies].map((c) => `${c.ats}:${c.slug}`.toLowerCase()));
@@ -38,6 +39,11 @@ export function coverage(health: Record<string, SourceHealth>, extraCompanies: {
   const status = (c: string): 'ok' | 'failing' | 'needs_key' | 'off' => {
     if (c === 'discover') return discOk ? 'ok' : 'off';
     if (c === 'opps') return 'ok';
+    if (c.startsWith('cp:')) {
+      const st = cp[c.slice(3)];
+      if (!st) return 'off';
+      return st.ok && Date.now() - Date.parse(st.at) < 7 * 864e5 ? 'ok' : 'failing';
+    }
     if (c.startsWith('agent:')) return 'off';
     const [src, slug] = c.split(':');
     if (slug) return watched.has(`${src}:${slug}`.toLowerCase()) && fresh(health[src]) ? 'ok' : watched.has(`${src}:${slug}`.toLowerCase()) ? 'failing' : 'off';
@@ -49,8 +55,11 @@ export function coverage(health: Record<string, SourceHealth>, extraCompanies: {
 
   return (platforms as P[]).map((p) => {
     const conns = Array.from(new Set([...p.connectors, ...EXTRA.filter(([rx]) => rx.test(p.host)).flatMap(([, c]) => c)]));
-    const cp = careerNames.find(([n, h]) => p.host.endsWith(h) || (n.length > 3 && p.name.toLowerCase().startsWith(n)));
-    if (cp) conns.push('careerpages');
+    const cpHit = careerNames.find(([n, h]) => p.host.endsWith(h) || (n.length > 3 && p.name.toLowerCase().startsWith(n)));
+    const cpName = cpHit ? CAREER_PAGES.find(([n]) => n.toLowerCase().split(/[ (]/)[0] === cpHit[0])?.[0] : undefined;
+    if (cpName) conns.push(`cp:${cpName}`);
+    // LinkedIn / Google-Jobs aggregators only count for their own site — they do not prove coverage of Wellfound, Google careers, etc.
+    for (const c of ['linkedin', 'jsearch', 'serpapi', 'apify_linkedin']) if (!/linkedin\.com$/.test(p.host) && conns.includes(c) && !['jsearch', 'serpapi'].includes(c)) conns.splice(conns.indexOf(c), 1);
     // reddit / telegram are only live for the subreddits / channels the app actually watches
     const sub = p.url.match(/reddit\.com\/r\/([^/?#]+)/i)?.[1]?.toLowerCase();
     const ch = p.url.match(/t\.me\/(?:s\/)?([^/?#]+)/i)?.[1]?.toLowerCase();
@@ -63,10 +72,10 @@ export function coverage(health: Record<string, SourceHealth>, extraCompanies: {
     let detail: string;
     if (p.mapping === 'excluded') { eff = 'excluded'; detail = 'Defunct or not worth your time (per your Excel).'; }
     else if (p.kind === 'relocation') { eff = 'out_of_rule'; detail = 'Relocation board — outside your rule (Bengaluru office or remote only). Open it only if you change the rule.'; }
-    else if (FEEDLESS_KINDS.has(p.kind) || p.mapping === 'resource' || (p.kind === 'funding' && /linkedin\.com$/.test(p.host)) || p.sheets.every((x) => /Scam_Red_Flags|Caveats|ATS_Guide|Skills_That_Pay|Dashboard/.test(x))) { eff = 'action'; detail = p.kind === 'staffing' ? 'Agency: register your CV once; they contact you. No public job feed.' : 'Not a job feed — a step to do (join, sign up, learn, use the tool).'; }
+    else if (FEEDLESS_KINDS.has(p.kind) || p.mapping === 'resource' || (p.kind === 'funding' && /linkedin\.com$/.test(p.host)) || /premium|sales navigator|course|certificat|^note|cross-reference|^companies hiring/i.test(p.name) || p.sheets.every((x) => /Scam_Red_Flags|Caveats|ATS_Guide|Skills_That_Pay|Dashboard/.test(x))) { eff = 'action'; detail = p.kind === 'staffing' ? 'Agency: register your CV once; they contact you. No public job feed.' : 'Not a job feed — a step to do (join, sign up, learn, use the tool).'; }
     else if (['job_board', 'talent_marketplace', 'gig_rlhf', 'freelance', 'social', 'company', 'community', 'competition', 'funding'].includes(p.kind)) {
       eff = p.kind === 'company' ? 'agent' : 'capture';
-      if (ok.length) { eff = 'live_ok'; detail = `Fetched automatically via ${ok.join(', ')}.`; return { id: p.id, eff, detail, connectors: conns }; }
+      if (ok.length) { eff = 'live_ok'; detail = ok.some((c) => c.startsWith('cp:')) ? `AI reads its careers page automatically (last read ${cp[ok.find((c) => c.startsWith('cp:'))!.slice(3)]?.at.slice(0, 10)}, ${cp[ok.find((c) => c.startsWith('cp:'))!.slice(3)]?.roles ?? 0} roles seen). Pages that only render after login can come back empty — capture to be sure.` : `Fetched automatically via ${ok.join(', ')}.`; return { id: p.id, eff, detail, connectors: conns }; }
       if (failing.length) { eff = 'live_failing'; detail = `Connected (${failing.join(', ')}) but the last run failed — see Sources & APIs.`; return { id: p.id, eff, detail, connectors: conns }; }
       detail = p.kind === 'company'
         ? 'No public job board API: reached by AI-agent searches + LinkedIn search (partial). For full coverage open its careers page and click 📥 Capture, or add it in Settings → Companies.'
