@@ -1,5 +1,5 @@
 import type { Job } from './types';
-import { DOMAIN_LABEL, extractSkills } from './classify';
+import { DOMAIN_LABEL, extractSkills, locationAllowed, locationTags } from './classify';
 import { getCv } from './cv';
 import { aiConfigured, chatJson } from './llm';
 import { getJobs } from './refresh';
@@ -39,7 +39,7 @@ const regionOf = (j: { locTags: string[] }) => (j.locTags.includes('BLR') ? 'Ben
 
 export async function computeTrends() {
   const [jobs, findsH, cv] = await Promise.all([getJobs(), hgetall<Find>('agent:finds'), getCv()]);
-  const finds = Object.values(findsH).filter((f) => f.kind === 'job' || f.kind === 'post');
+  const finds = Object.values(findsH).filter((f) => (f.kind === 'job' || f.kind === 'post') && f.status !== 'dismissed').map((f) => ({ ...f, locTags: locationTags({ title: f.title, company: f.company, location: f.location, url: f.url }) })).filter((f) => !f.location || locationAllowed(f.locTags, f.location));
   type Row = { title: string; company: string; text: string; domain: string; region: string; when: string; fresh: boolean };
   const rows: Row[] = [
     ...jobs.map((j: Job) => ({ title: j.title, company: j.company, text: `${j.title} ${j.description || ''}`, domain: j.domain, region: regionOf(j), when: j.postedAt || j.firstSeen, fresh: Date.now() - Date.parse(j.firstSeen) < 7 * 864e5 })),
@@ -50,13 +50,13 @@ export async function computeTrends() {
   const companyDomain = new Map<string, string>();
   for (const r of rows) {
     const co = (r.company || '').replace(/\s*\(@.*$/, '').replace(/ via mercor| on x$/i, '').trim();
-    if (co && !/listing|unstop|internshala|telegram|mercor$/i.test(co)) { inc(companies, co); companyDomain.set(co, DOMAIN_LABEL[r.domain as keyof typeof DOMAIN_LABEL] || r.domain); }
+    if (co && !/listing|unstop|internshala|telegram|mercor$|jobgether|reddit|r\/|hacker news|remotive|remote ?ok|himalayas|jobicy|working nomads|we work remotely|nodesk|themuse|the muse|80,000|linkedin|instahyre|naukri|foundit|indeed|glassdoor|wellfound|capture/i.test(co)) { inc(companies, co); companyDomain.set(co, DOMAIN_LABEL[r.domain as keyof typeof DOMAIN_LABEL] || r.domain); }
     inc(regions, r.region);
     inc(domains, DOMAIN_LABEL[r.domain as keyof typeof DOMAIN_LABEL] || 'Other');
     const fam = roleFamily(r.title);
     inc(roles, fam);
     if (r.fresh) inc(rolesNew, fam);
-    const sk = extractSkills(r.text).filter((s) => !['production', 'solutions', 'deployment', 'evaluation', 'rest', 'go'].includes(s));
+    const sk = extractSkills(r.text).filter((s) => !['production', 'solutions', 'deployment', 'evaluation', 'customer-facing', 'stakeholder', 'consulting'].includes(s));
     for (const s of sk) {
       inc(skills, s);
       const dl = DOMAIN_LABEL[r.domain as keyof typeof DOMAIN_LABEL] || 'Other';

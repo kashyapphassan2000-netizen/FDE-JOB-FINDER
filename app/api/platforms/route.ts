@@ -15,7 +15,7 @@ export async function GET(req: Request) {
   await loadVault();
   const [checks, health, settings, disc] = await Promise.all([hgetall<Check>('pchk'), getHealth(), getSettings(), getJSON<{ at: string } | null>('disc:meta', null)]);
   const live = Object.fromEntries(SOURCES.map((s) => [s.id, sourceConfigured(s)]));
-  const eff = Object.fromEntries(coverage(health, settings.extraCompanies, Boolean(disc && Date.now() - Date.parse(disc.at) < 3 * 864e5)).map((c) => [c.id, c]));
+  const eff = Object.fromEntries(coverage(health, settings.extraCompanies, Boolean(disc && Date.now() - Date.parse(disc.at) < 3 * 864e5), settings.subreddits, settings.telegramChannels).map((c) => [c.id, c]));
   return Response.json({ platforms, checks, live, eff });
 }
 

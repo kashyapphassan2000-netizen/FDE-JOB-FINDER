@@ -145,18 +145,18 @@ export function hashId(s: string): string {
 
 // ---- CV skill matching ----
 export const SKILL_TERMS = [
-  'python', 'c++', 'embedded c', 'rust', 'go', 'typescript', 'javascript', 'java', 'sql', 'bash',
+  'python', 'c++', 'embedded c', 'rust', 'golang', 'typescript', 'javascript', 'java', 'sql', 'bash',
   'pytorch', 'tensorflow', 'jax', 'keras', 'scikit-learn', 'xgboost', 'numpy', 'pandas',
   'transformers', 'hugging face', 'huggingface', 'llm', 'llms', 'rag', 'retrieval', 'langchain', 'langgraph', 'llamaindex',
   'pydanticai', 'mcp', 'a2a', 'agents', 'agentic', 'prompt engineering', 'evals', 'evaluation', 'guardrails', 'fine-tuning', 'finetuning',
   'lora', 'qlora', 'peft', 'dpo', 'rlhf', 'sft', 'distillation', 'quantization', 'pruning', 'vllm', 'tgi', 'triton', 'cuda',
   'tensorrt', 'onnx', 'flash attention', 'deepspeed', 'fsdp', 'whisper', 'asr', 'speech', 'nlp', 'computer vision', 'opencv',
   'vector database', 'pinecone', 'weaviate', 'qdrant', 'chroma', 'faiss', 'elasticsearch', 'knowledge graph', 'neo4j',
-  'fastapi', 'flask', 'django', 'rest', 'grpc', 'kafka', 'redis', 'postgres', 'mongodb',
+  'fastapi', 'flask', 'django', 'rest api', 'grpc', 'kafka', 'redis', 'postgres', 'mongodb',
   'docker', 'kubernetes', 'helm', 'terraform', 'aws', 'gcp', 'azure', 'sagemaker', 'bedrock', 'vertex ai', 'ecr', 'eks',
   'mlops', 'mlflow', 'kubeflow', 'airflow', 'ci/cd', 'github actions', 'prometheus', 'grafana', 'observability',
-  'autosar', 'can', 'can fd', 'lin', 'uds', 'hil', 'sil', 'dspace', 'canoe', 'vector', 'rtos', 'freertos', 'embedded linux',
-  'firmware', 'microcontroller', 'stm32', 'arm', 'misra', 'iso 26262', 'adas', 'ros', 'ros2', 'edge ai', 'tinyml', 'jetson',
+  'autosar', 'can bus', 'can fd', 'lin bus', 'uds', 'dspace', 'canoe', 'rtos', 'freertos', 'embedded linux',
+  'firmware', 'microcontroller', 'stm32', 'arm cortex', 'misra', 'iso 26262', 'adas', 'ros', 'ros2', 'edge ai', 'tinyml', 'jetson',
   'fpga', 'verilog', 'systemverilog', 'rtl', 'synthetic data', 'data pipelines', 'spark', 'databricks', 'snowflake',
   'customer-facing', 'stakeholder', 'solutions', 'consulting', 'pre-sales', 'deployment', 'production',
 ];

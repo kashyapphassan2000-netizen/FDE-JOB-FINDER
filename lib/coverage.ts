@@ -29,7 +29,9 @@ const EXTRA: [RegExp, string[]][] = [
 const FEEDLESS_KINDS = new Set(['tool', 'certification', 'oss_program', 'devrel', 'resource', 'referral', 'newsletter', 'staffing']);
 const KEYED = new Set(SOURCES.filter((s) => !s.keyless).map((s) => s.id));
 
-export function coverage(health: Record<string, SourceHealth>, extraCompanies: { ats: string; slug: string }[], discOk: boolean) {
+export function coverage(health: Record<string, SourceHealth>, extraCompanies: { ats: string; slug: string }[], discOk: boolean, subs: string[] = [], channels: string[] = []) {
+  const subSet = new Set(subs.map((x) => x.toLowerCase()));
+  const chSet = new Set(channels.map((x) => x.toLowerCase()));
   const watched = new Set([...DEFAULT_COMPANIES, ...extraCompanies].map((c) => `${c.ats}:${c.slug}`.toLowerCase()));
   const careerNames = CAREER_PAGES.map(([n, u]) => [n.toLowerCase().split(/[ (]/)[0], new URL(u).hostname.replace(/^www\./, '')] as const);
   const fresh = (h?: SourceHealth) => Boolean(h?.ok && h.lastSuccess && Date.now() - Date.parse(h.lastSuccess) < 3 * 864e5);
@@ -49,7 +51,11 @@ export function coverage(health: Record<string, SourceHealth>, extraCompanies: {
     const conns = Array.from(new Set([...p.connectors, ...EXTRA.filter(([rx]) => rx.test(p.host)).flatMap(([, c]) => c)]));
     const cp = careerNames.find(([n, h]) => p.host.endsWith(h) || (n.length > 3 && p.name.toLowerCase().startsWith(n)));
     if (cp) conns.push('careerpages');
-    const st = conns.map((c) => ({ c, s: status(c) }));
+    // reddit / telegram are only live for the subreddits / channels the app actually watches
+    const sub = p.url.match(/reddit\.com\/r\/([^/?#]+)/i)?.[1]?.toLowerCase();
+    const ch = p.url.match(/t\.me\/(?:s\/)?([^/?#]+)/i)?.[1]?.toLowerCase();
+    const scoped = conns.filter((c) => !(c === 'reddit' && sub && !subSet.has(sub)) && !(c === 'telegram' && ch && !chSet.has(ch)));
+    const st = scoped.map((c) => ({ c, s: status(c) }));
     const ok = st.filter((x) => x.s === 'ok').map((x) => x.c);
     const failing = st.filter((x) => x.s === 'failing').map((x) => x.c);
     const needKey = st.filter((x) => x.s === 'needs_key').map((x) => SOURCES.find((s) => s.id === x.c)?.envKeys.join(' + ') || x.c);
@@ -57,16 +63,17 @@ export function coverage(health: Record<string, SourceHealth>, extraCompanies: {
     let detail: string;
     if (p.mapping === 'excluded') { eff = 'excluded'; detail = 'Defunct or not worth your time (per your Excel).'; }
     else if (p.kind === 'relocation') { eff = 'out_of_rule'; detail = 'Relocation board — outside your rule (Bengaluru office or remote only). Open it only if you change the rule.'; }
-    else if (ok.length) { eff = 'live_ok'; detail = `Fetched automatically via ${ok.join(', ')}.`; }
-    else if (failing.length) { eff = 'live_failing'; detail = `Connected (${failing.join(', ')}) but the last run failed — see Sources & APIs.`; }
-    else if (FEEDLESS_KINDS.has(p.kind) || p.mapping === 'resource') { eff = 'action'; detail = p.kind === 'staffing' ? 'Agency: register your CV once; they contact you. No public job feed.' : 'Not a job feed — a step to do (join, sign up, learn, use the tool).'; }
+    else if (FEEDLESS_KINDS.has(p.kind) || p.mapping === 'resource' || (p.kind === 'funding' && /linkedin\.com$/.test(p.host)) || p.sheets.every((x) => /Scam_Red_Flags|Caveats|ATS_Guide|Skills_That_Pay|Dashboard/.test(x))) { eff = 'action'; detail = p.kind === 'staffing' ? 'Agency: register your CV once; they contact you. No public job feed.' : 'Not a job feed — a step to do (join, sign up, learn, use the tool).'; }
     else if (['job_board', 'talent_marketplace', 'gig_rlhf', 'freelance', 'social', 'company', 'community', 'competition', 'funding'].includes(p.kind)) {
       eff = p.kind === 'company' ? 'agent' : 'capture';
+      if (ok.length) { eff = 'live_ok'; detail = `Fetched automatically via ${ok.join(', ')}.`; return { id: p.id, eff, detail, connectors: conns }; }
+      if (failing.length) { eff = 'live_failing'; detail = `Connected (${failing.join(', ')}) but the last run failed — see Sources & APIs.`; return { id: p.id, eff, detail, connectors: conns }; }
       detail = p.kind === 'company'
         ? 'No public job board API: reached by AI-agent searches + LinkedIn search (partial). For full coverage open its careers page and click 📥 Capture, or add it in Settings → Companies.'
         : 'Blocks servers or needs your login: open the link while logged in and click 📥 Capture — every job on the page is imported.';
       if (needKey.length) detail += ` Automatic option: add ${needKey.join(' / ')} (paid/limited).`;
-    } else { eff = 'action'; detail = 'Reference / checklist item.'; }
+    } else if (ok.length) { eff = 'live_ok'; detail = `Fetched automatically via ${ok.join(', ')}.`; }
+    else { eff = 'action'; detail = 'Reference / checklist item.'; }
     return { id: p.id, eff, detail, connectors: conns };
   });
 }

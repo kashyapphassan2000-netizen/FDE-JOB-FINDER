@@ -37,7 +37,7 @@ export const X_WATCH_SOURCE: SourceDef = {
   group: 'Community & social',
   keyless: true,
   envKeys: [],
-  defaultIntervalMin: 60,
+  defaultIntervalMin: 360,
   covers: 'Latest tweets of hiring accounts from your Excel (@aijobsai, @aimljobs…) + founders the agent found hiring (auto-learned)',
   docs: 'Public embedded-timeline endpoint (syndication.twitter.com); add accounts in Settings → X accounts',
   run: async (ctx) => {
