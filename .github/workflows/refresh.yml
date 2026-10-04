@@ -1,0 +1,39 @@
+# Near-real-time automation (Vercel Hobby cron only allows 1 run/day, GitHub Actions is free):
+#   every 30 min  → refresh all job sources
+#   every 3 h     → AI agent mission (Google / LinkedIn posts / X posts / career pages)
+#   daily 01:15   → hidden companies + newly funded startups scan
+# Repo → Settings → Secrets and variables → Actions → add:
+#   APP_URL      = https://your-app.vercel.app   (no trailing slash)
+#   CRON_SECRET  = same value as the CRON_SECRET env var on Vercel
+name: refresh-jobs
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+    - cron: '10 */3 * * *'
+    - cron: '15 1 * * *'
+  workflow_dispatch:
+    inputs:
+      task:
+        description: 'refresh | agent | discover'
+        default: 'refresh'
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Call app
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SCHEDULE: ${{ github.event.schedule }}
+          INPUT_TASK: ${{ github.event.inputs.task }}
+        run: |
+          if [ -z "$APP_URL" ] || [ -z "$CRON_SECRET" ]; then echo "Set APP_URL and CRON_SECRET repo secrets"; exit 1; fi
+          TASK="${INPUT_TASK:-refresh}"
+          if [ "$SCHEDULE" = "10 */3 * * *" ]; then TASK=agent; fi
+          if [ "$SCHEDULE" = "15 1 * * *" ]; then TASK=discover; fi
+          echo "task=$TASK"
+          code=$(curl -s -o out.json -w "%{http_code}" --max-time 300 -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron?task=$TASK")
+          cat out.json; echo
+          # 409 = a run was already in progress; not a failure
+          if [ "$code" != "200" ] && [ "$code" != "409" ]; then echo "HTTP $code"; exit 1; fi

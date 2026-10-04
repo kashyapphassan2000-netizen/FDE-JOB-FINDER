@@ -1,0 +1,97 @@
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
+import { getJSON, setJSON } from './store';
+
+/**
+ * Keys vault: lets you paste/replace API keys from the app UI (no redeploy).
+ * Values are AES-256-GCM encrypted with a key derived from AUTH_SECRET before they reach Redis,
+ * and are NEVER sent back to the browser (only "set ✓ …last4").
+ * Resolution order: Vercel env var  →  vault value.
+ */
+export const VAULT_KEYS: { name: string; label: string; group: string; url: string }[] = [
+  // job APIs
+  { name: 'RAPIDAPI_KEY', label: 'JSearch (RapidAPI)', group: 'Job APIs', url: 'https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch' },
+  { name: 'SERPAPI_KEY', label: 'SerpApi (Google Jobs + Google web search)', group: 'Job APIs', url: 'https://serpapi.com/manage-api-key' },
+  { name: 'ADZUNA_APP_ID', label: 'Adzuna App ID', group: 'Job APIs', url: 'https://developer.adzuna.com/' },
+  { name: 'ADZUNA_APP_KEY', label: 'Adzuna App Key', group: 'Job APIs', url: 'https://developer.adzuna.com/' },
+  { name: 'JOOBLE_API_KEY', label: 'Jooble', group: 'Job APIs', url: 'https://jooble.org/api/about' },
+  { name: 'APIFY_TOKEN', label: 'Apify (LinkedIn scraper)', group: 'Job APIs', url: 'https://console.apify.com/settings/integrations' },
+  { name: 'X_BEARER_TOKEN', label: 'X official API bearer', group: 'Job APIs', url: 'https://developer.x.com/' },
+  { name: 'TWITTERAPI_IO_KEY', label: 'twitterapi.io', group: 'Job APIs', url: 'https://twitterapi.io/' },
+  { name: 'THEMUSE_API_KEY', label: 'The Muse (optional)', group: 'Job APIs', url: 'https://www.themuse.com/developers/api/v2' },
+  // web search for the AI agent
+  { name: 'TAVILY_API_KEY', label: 'Tavily (1,000 free searches / month)', group: 'Web search (AI agent)', url: 'https://app.tavily.com/' },
+  { name: 'EXA_API_KEY', label: 'Exa (free monthly credits)', group: 'Web search (AI agent)', url: 'https://dashboard.exa.ai/api-keys' },
+  { name: 'FIRECRAWL_API_KEY', label: 'Firecrawl search (free monthly credits)', group: 'Web search (AI agent)', url: 'https://www.firecrawl.dev/app/api-keys' },
+  { name: 'LINKUP_API_KEY', label: 'Linkup (free monthly credits)', group: 'Web search (AI agent)', url: 'https://app.linkup.so/' },
+  { name: 'SERPER_API_KEY', label: 'Serper.dev Google (2,500 free once)', group: 'Web search (AI agent)', url: 'https://serper.dev/api-key' },
+  { name: 'BRAVE_API_KEY', label: 'Brave Search API', group: 'Web search (AI agent)', url: 'https://api-dashboard.search.brave.com/' },
+  { name: 'JINA_API_KEY', label: 'Jina (search + page reader)', group: 'Web search (AI agent)', url: 'https://jina.ai/api-dashboard/' },
+  { name: 'SEARXNG_URL', label: 'Your SearXNG instance URL (self-hosted = unlimited)', group: 'Web search (AI agent)', url: 'https://docs.searxng.org/' },
+  // alerts
+  { name: 'TELEGRAM_BOT_TOKEN', label: 'Telegram bot token', group: 'Alerts', url: 'https://t.me/BotFather' },
+  { name: 'TELEGRAM_CHAT_ID', label: 'Telegram chat id', group: 'Alerts', url: 'https://core.telegram.org/bots/api#getupdates' },
+  { name: 'ALERT_WEBHOOK_URL', label: 'Discord/Slack webhook', group: 'Alerts', url: 'https://support.discord.com/hc/en-us/articles/228383668' },
+];
+const ALLOWED = new Set(VAULT_KEYS.map((k) => k.name));
+
+function key(): Buffer {
+  const s = process.env.AUTH_SECRET || process.env.APP_PASSWORD || 'fde-job-finder-dev';
+  return createHash('sha256').update(`vault:${s}`).digest();
+}
+
+export function encrypt(plain: string): string {
+  const iv = randomBytes(12);
+  const c = createCipheriv('aes-256-gcm', key(), iv);
+  const enc = Buffer.concat([c.update(plain, 'utf8'), c.final()]);
+  return `v1:${iv.toString('base64')}:${c.getAuthTag().toString('base64')}:${enc.toString('base64')}`;
+}
+
+export function decrypt(blob: string): string | null {
+  try {
+    const [v, iv, tag, data] = blob.split(':');
+    if (v !== 'v1') return null;
+    const d = createDecipheriv('aes-256-gcm', key(), Buffer.from(iv, 'base64'));
+    d.setAuthTag(Buffer.from(tag, 'base64'));
+    return Buffer.concat([d.update(Buffer.from(data, 'base64')), d.final()]).toString('utf8');
+  } catch {
+    return null; // AUTH_SECRET changed → re-enter keys
+  }
+}
+
+const g = globalThis as unknown as { __fjVault?: Map<string, string>; __fjVaultAt?: number };
+
+/** Load vault into memory (call at the start of any request that runs sources/agent). Cached 60s per instance. */
+export async function loadVault(force = false): Promise<void> {
+  if (!force && g.__fjVault && Date.now() - (g.__fjVaultAt || 0) < 60000) return;
+  const raw = await getJSON<Record<string, string>>('vault', {});
+  const m = new Map<string, string>();
+  for (const [k, v] of Object.entries(raw)) {
+    const p = decrypt(v);
+    if (p) m.set(k, p);
+  }
+  g.__fjVault = m;
+  g.__fjVaultAt = Date.now();
+}
+
+/** Synchronous lookup: env var first, then vault. */
+export function secret(name: string): string {
+  return process.env[name] || g.__fjVault?.get(name) || '';
+}
+
+export async function vaultStatus() {
+  await loadVault(true);
+  return VAULT_KEYS.map((k) => {
+    const env = Boolean(process.env[k.name]);
+    const v = g.__fjVault?.get(k.name);
+    return { ...k, source: env ? 'env' : v ? 'vault' : null, hint: env ? 'set in Vercel env' : v ? `…${v.slice(-4)}` : '' };
+  });
+}
+
+export async function setVault(name: string, value: string | null): Promise<void> {
+  if (!ALLOWED.has(name)) throw new Error('Unknown key name');
+  const raw = await getJSON<Record<string, string>>('vault', {});
+  if (value && value.trim()) raw[name] = encrypt(value.trim());
+  else delete raw[name];
+  await setJSON('vault', raw);
+  await loadVault(true);
+}

@@ -1,0 +1,4717 @@
+[
+ {
+  "name": "@AiIndiaJobs",
+  "url": "https://t.me/AiIndiaJobs",
+  "host": "t.me",
+  "mapping": "live_api",
+  "connectors": [
+   "telegram"
+  ],
+  "searchTemplate": "https://t.me/s/AiIndiaJobs",
+  "kind": "community",
+  "sheets": [
+   "Communities",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Telegram | Active | India | Daily AI/DS/Python openings. 'Not-for-profit community by industry professionals.' Real recent posts: 'AI/ML Engineer, Remote (India), 3-5 Years.' | Post jobs via @Aiindian.",
+  "id": "p001"
+ },
+ {
+  "name": "Hacker News 'Who is Hiring' (Community — Forum)",
+  "url": "https://hn.hiring-search.com",
+  "host": "hn.hiring-search.com",
+  "mapping": "live_api",
+  "connectors": [
+   "hn"
+  ],
+  "searchTemplate": "https://hn.hiring-search.com",
+  "kind": "community",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Hacker News 'Who is Hiring' | Monthly HN hiring thread | ✅ Yes | 🟢 Low | Y Combinator companies + tech startups; 1st comment = direct contact | NOT in your sheet as its own channel. Every month HN posts 'Ask HN: Who is Hiring?' — thousands of companies post directly. Low ATS fric",
+  "id": "p002"
+ },
+ {
+  "name": "Hacker News — Who is hiring",
+  "url": "https://news.ycombinator.com/submitted?id=whoishiring",
+  "host": "news.ycombinator.com",
+  "mapping": "live_api",
+  "connectors": [
+   "hn"
+  ],
+  "searchTemplate": "https://news.ycombinator.com/submitted?id=whoishiring",
+  "kind": "community",
+  "sheets": [
+   "Hidden_Channels_Full"
+  ],
+  "notes": "",
+  "id": "p003"
+ },
+ {
+  "name": "r/cscareerquestions",
+  "url": "https://reddit.com/r/cscareerquestions",
+  "host": "reddit.com",
+  "mapping": "live_api",
+  "connectors": [
+   "reddit"
+  ],
+  "searchTemplate": "https://www.reddit.com/r/MLjobs/new/",
+  "kind": "community",
+  "sheets": [
+   "Communities",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Reddit | Large | Global | Calibration, not leads. | Never DM cold pitches (fast ban).",
+  "id": "p004"
+ },
+ {
+  "name": "r/datascience",
+  "url": "https://reddit.com/r/datascience",
+  "host": "reddit.com",
+  "mapping": "live_api",
+  "connectors": [
+   "reddit"
+  ],
+  "searchTemplate": "https://www.reddit.com/r/MLjobs/new/",
+  "kind": "community",
+  "sheets": [
+   "Communities",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Reddit | Large | Global | General data science community.",
+  "id": "p005"
+ },
+ {
+  "name": "r/DataScienceJobs",
+  "url": "https://www.reddit.com/r/DataScienceJobs/",
+  "host": "reddit.com",
+  "mapping": "live_api",
+  "connectors": [
+   "reddit"
+  ],
+  "searchTemplate": "https://www.reddit.com/r/MLjobs/new/",
+  "kind": "community",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_COMMUNITIES_REAL_HIRING",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_COMMUNITIES_REAL_HIRING | Community",
+  "id": "p006"
+ },
+ {
+  "name": "r/developersIndia",
+  "url": "https://www.reddit.com/r/developersIndia/",
+  "host": "reddit.com",
+  "mapping": "live_api",
+  "connectors": [
+   "reddit"
+  ],
+  "searchTemplate": "https://www.reddit.com/r/MLjobs/new/",
+  "kind": "community",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_COMMUNITIES_REAL_HIRING",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_COMMUNITIES_REAL_HIRING | Community",
+  "id": "p007"
+ },
+ {
+  "name": "r/developersIndia Referral Ritual",
+  "url": "https://reddit.com/r/developersIndia",
+  "host": "reddit.com",
+  "mapping": "live_api",
+  "connectors": [
+   "reddit"
+  ],
+  "searchTemplate": "https://www.reddit.com/r/MLjobs/new/",
+  "kind": "community",
+  "sheets": [
+   "NEW_FAST_HIRE_HACKS"
+  ],
+  "notes": "Every Monday check the crowdsourced referral megathread -> comment ONLY on roles you truly match, with resume + 2-line fit -> never cold DM (bannable) | Employee referrals get closer HM review and materially higher hire probability (see evidence sheet) | reddit.com/r/developersIn",
+  "id": "p008"
+ },
+ {
+  "name": "r/MachineLearning",
+  "url": "https://reddit.com/r/MachineLearning",
+  "host": "reddit.com",
+  "mapping": "live_api",
+  "connectors": [
+   "reddit"
+  ],
+  "searchTemplate": "https://www.reddit.com/r/MLjobs/new/",
+  "kind": "community",
+  "sheets": [
+   "Communities",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Reddit | Large | Global | Monthly 'Who's Hiring' threads. Ctrl+F 'remote'/'LLM'. Reply per format. | Build comment karma. Answer technical questions. Let people click profile.",
+  "id": "p009"
+ },
+ {
+  "name": "r/MLjobs",
+  "url": "https://reddit.com/r/MLjobs",
+  "host": "reddit.com",
+  "mapping": "live_api",
+  "connectors": [
+   "reddit"
+  ],
+  "searchTemplate": "https://www.reddit.com/r/MLjobs/new/",
+  "kind": "community",
+  "sheets": [
+   "Communities",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Reddit | Moderate | Global | Dedicated ML job posts.",
+  "id": "p010"
+ },
+ {
+  "name": "r/mlops",
+  "url": "https://www.reddit.com/r/mlops/",
+  "host": "reddit.com",
+  "mapping": "live_api",
+  "connectors": [
+   "reddit"
+  ],
+  "searchTemplate": "https://www.reddit.com/r/MLjobs/new/",
+  "kind": "community",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_COMMUNITIES_REAL_HIRING",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_COMMUNITIES_REAL_HIRING | Community",
+  "id": "p011"
+ },
+ {
+  "name": "Amazon/AWS",
+  "url": "https://www.amazon.jobs/en/search?base_query=forward+deployed&loc_query=India",
+  "host": "amazon.jobs",
+  "mapping": "live_api",
+  "connectors": [
+   "amazon"
+  ],
+  "searchTemplate": "https://www.amazon.jobs/en/search?base_query=forward+deployed&loc_query=India",
+  "kind": "company",
+  "sheets": [
+   "Frontier_Labs_India"
+  ],
+  "notes": "",
+  "id": "p012"
+ },
+ {
+  "name": "Microsoft IDC",
+  "url": "https://jobs.careers.microsoft.com/global/en/search?lc=India&q=forward%20deployed",
+  "host": "jobs.careers.microsoft.com",
+  "mapping": "live_api",
+  "connectors": [
+   "microsoft"
+  ],
+  "searchTemplate": "https://jobs.careers.microsoft.com/global/en/search?lc=India&q=forward%20deployed",
+  "kind": "company",
+  "sheets": [
+   "Frontier_Labs_India"
+  ],
+  "notes": "",
+  "id": "p013"
+ },
+ {
+  "name": "Himalayas",
+  "url": "https://himalayas.app",
+  "host": "himalayas.app",
+  "mapping": "live_api",
+  "connectors": [
+   "himalayas"
+  ],
+  "searchTemplate": "https://himalayas.app/jobs?q={q}",
+  "kind": "job_board",
+  "sheets": [
+   "Job_Boards",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "T2 | Remote Board | Free | Strong remote filtering | Varied | India-friendly | India-friendly remote filtering.",
+  "id": "p014"
+ },
+ {
+  "name": "Instahyre",
+  "url": "https://instahyre.com",
+  "host": "instahyre.com",
+  "mapping": "live_api",
+  "connectors": [
+   "instahyre"
+  ],
+  "searchTemplate": "https://www.instahyre.com/search-jobs/?skills={q}",
+  "kind": "job_board",
+  "sheets": [
+   "Job_Boards",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "T2 | India Board | Free | AI-matched, tech-focused | Startup+GCC | India | Less spam than Naukri. Surfaces startup + GCC roles.",
+  "id": "p015"
+ },
+ {
+  "name": "Jobspresso",
+  "url": "https://jobspresso.co",
+  "host": "jobspresso.co",
+  "mapping": "live_api",
+  "connectors": [
+   "jobspresso"
+  ],
+  "searchTemplate": "https://jobspresso.co/remote-work/?search_keywords={q}",
+  "kind": "job_board",
+  "sheets": [
+   "NEW_VERIFIED_BOARDS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Hand-picked remote board | Global / India ✔ | Low-Medium | Tech/marketing/customer support; screen for AI/software roles | NOT in your sheet: 100% of jobs hand-picked and manually curated.",
+  "id": "p016"
+ },
+ {
+  "name": "LinkedIn",
+  "url": "https://linkedin.com",
+  "host": "linkedin.com",
+  "mapping": "live_api",
+  "connectors": [
+   "linkedin",
+   "jsearch",
+   "apify_linkedin"
+  ],
+  "searchTemplate": "https://www.linkedin.com/jobs/search/?keywords={q}&location=India&f_TPR=r86400",
+  "kind": "job_board",
+  "sheets": [
+   "Job_Boards",
+   "MASTER_WEBSITES_INDEX",
+   "Social_Media"
+  ],
+  "notes": "T2 | Network | Free / Premium $30/mo | Networking + referrals + GCC/FAANG | 3,000+ Blr AI | Global | Use PRIVATE 'recruiters only' signal. Boolean X-ray search. Engage AI content daily.",
+  "id": "p017"
+ },
+ {
+  "name": "LinkedIn Funding Announcements",
+  "url": "https://linkedin.com/feed",
+  "host": "linkedin.com",
+  "mapping": "live_api",
+  "connectors": [
+   "linkedin",
+   "jsearch",
+   "apify_linkedin"
+  ],
+  "searchTemplate": "https://www.linkedin.com/jobs/search/?keywords={q}&location=India&f_TPR=r86400",
+  "kind": "job_board",
+  "sheets": [
+   "FUNDING_TRACKERS_AI_STARTUPS"
+  ],
+  "notes": "Free social signal | Both | Follow target VCs (Bessemer, Khosla, Peak XV, Sequoia, Tiger); watch portfolio posts | linkedin.com/feed",
+  "id": "p018"
+ },
+ {
+  "name": "LinkedIn Premium Career",
+  "url": "https://linkedin.com/premium",
+  "host": "linkedin.com",
+  "mapping": "live_api",
+  "connectors": [
+   "linkedin",
+   "jsearch",
+   "apify_linkedin"
+  ],
+  "searchTemplate": "https://www.linkedin.com/jobs/search/?keywords={q}&location=India&f_TPR=r86400",
+  "kind": "job_board",
+  "sheets": [
+   "AI_Tools",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Networking | OPTIONAL | Free trial often | ~$29.99/mo | LinkedIn | Yes | InMail credits, AI job recs. Worth 1-2 months of active search. Marginal for referrals+cold email strategy.",
+  "id": "p019"
+ },
+ {
+  "name": "Remote OK",
+  "url": "https://remoteok.com",
+  "host": "remoteok.com",
+  "mapping": "live_api",
+  "connectors": [
+   "remoteok"
+  ],
+  "searchTemplate": "https://remoteok.com/remote-ai-jobs",
+  "kind": "job_board",
+  "sheets": [
+   "Job_Boards",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "T3 | Remote Board | Free | Remote-first | Varied | Global | Has salary data.",
+  "id": "p020"
+ },
+ {
+  "name": "Remotive",
+  "url": "https://remotive.com",
+  "host": "remotive.com",
+  "mapping": "live_api",
+  "connectors": [
+   "remotive"
+  ],
+  "searchTemplate": "https://remotive.com/remote-jobs?query={q}",
+  "kind": "job_board",
+  "sheets": [
+   "Job_Boards",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "T1 | Remote Board | Free | Vetted remote AI roles | Curated | Global Remote | Salary + timezone + stack shown. Flags ghost jobs.",
+  "id": "p021"
+ },
+ {
+  "name": "Sales Navigator",
+  "url": "https://linkedin.com/sales",
+  "host": "linkedin.com",
+  "mapping": "live_api",
+  "connectors": [
+   "linkedin",
+   "jsearch",
+   "apify_linkedin"
+  ],
+  "searchTemplate": "https://www.linkedin.com/jobs/search/?keywords={q}&location=India&f_TPR=r86400",
+  "kind": "job_board",
+  "sheets": [
+   "AI_Tools",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Lead Finding | USE FREE TRIAL | 30-60 day free trial | Expensive | LinkedIn | Yes | Advanced lead filters (seniority, function, tenure). Build entire target-referrer list in one sprint, then cancel.",
+  "id": "p022"
+ },
+ {
+  "name": "The Muse (India filter) (India Board — Product)",
+  "url": "https://themuse.com/hiring/location/bangalore-india",
+  "host": "themuse.com",
+  "mapping": "live_api",
+  "connectors": [
+   "themuse"
+  ],
+  "searchTemplate": "https://www.themuse.com/search/location/bangalore-india/keyword/{q}",
+  "kind": "job_board",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "NEW_VERIFIED_BOARDS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "The Muse (India filter) | Company-culture board; India listings | ✅ Yes | 🟢 Low | Dolby, JPMorgan, Uber, Equinix AI roles in Bangalore | NOT in your sheet. Very low competition because most Indian candidates don't know it. Dolby, JPMorgan Chase, Uber, Wipro, IBM, GE Vernova, Equi",
+  "id": "p023"
+ },
+ {
+  "name": "We Work Remotely (WWR) (Global Remote Board)",
+  "url": "https://weworkremotely.com",
+  "host": "weworkremotely.com",
+  "mapping": "live_api",
+  "connectors": [
+   "weworkremotely"
+  ],
+  "searchTemplate": "https://weworkremotely.com/remote-jobs/search?term={q}",
+  "kind": "job_board",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "NEW_VERIFIED_BOARDS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "We Work Remotely (WWR) | Remote-only job board | ✅ Yes | 🟡 Medium | Remote AI/ML engineering roles; US/EU companies open to India contractors | NOT in your sheet. One of the cleanest remote-first boards. Filter: Programming → All → 'Machine Learning' or 'AI'. Many US startups pos",
+  "id": "p024"
+ },
+ {
+  "name": "Working Nomads (ML Jobs)",
+  "url": "https://www.workingnomads.com/remote-machine-learning-jobs",
+  "host": "workingnomads.com",
+  "mapping": "live_api",
+  "connectors": [
+   "workingnomads"
+  ],
+  "searchTemplate": "https://www.workingnomads.com/remote-machine-learning-jobs",
+  "kind": "job_board",
+  "sheets": [
+   "NEW_VERIFIED_BOARDS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Curated remote Machine Learning board | Global / India ✔ | Low-Medium | Verified fully-remote Machine Learning jobs worldwide | NOT in your sheet: fresh daily; verified remote-first employers.",
+  "id": "p025"
+ },
+ {
+  "name": "Y Combinator Jobs",
+  "url": "https://www.ycombinator.com/jobs/location/india",
+  "host": "ycombinator.com",
+  "mapping": "live_api",
+  "connectors": [
+   "yc_jobs"
+  ],
+  "searchTemplate": "https://www.ycombinator.com/jobs/location/india",
+  "kind": "job_board",
+  "sheets": [
+   "NEW_VERIFIED_BOARDS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "YC startup job board | India ✔ | Medium | Direct YC startup roles, incl. Forward Deployed Engineer - India ($50K-$90K) | NOT in your sheet: fresh YC funding = imminent hiring at those startups.",
+  "id": "p026"
+ },
+ {
+  "name": "Y Combinator Work at a Startup",
+  "url": "https://workatastartup.com",
+  "host": "workatastartup.com",
+  "mapping": "live_api",
+  "connectors": [
+   "yc_jobs"
+  ],
+  "searchTemplate": "https://www.workatastartup.com/jobs?query={q}",
+  "kind": "job_board",
+  "sheets": [
+   "Job_Boards",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "T1 | Startup Board | Free | Founding AI Eng, FDE, Applied AI | 11,000+ roles, 1000+ YC startups | Global | One profile → many cos. Founders run interviews. Offers in 3-4 wks. Cold outreach to founders with GitHub link converts. #1 BOARD.",
+  "id": "p027"
+ },
+ {
+  "name": "X / Twitter (job posts & founder hiring tweets)",
+  "url": "https://x.com/search?q=%22forward%20deployed%22%20hiring&f=live",
+  "host": "x.com",
+  "mapping": "live_api",
+  "connectors": [
+   "x_official",
+   "twitterapi_io"
+  ],
+  "searchTemplate": "https://x.com/search?q=%22forward%20deployed%22%20hiring&f=live",
+  "kind": "social",
+  "sheets": [
+   "Social_Media"
+  ],
+  "notes": "",
+  "id": "p028"
+ },
+ {
+  "name": "X/Twitter",
+  "url": "https://x.com/search-advanced",
+  "host": "x.com",
+  "mapping": "live_api",
+  "connectors": [
+   "x_official",
+   "twitterapi_io"
+  ],
+  "searchTemplate": "https://x.com/search?q=%22{q}%22%20hiring&f=live",
+  "kind": "social",
+  "sheets": [
+   "Social_Media"
+  ],
+  "notes": "Additional Formulas | ('ML engineer' OR 'LLM engineer') (hiring OR 'join us') -is:retweet. Date filters: since:YYYY-MM-DD until:YYYY-MM-DD. Engagement: min_faves:10. | Full advanced search at x.com/search-advanced. | Sec 14",
+  "id": "p029"
+ },
+ {
+  "name": "Databricks Certified Machine Learning (Associate/Professional)",
+  "url": "https://databricks.com/certification",
+  "host": "databricks.com",
+  "mapping": "live_ats",
+  "connectors": [
+   "greenhouse:databricks"
+  ],
+  "searchTemplate": "https://databricks.com/certification",
+  "kind": "certification",
+  "sheets": [
+   "CERTIFICATIONS_CREDENTIALS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Databricks | Lakehouse + MLOps on Databricks; Spark + MLflow expertise | Rising demand as lakehouse adoption grows.",
+  "id": "p030"
+ },
+ {
+  "name": "Adobe",
+  "url": "https://careers.adobe.com/us/en/search-results?keywords=machine%20learning",
+  "host": "careers.adobe.com",
+  "mapping": "live_ats",
+  "connectors": [
+   "workday:adobe"
+  ],
+  "searchTemplate": "https://careers.adobe.com/us/en/search-results?keywords=machine%20learning",
+  "kind": "company",
+  "sheets": [
+   "Frontier_Labs_India"
+  ],
+  "notes": "",
+  "id": "p031"
+ },
+ {
+  "name": "Anthropic",
+  "url": "https://www.anthropic.com/careers",
+  "host": "anthropic.com",
+  "mapping": "live_ats",
+  "connectors": [
+   "greenhouse:anthropic"
+  ],
+  "searchTemplate": "https://www.anthropic.com/careers",
+  "kind": "company",
+  "sheets": [
+   "Frontier_Labs_India"
+  ],
+  "notes": "",
+  "id": "p032"
+ },
+ {
+  "name": "Anyscale (Ray framework) (AI Infra Company)",
+  "url": "https://www.anyscale.com/careers",
+  "host": "anyscale.com",
+  "mapping": "live_ats",
+  "connectors": [
+   "ashby:anyscale"
+  ],
+  "searchTemplate": "https://www.anyscale.com/careers",
+  "kind": "company",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "REMOTE_GENUINE_EMPLOYERS_INDIA",
+   "CONSOLIDATED_AI_INFRA_COMPANIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Anyscale (Ray framework) | Distributed ML compute company | ✅ Remote | 🟢 Low | ML platform engineering; Ray framework; distributed training infra | NOT in your sheet. Makers of Ray (the distributed ML framework). Actively hires for ML infra, platform engineering. Remote-eligible ",
+  "id": "p033"
+ },
+ {
+  "name": "Arize AI (AI Infra Company)",
+  "url": "https://arize.com/careers",
+  "host": "arize.com",
+  "mapping": "live_ats",
+  "connectors": [
+   "greenhouse:arizeai"
+  ],
+  "searchTemplate": "https://arize.com/careers",
+  "kind": "company",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "CONSOLIDATED_AI_INFRA_COMPANIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Arize AI | ML observability platform | ✅ Remote | 🟢 Low | ML monitoring, LLM observability, AI platform engineering | NOT in your sheet. ML monitoring / LLM observability (cited in your Skills_That_Pay sheet as a key tool). Hires ML engineers and solutions architects. Remote-frie",
+  "id": "p034"
+ },
+ {
+  "name": "Baseten (AI Infra Company)",
+  "url": "https://baseten.co/careers",
+  "host": "baseten.co",
+  "mapping": "live_ats",
+  "connectors": [
+   "ashby:baseten"
+  ],
+  "searchTemplate": "https://baseten.co/careers",
+  "kind": "company",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "CONSOLIDATED_AI_INFRA_COMPANIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Baseten | ML model deployment platform | ✅ Remote | 🟢 Low | ML deployment, model serving infra, Python SDK engineering | NOT in your sheet. Deploys and serves ML models for enterprises. Remote-friendly. Python ML engineering roles. Less known → less competition.",
+  "id": "p035"
+ },
+ {
+  "name": "CoreWeave",
+  "url": "https://www.coreweave.com",
+  "host": "coreweave.com",
+  "mapping": "live_ats",
+  "connectors": [
+   "greenhouse:coreweave"
+  ],
+  "searchTemplate": "https://www.coreweave.com/careers",
+  "kind": "company",
+  "sheets": [
+   "CONSOLIDATED_AI_INFRA_COMPANIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Cloud GPU provider | Remote (verify country eligibility) ✔ | Low | Cloud GPU infrastructure; global hiring incl. India possible.",
+  "id": "p036"
+ },
+ {
+  "name": "Freshworks AI/ML (Chennai) (Chennai — Key Companies)",
+  "url": "https://careers.freshworks.com",
+  "host": "careers.freshworks.com",
+  "mapping": "live_ats",
+  "connectors": [
+   "smartrecruiters:freshworks"
+  ],
+  "searchTemplate": "https://careers.freshworks.com",
+  "kind": "company",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Freshworks AI/ML (Chennai) | SaaS product company | ✅ Chennai + Hybrid/Remote | 🟡 Medium | ML engineering, AI product, Freddy AI platform; mid-size team | NOT in your sheet. Freshworks' Freddy AI platform is active AI development. Chennai + Bengaluru offices. ML engineering roles",
+  "id": "p037"
+ },
+ {
+  "name": "GitLab",
+  "url": "https://about.gitlab.com/jobs/",
+  "host": "about.gitlab.com",
+  "mapping": "live_ats",
+  "connectors": [
+   "greenhouse:gitlab"
+  ],
+  "searchTemplate": "https://about.gitlab.com/jobs/",
+  "kind": "company",
+  "sheets": [
+   "REMOTE_GENUINE_EMPLOYERS_INDIA",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "All-remote DevSecOps + AI platform; handbook-first async culture | Confirmed live: 'India Senior AI Engineer, Remote'; also Solutions Architect roles | Verify current openings before applying.",
+  "id": "p038"
+ },
+ {
+  "name": "Glance AI",
+  "url": "https://job-boards.greenhouse.io/glance",
+  "host": "job-boards.greenhouse.io",
+  "mapping": "live_ats",
+  "connectors": [
+   "greenhouse:glance"
+  ],
+  "searchTemplate": "https://job-boards.greenhouse.io/glance",
+  "kind": "company",
+  "sheets": [
+   "Frontier_Labs_India"
+  ],
+  "notes": "",
+  "id": "p039"
+ },
+ {
+  "name": "Glean",
+  "url": "https://job-boards.greenhouse.io/gleanwork",
+  "host": "job-boards.greenhouse.io",
+  "mapping": "live_ats",
+  "connectors": [
+   "greenhouse:gleanwork"
+  ],
+  "searchTemplate": "https://job-boards.greenhouse.io/gleanwork",
+  "kind": "company",
+  "sheets": [
+   "FDE_Deep_Dive"
+  ],
+  "notes": "",
+  "id": "p040"
+ },
+ {
+  "name": "Groww",
+  "url": "https://groww.in/careers",
+  "host": "groww.in",
+  "mapping": "live_ats",
+  "connectors": [
+   "greenhouse:groww"
+  ],
+  "searchTemplate": "https://groww.in/careers",
+  "kind": "company",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_DIRECT_CAREERS_BANGALORE",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_DIRECT_CAREERS_BANGALORE | Company Career Page",
+  "id": "p041"
+ },
+ {
+  "name": "Hugging Face Hub + Careers",
+  "url": "https://huggingface.co/company/careers",
+  "host": "huggingface.co",
+  "mapping": "live_ats",
+  "connectors": [
+   "workable:huggingface"
+  ],
+  "searchTemplate": "https://apply.workable.com/huggingface/",
+  "kind": "company",
+  "sheets": [
+   "CONSOLIDATED_AI_INFRA_COMPANIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "AI models platform + community jobs channel | Remote-global ✔ | Low | HF careers + Discord #jobs channel where HF staff/recruiters scout contributors.",
+  "id": "p042"
+ },
+ {
+  "name": "Hugging Face NLP Course Certificate",
+  "url": "https://huggingface.co/learn/nlp-course",
+  "host": "huggingface.co",
+  "mapping": "live_ats",
+  "connectors": [
+   "workable:huggingface"
+  ],
+  "searchTemplate": "https://apply.workable.com/huggingface/",
+  "kind": "company",
+  "sheets": [
+   "CERTIFICATIONS_CREDENTIALS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Hugging Face | Transformers, fine-tuning, HF pipeline fluency | Free; proves transformers skills concretely.",
+  "id": "p043"
+ },
+ {
+  "name": "Lambda Labs",
+  "url": "https://lambdalabs.com",
+  "host": "lambdalabs.com",
+  "mapping": "live_ats",
+  "connectors": [
+   "ashby:lambda"
+  ],
+  "searchTemplate": "https://lambdalabs.com/careers",
+  "kind": "company",
+  "sheets": [
+   "CONSOLIDATED_AI_INFRA_COMPANIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "GPU cloud provider | Remote (verify country eligibility) ✔ | Low | GPU instances for deep-learning training; global hiring incl. India.",
+  "id": "p044"
+ },
+ {
+  "name": "LangChain (AI Infra Company)",
+  "url": "https://www.langchain.com/careers",
+  "host": "langchain.com",
+  "mapping": "live_ats",
+  "connectors": [
+   "ashby:langchain"
+  ],
+  "searchTemplate": "https://www.langchain.com/careers",
+  "kind": "company",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "CONSOLIDATED_AI_INFRA_COMPANIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "LangChain | LLM orchestration framework company | ✅ Remote | 🟢 Low | LLM engineering, agent framework, OSS contributions → hire | NOT in your sheet. THE LangChain company. Merged with LangSmith. Actively recruits top OSS contributors to LangChain. If you have merged PRs to LangCh",
+  "id": "p045"
+ },
+ {
+  "name": "LlamaIndex (AI Infra Company)",
+  "url": "https://llamaindex.ai/careers",
+  "host": "llamaindex.ai",
+  "mapping": "live_ats",
+  "connectors": [
+   "ashby:llamaindex"
+  ],
+  "searchTemplate": "https://llamaindex.ai/careers",
+  "kind": "company",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "CONSOLIDATED_AI_INFRA_COMPANIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "LlamaIndex | RAG + data framework for LLMs | ✅ Remote | 🟢 Very Low | LLM data pipeline engineering, RAG framework, OSS contributor path | NOT in your sheet. LlamaIndex (data framework for LLM apps). Small team, remote-first. Merged PR to their repo is the best hiring signal. Indi",
+  "id": "p046"
+ },
+ {
+  "name": "Modal Labs (AI Infra Company)",
+  "url": "https://modal.com/careers",
+  "host": "modal.com",
+  "mapping": "live_ats",
+  "connectors": [
+   "ashby:modal"
+  ],
+  "searchTemplate": "https://modal.com/careers",
+  "kind": "company",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "REMOTE_GENUINE_EMPLOYERS_INDIA",
+   "CONSOLIDATED_AI_INFRA_COMPANIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Modal Labs | Serverless GPU cloud for ML | ✅ Remote | 🟢 Very Low | Infrastructure, developer tools, ML serving; small team → high impact | NOT in your sheet. Serverless GPU cloud for ML workloads. Small, well-funded team. Very low hiring volume but extremely high quality. Remote-",
+  "id": "p047"
+ },
+ {
+  "name": "NVIDIA Inception",
+  "url": "https://www.nvidia.com/en-us/startups",
+  "host": "nvidia.com",
+  "mapping": "live_ats",
+  "connectors": [
+   "workday:nvidia"
+  ],
+  "searchTemplate": "https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite?q={q}",
+  "kind": "company",
+  "sheets": [
+   "COMMUNITY_BUILDERS_DEVELOP_REL",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "NVIDIA (free startup program) | Deep Learning Institute credits, SDK access, partner offers, expert networking | Also supports AI engineers/builders associated with startups.",
+  "id": "p048"
+ },
+ {
+  "name": "OpenAI",
+  "url": "https://openai.com/careers",
+  "host": "openai.com",
+  "mapping": "live_ats",
+  "connectors": [
+   "ashby:openai"
+  ],
+  "searchTemplate": "https://openai.com/careers",
+  "kind": "company",
+  "sheets": [
+   "Frontier_Labs_India"
+  ],
+  "notes": "",
+  "id": "p049"
+ },
+ {
+  "name": "Palantir (FDE origin company)",
+  "url": "https://jobs.lever.co/palantir",
+  "host": "jobs.lever.co",
+  "mapping": "live_ats",
+  "connectors": [
+   "lever:palantir"
+  ],
+  "searchTemplate": "https://jobs.lever.co/palantir",
+  "kind": "company",
+  "sheets": [
+   "FDE_Deep_Dive"
+  ],
+  "notes": "",
+  "id": "p050"
+ },
+ {
+  "name": "Pinecone (AI Infra Company)",
+  "url": "https://www.pinecone.io/careers",
+  "host": "pinecone.io",
+  "mapping": "live_ats",
+  "connectors": [
+   "ashby:pinecone"
+  ],
+  "searchTemplate": "https://www.pinecone.io/careers",
+  "kind": "company",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "CONSOLIDATED_AI_INFRA_COMPANIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Pinecone | Vector DB company | ✅ Remote | 🟡 Medium | ML/AI engineering, vector search, distributed systems | NOT in your sheet. The leading vector database (used in almost every RAG pipeline). Hires ML engineers, backend infra. If you've built RAG with Pinecone, massive signal. R",
+  "id": "p051"
+ },
+ {
+  "name": "RunPod",
+  "url": "https://runpod.io",
+  "host": "runpod.io",
+  "mapping": "live_ats",
+  "connectors": [
+   "ashby:runpod"
+  ],
+  "searchTemplate": "https://runpod.io/careers",
+  "kind": "company",
+  "sheets": [
+   "CONSOLIDATED_AI_INFRA_COMPANIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Serverless GPU cloud for ML workloads | Remote (verify country eligibility) ✔ | Low | GPU hosting for ML/DL workloads; remote-first global hiring.",
+  "id": "p052"
+ },
+ {
+  "name": "Salesforce",
+  "url": "https://www.salesforce.com/company/careers/",
+  "host": "salesforce.com",
+  "mapping": "live_ats",
+  "connectors": [
+   "workday:salesforce"
+  ],
+  "searchTemplate": "https://careers.salesforce.com/en/jobs/?search={q}&country=India",
+  "kind": "company",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_DIRECT_CAREERS_BANGALORE",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_DIRECT_CAREERS_BANGALORE | Company Career Page",
+  "id": "p053"
+ },
+ {
+  "name": "Samsara India (AI/ML) (Direct Apply — GCC)",
+  "url": "https://samsara.com/company/careers",
+  "host": "samsara.com",
+  "mapping": "live_ats",
+  "connectors": [
+   "greenhouse:samsara"
+  ],
+  "searchTemplate": "https://samsara.com/company/careers",
+  "kind": "company",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Samsara India (AI/ML) | Samsara Bangalore tech hub | ✅ Bangalore | 🟢 Low | Business technology AI/ML; IoT + AI platform; fleet intelligence | NOT in your sheet. Samsara Bangalore hires Senior Business Technology AI/ML Engineers. IoT + AI domain. Less known = much lower applicatio",
+  "id": "p054"
+ },
+ {
+  "name": "Samsung R&D Institute India-Bangalore (SRI-B)",
+  "url": "https://research.samsung.com/careers",
+  "host": "research.samsung.com",
+  "mapping": "live_ats",
+  "connectors": [
+   "workday:samsung"
+  ],
+  "searchTemplate": "https://sec.wd3.myworkdayjobs.com/Samsung_Careers?q={q}",
+  "kind": "company",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_DIRECT_CAREERS_BANGALORE",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_DIRECT_CAREERS_BANGALORE | Company Career Page",
+  "id": "p055"
+ },
+ {
+  "name": "Sarvam AI",
+  "url": "https://jobs.ashbyhq.com/sarvam",
+  "host": "jobs.ashbyhq.com",
+  "mapping": "live_ats",
+  "connectors": [
+   "ashby:sarvam"
+  ],
+  "searchTemplate": "https://jobs.ashbyhq.com/sarvam",
+  "kind": "company",
+  "sheets": [
+   "Frontier_Labs_India"
+  ],
+  "notes": "",
+  "id": "p056"
+ },
+ {
+  "name": "ServiceNow",
+  "url": "https://careers.servicenow.com/locations/apj/india/",
+  "host": "careers.servicenow.com",
+  "mapping": "live_ats",
+  "connectors": [
+   "smartrecruiters:servicenow"
+  ],
+  "searchTemplate": "https://careers.servicenow.com/jobs/?search={q}",
+  "kind": "company",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_DIRECT_CAREERS_BANGALORE",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_DIRECT_CAREERS_BANGALORE | Company Career Page",
+  "id": "p057"
+ },
+ {
+  "name": "Snowflake",
+  "url": "https://jobs.ashbyhq.com/snowflake",
+  "host": "jobs.ashbyhq.com",
+  "mapping": "live_ats",
+  "connectors": [
+   "ashby:snowflake"
+  ],
+  "searchTemplate": "https://jobs.ashbyhq.com/snowflake",
+  "kind": "company",
+  "sheets": [
+   "FDE_Deep_Dive"
+  ],
+  "notes": "",
+  "id": "p058"
+ },
+ {
+  "name": "Together AI (AI Infra Company)",
+  "url": "https://www.together.ai/careers",
+  "host": "together.ai",
+  "mapping": "live_ats",
+  "connectors": [
+   "greenhouse:togetherai"
+  ],
+  "searchTemplate": "https://www.together.ai/careers",
+  "kind": "company",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "REMOTE_GENUINE_EMPLOYERS_INDIA",
+   "CONSOLIDATED_AI_INFRA_COMPANIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Together AI | Open-source LLM inference platform | ✅ Remote | 🟢 Low | LLM inference engineering, ML platform, open-source AI infra | NOT in your sheet. Open-source model inference at scale. Remote-friendly. ML infrastructure + LLM serving roles. India engineers hired. Strong OSS ",
+  "id": "p059"
+ },
+ {
+  "name": "Weaviate (AI Infra Company)",
+  "url": "https://weaviate.io/company/careers",
+  "host": "weaviate.io",
+  "mapping": "live_ats",
+  "connectors": [
+   "ashby:weaviate"
+  ],
+  "searchTemplate": "https://weaviate.io/company/careers",
+  "kind": "company",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "CONSOLIDATED_AI_INFRA_COMPANIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Weaviate | Open-source vector DB | ✅ Remote | 🟢 Low | ML platform, vector search engineering; open-source contributor path | NOT in your sheet. Open-source vector database. Contribute to GitHub → get noticed by hiring team. Remote-first. India engineers hired. Less competitive th",
+  "id": "p060"
+ },
+ {
+  "name": "Workato India (AI Solutions) (Direct Apply — AI Native)",
+  "url": "https://workato.com/careers",
+  "host": "workato.com",
+  "mapping": "live_ats",
+  "connectors": [
+   "greenhouse:workato"
+  ],
+  "searchTemplate": "https://workato.com/careers",
+  "kind": "company",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Workato India (AI Solutions) | Enterprise automation + AI | ✅ Bangalore | 🟢 Low | AI Solutions Architect, AI Solutions Engineer; enterprise automation AI | NOT in your sheet. Workato Bangalore hires AI Solutions Architects and Engineers. Enterprise automation AI. Combines ML know",
+  "id": "p061"
+ },
+ {
+  "name": "Contra (Talent Marketplace)",
+  "url": "https://contra.com",
+  "host": "contra.com",
+  "mapping": "live_ats",
+  "connectors": [
+   "ashby:contra"
+  ],
+  "searchTemplate": "https://contra.com/jobs",
+  "kind": "freelance",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "NEW_GIG_TRAINING_PLATFORMS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Contra | Zero-commission freelance marketplace | ✅ Yes | 🟢 Low | AI/ML freelance gigs; 0% platform fee to freelancers | NOT in your sheet. 0% commission — you keep everything. Portfolio-based (no vetting interview). Clients pay 16% fee. Best for senior contractors with existing p",
+  "id": "p062"
+ },
+ {
+  "name": "Appen (RLHF Platform)",
+  "url": "https://appen.com/join-our-crowd",
+  "host": "appen.com",
+  "mapping": "live_ats",
+  "connectors": [
+   "lever:appen"
+  ],
+  "searchTemplate": "https://appen.com/join-our-crowd",
+  "kind": "gig_rlhf",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Appen | Global crowdsource annotation | ✅ Yes — 130+ countries | 🟡 Medium | Search eval, AI training, linguistic data; TELUS International AI overlap | NOT in your sheet. 130+ countries including India. Acquired by TELUS Digital. Steady but lower pay ($8–$20/hr). Good for buildin",
+  "id": "p063"
+ },
+ {
+  "name": "Handshake AI (Talent Marketplace)",
+  "url": "https://www.joinhandshake.ai",
+  "host": "joinhandshake.ai",
+  "mapping": "live_ats",
+  "connectors": [
+   "ashby:handshake"
+  ],
+  "searchTemplate": "https://www.joinhandshake.ai",
+  "kind": "gig_rlhf",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "NEW_GIG_TRAINING_PLATFORMS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Handshake AI | Frontier AI gig platform | ✅ Yes | 🟢 Low | High-paying RLHF + AI reasoning evaluation for frontier labs | NOT in your sheet. Premium tier — pays $40–$125/hr for complex AI reasoning evaluation. Bursty project availability. Stack with Babel Audio or Alignerr for ste",
+  "id": "p064"
+ },
+ {
+  "name": "Andela",
+  "url": "https://andela.com",
+  "host": "andela.com",
+  "mapping": "live_ats",
+  "connectors": [
+   "ashby:andela"
+  ],
+  "searchTemplate": "https://andela.com/talent",
+  "kind": "talent_marketplace",
+  "sheets": [
+   "Job_Boards",
+   "Talent_Marketplaces",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "T3 | FT Dedicated Remote | Free to apply | FT dedicated remote eng | ~0.7% accept | Africa/LATAM/Asia | Extremely selective. 12-month min. ~$12-14k/mo. Less ideal as entry channel.",
+  "id": "p065"
+ },
+ {
+  "name": "Braintrust (Talent Marketplace)",
+  "url": "https://app.usebraintrust.com",
+  "host": "app.usebraintrust.com",
+  "mapping": "live_ats",
+  "connectors": [
+   "ashby:braintrust"
+  ],
+  "searchTemplate": "https://app.usebraintrust.com/jobs/",
+  "kind": "talent_marketplace",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "NEW_GIG_TRAINING_PLATFORMS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Braintrust | User-owned talent network | ✅ Yes | 🟡 Medium | AI/ML/Software engineering; large corporate clients (Goldman, Nike, Atlassian) | NOT in your sheet. Key differentiator: 0% commission to talent — you keep 100% of your rate. ₹5–80 LPA equivalent project-based. 600,000+ m",
+  "id": "p066"
+ },
+ {
+  "name": "Mercor",
+  "url": "https://mercor.com",
+  "host": "mercor.com",
+  "mapping": "live_ats",
+  "connectors": [
+   "ashby:mercor"
+  ],
+  "searchTemplate": "https://work.mercor.com/",
+  "kind": "talent_marketplace",
+  "sheets": [
+   "Job_Boards",
+   "Talent_Marketplaces",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "T1 | AI Marketplace | Free to apply | GitHub-focused AI. Best fit for your profile | 300K+ professionals | India-eligible | One ~20-min AI video interview. Clients: OpenAI, Anthropic, Meta. $60-120/hr top. Treat interview seriously. $350M Series C at $10B valuation.",
+  "id": "p067"
+ },
+ {
+  "name": "Toptal",
+  "url": "https://toptal.com",
+  "host": "toptal.com",
+  "mapping": "live_ats",
+  "connectors": [
+   "lever:toptal"
+  ],
+  "searchTemplate": "https://www.toptal.com/careers",
+  "kind": "talent_marketplace",
+  "sheets": [
+   "Job_Boards",
+   "Talent_Marketplaces",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "T3 | Premium Freelance | Free to apply | Top 3% premium freelance | ~3% accept | Global | Rigorous multi-stage. $60-200+/hr. Worth it at 5+ yrs exp. Generalist SWE vetting, not AI-specific.",
+  "id": "p068"
+ },
+ {
+  "name": "Turing",
+  "url": "https://turing.com",
+  "host": "turing.com",
+  "mapping": "live_ats",
+  "connectors": [
+   "greenhouse:turing"
+  ],
+  "searchTemplate": "https://www.turing.com/jobs",
+  "kind": "talent_marketplace",
+  "sheets": [
+   "Job_Boards",
+   "Talent_Marketplaces",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "T1 | Talent Marketplace | Free to apply | Remote AI for US clients | Top 1% funnel | India-eligible | English screen + tech assessment + live interview. Senior AI eng $100-200/hr. Contractor, bi-weekly pay. RLHF data for OpenAI/Anthropic.",
+  "id": "p069"
+ },
+ {
+  "name": "AI4Bharat",
+  "url": "https://ai4bharat.iitm.ac.in/",
+  "host": "ai4bharat.iitm.ac.in",
+  "mapping": "aggregated",
+  "connectors": [
+   "linkedin"
+  ],
+  "searchTemplate": "https://ai4bharat.iitm.ac.in/",
+  "kind": "company",
+  "sheets": [
+   "Frontier_Labs_India"
+  ],
+  "notes": "",
+  "id": "p070"
+ },
+ {
+  "name": "Ather Energy",
+  "url": "https://careers.atherenergy.com/jobs",
+  "host": "careers.atherenergy.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://careers.atherenergy.com/jobs",
+  "kind": "company",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_DIRECT_CAREERS_BANGALORE",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_DIRECT_CAREERS_BANGALORE | Company Career Page",
+  "id": "p071"
+ },
+ {
+  "name": "Atlassian",
+  "url": "https://www.atlassian.com/company/careers",
+  "host": "atlassian.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://www.atlassian.com/company/careers/all-jobs?search={q}",
+  "kind": "company",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_DIRECT_CAREERS_BANGALORE",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_DIRECT_CAREERS_BANGALORE | Company Career Page",
+  "id": "p072"
+ },
+ {
+  "name": "Automattic (WordPress)",
+  "url": "https://automattic.com/work-with-us/jobs/",
+  "host": "automattic.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://automattic.com/work-with-us/jobs/",
+  "kind": "company",
+  "sheets": [
+   "REMOTE_GENUINE_EMPLOYERS_INDIA",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "WorldWide Team across 83-96 countries; work-from-anywhere | Engineering/Product/Customer roles at a genuinely global remote org | Compensation based on skill/location; screen for active AI/product roles.",
+  "id": "p073"
+ },
+ {
+  "name": "Best Buy",
+  "url": "https://jobs.bestbuy.com/",
+  "host": "jobs.bestbuy.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://jobs.bestbuy.com/",
+  "kind": "company",
+  "sheets": [
+   "Frontier_Labs_India"
+  ],
+  "notes": "",
+  "id": "p074"
+ },
+ {
+  "name": "Bloomberg",
+  "url": "https://bloomberg.avature.net/careers/SearchJobs",
+  "host": "bloomberg.avature.net",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://bloomberg.avature.net/careers/SearchJobs/{q}",
+  "kind": "company",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_DIRECT_CAREERS_BANGALORE",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_DIRECT_CAREERS_BANGALORE | Company Career Page",
+  "id": "p075"
+ },
+ {
+  "name": "BrowserStack",
+  "url": "https://browserstack.com/careers",
+  "host": "browserstack.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://browserstack.com/careers",
+  "kind": "company",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_DIRECT_CAREERS_BANGALORE",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_DIRECT_CAREERS_BANGALORE | Company Career Page",
+  "id": "p076"
+ },
+ {
+  "name": "Companies Hiring FDE (India)",
+  "url": "https://Yellow.ai",
+  "host": "yellow.ai",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch",
+   "linkedin"
+  ],
+  "searchTemplate": "https://yellow.ai/careers/",
+  "kind": "company",
+  "sheets": [
+   "FDE_Deep_Dive",
+   "Frontier_Labs_India",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Glean, Sarvam AI, Krutrim, Yellow.ai, Gnani.ai — titles often 'Founding Engineer,' 'Applied AI Engineer,' or 'Solutions Engineer' | 5+ Indian AI startups | PDF Sec 7",
+  "id": "p077"
+ },
+ {
+  "name": "Darwinbox",
+  "url": "https://www.darwinbox.com/careers/",
+  "host": "darwinbox.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://www.darwinbox.com/careers/",
+  "kind": "company",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_DIRECT_CAREERS_BANGALORE",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_DIRECT_CAREERS_BANGALORE | Company Career Page",
+  "id": "p078"
+ },
+ {
+  "name": "Dolby India Careers (Bangalore AI) (Direct Apply — GCC)",
+  "url": "https://dolby.com/careers",
+  "host": "dolby.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://dolby.com/careers",
+  "kind": "company",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Dolby India Careers (Bangalore AI) | Dolby Bangalore AI research hub | ✅ Bangalore | 🟢 Low | AI research, multimodal AI, generative AI researcher/engineer | NOT in your sheet. Dolby's Bangalore office is a genuine AI research hub. Roles: Senior Generative AI Researcher, Lead Rese",
+  "id": "p079"
+ },
+ {
+  "name": "Equinix India (Data/AI Platform) (Direct Apply — GCC)",
+  "url": "https://equinix.com/careers",
+  "host": "equinix.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://equinix.com/careers",
+  "kind": "company",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Equinix India (Data/AI Platform) | Equinix Bangalore engineering | ✅ Bangalore + Remote | 🟢 Very Low | Data & AI platform engineering; hybrid/remote; infrastructure AI | NOT in your sheet. Platform Engineer - Data & AI roles at Equinix Bangalore are listed as hybrid/remote. Infra",
+  "id": "p080"
+ },
+ {
+  "name": "Flipkart",
+  "url": "https://www.flipkartcareers.com/",
+  "host": "flipkartcareers.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://www.flipkartcareers.com/#!/joblist",
+  "kind": "company",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_DIRECT_CAREERS_BANGALORE",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_DIRECT_CAREERS_BANGALORE | Company Career Page",
+  "id": "p081"
+ },
+ {
+  "name": "GE Vernova (AI/GenAI) Bangalore (Direct Apply — GCC)",
+  "url": "https://jobs.gecareers.com",
+  "host": "jobs.gecareers.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://jobs.gecareers.com/global/en/search-results?keywords={q}",
+  "kind": "company",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "GE Vernova (AI/GenAI) Bangalore | GE Vernova India engineering | ✅ Bangalore + Remote | 🟢 Low | GenAI software architect, AI product owner, enterprise AI — energy domain | NOT in your sheet. GE Vernova's Bangalore team actively hires Senior GenAI Software Architects, AI Product O",
+  "id": "p082"
+ },
+ {
+  "name": "Gnani.ai",
+  "url": "https://Gnani.ai",
+  "host": "gnani.ai",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch",
+   "linkedin"
+  ],
+  "searchTemplate": "https://gnani.ai/careers",
+  "kind": "company",
+  "sheets": [
+   "Frontier_Labs_India",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Bengaluru | Enterprise AI | FDE-shaped roles | Mid | Sec 23",
+  "id": "p083"
+ },
+ {
+  "name": "Goldman Sachs",
+  "url": "https://higher.gs.com/results?search=machine%20learning&location=Bengaluru",
+  "host": "higher.gs.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://higher.gs.com/results?search=machine%20learning&location=Bengaluru",
+  "kind": "company",
+  "sheets": [
+   "Frontier_Labs_India"
+  ],
+  "notes": "",
+  "id": "p084"
+ },
+ {
+  "name": "Google DeepMind India",
+  "url": "https://deepmind.google/about/careers/",
+  "host": "deepmind.google",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch",
+   "linkedin"
+  ],
+  "searchTemplate": "https://deepmind.google/about/careers/",
+  "kind": "company",
+  "sheets": [
+   "Frontier_Labs_India"
+  ],
+  "notes": "",
+  "id": "p085"
+ },
+ {
+  "name": "Google India",
+  "url": "https://www.google.com/about/careers/applications/jobs/results/?location=India&q=%22forward%20deployed%22",
+  "host": "google.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch",
+   "linkedin"
+  ],
+  "searchTemplate": "https://www.google.com/about/careers/applications/jobs/results/?location=India&q=%22forward%20deployed%22",
+  "kind": "company",
+  "sheets": [
+   "Frontier_Labs_India"
+  ],
+  "notes": "",
+  "id": "p086"
+ },
+ {
+  "name": "Groq (AI Infra Company)",
+  "url": "https://groq.com/careers",
+  "host": "groq.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://groq.com/careers",
+  "kind": "company",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "REMOTE_GENUINE_EMPLOYERS_INDIA",
+   "CONSOLIDATED_AI_INFRA_COMPANIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Groq | LLM inference chip & platform | ✅ Remote | 🟢 Low | ML systems, LPU hardware optimization, inference engineering | NOT in your sheet. Fastest LLM inference chips. Hiring ML systems engineers, inference optimization. Very technical bar (CUDA/Triton helpful). India remote pos",
+  "id": "p087"
+ },
+ {
+  "name": "IBM",
+  "url": "https://www.ibm.com/careers/search?q=forward%20deployed",
+  "host": "ibm.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch",
+   "linkedin"
+  ],
+  "searchTemplate": "https://www.ibm.com/careers/search?q=forward%20deployed",
+  "kind": "company",
+  "sheets": [
+   "FDE_Deep_Dive"
+  ],
+  "notes": "",
+  "id": "p088"
+ },
+ {
+  "name": "Intuit",
+  "url": "https://careers.intuit.com/",
+  "host": "careers.intuit.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://jobs.intuit.com/search-jobs/{q}/India",
+  "kind": "company",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_DIRECT_CAREERS_BANGALORE",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_DIRECT_CAREERS_BANGALORE | Company Career Page",
+  "id": "p089"
+ },
+ {
+  "name": "JPMorgan",
+  "url": "https://jpmc.fa.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001/requisitions?keyword=machine%20learning&location=India",
+  "host": "jpmc.fa.oraclecloud.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://jpmc.fa.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001/requisitions?keyword=machine%20learning&location=India",
+  "kind": "company",
+  "sheets": [
+   "Frontier_Labs_India"
+  ],
+  "notes": "",
+  "id": "p090"
+ },
+ {
+  "name": "Krutrim (Ola)",
+  "url": "https://www.olakrutrim.com/careers",
+  "host": "olakrutrim.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch",
+   "linkedin"
+  ],
+  "searchTemplate": "https://www.olakrutrim.com/careers",
+  "kind": "company",
+  "sheets": [
+   "Frontier_Labs_India"
+  ],
+  "notes": "",
+  "id": "p091"
+ },
+ {
+  "name": "Myntra",
+  "url": "https://careers.myntra.com/",
+  "host": "careers.myntra.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://careers.myntra.com/",
+  "kind": "company",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_DIRECT_CAREERS_BANGALORE",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_DIRECT_CAREERS_BANGALORE | Company Career Page",
+  "id": "p092"
+ },
+ {
+  "name": "NatWest Group India (AI/Data) (Chennai — Key Companies)",
+  "url": "https://jobs.natwestgroup.com",
+  "host": "jobs.natwestgroup.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://jobs.natwestgroup.com/search/jobs?keywords={q}",
+  "kind": "company",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "NatWest Group India (AI/Data) | GCC banking tech — Chennai | ✅ Chennai | 🟢 Low | AI/ML for banking risk, fraud detection, data platform; GCC | NOT in your sheet. NatWest's India GCC is Chennai-heavy. AI/data engineering roles in banking domain. Less applicants than Bangalore GCCs",
+  "id": "p093"
+ },
+ {
+  "name": "Ola Electric",
+  "url": "https://olaelectric.com/careers/",
+  "host": "olaelectric.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://olaelectric.com/careers/",
+  "kind": "company",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_DIRECT_CAREERS_BANGALORE",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_DIRECT_CAREERS_BANGALORE | Company Career Page",
+  "id": "p094"
+ },
+ {
+  "name": "PhonePe",
+  "url": "https://www.phonepe.com/careers/",
+  "host": "phonepe.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://www.phonepe.com/careers/job-openings/",
+  "kind": "company",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_DIRECT_CAREERS_BANGALORE",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_DIRECT_CAREERS_BANGALORE | Company Career Page",
+  "id": "p095"
+ },
+ {
+  "name": "Postman",
+  "url": "https://www.postman.com/company/careers/open-positions/",
+  "host": "postman.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://www.postman.com/company/careers/open-positions/",
+  "kind": "company",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_DIRECT_CAREERS_BANGALORE",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_DIRECT_CAREERS_BANGALORE | Company Career Page",
+  "id": "p096"
+ },
+ {
+  "name": "Qdrant (AI Infra Company)",
+  "url": "https://qdrant.tech/careers",
+  "host": "qdrant.tech",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://qdrant.tech/careers",
+  "kind": "company",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "CONSOLIDATED_AI_INFRA_COMPANIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Qdrant | Vector DB (Rust-based) | ✅ Remote | 🟢 Low | Vector DB engineering, ML infra, Rust/Python | NOT in your sheet. Fast-growing vector DB. Remote-first. Open-source contributor path. Rust skills are a differentiator. India-eligible.",
+  "id": "p097"
+ },
+ {
+  "name": "Qure.ai",
+  "url": "https://Qure.ai",
+  "host": "qure.ai",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch",
+   "linkedin"
+  ],
+  "searchTemplate": "https://qure.ai/careers",
+  "kind": "company",
+  "sheets": [
+   "Frontier_Labs_India",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Bengaluru | Healthcare AI | Active | Mid | Sec 23",
+  "id": "p098"
+ },
+ {
+  "name": "Razorpay",
+  "url": "https://razorpay.com/jobs/",
+  "host": "razorpay.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://razorpay.com/jobs/",
+  "kind": "company",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_DIRECT_CAREERS_BANGALORE",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_DIRECT_CAREERS_BANGALORE | Company Career Page",
+  "id": "p099"
+ },
+ {
+  "name": "Replicate (AI Infra Company)",
+  "url": "https://replicate.com/careers",
+  "host": "replicate.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://replicate.com/careers",
+  "kind": "company",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "REMOTE_GENUINE_EMPLOYERS_INDIA",
+   "CONSOLIDATED_AI_INFRA_COMPANIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Replicate | ML model deployment platform | ✅ Remote | 🟢 Low | ML infrastructure, model serving, developer platform | NOT in your sheet. Run open-source ML models via API. Infrastructure and ML platform roles. Remote-first company. If you've deployed models on Replicate, mention i",
+  "id": "p100"
+ },
+ {
+  "name": "SAP Labs",
+  "url": "https://jobs.sap.com/search/?q=machine+learning&locationsearch=Bangalore",
+  "host": "jobs.sap.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://jobs.sap.com/search/?q=machine+learning&locationsearch=Bangalore",
+  "kind": "company",
+  "sheets": [
+   "Frontier_Labs_India"
+  ],
+  "notes": "",
+  "id": "p101"
+ },
+ {
+  "name": "Skit.ai",
+  "url": "https://Skit.ai",
+  "host": "skit.ai",
+  "mapping": "aggregated",
+  "connectors": [
+   "linkedin"
+  ],
+  "searchTemplate": "https://skit.ai/careers",
+  "kind": "company",
+  "sheets": [
+   "Frontier_Labs_India",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Bengaluru | Conversational AI | Active | Mid | Sec 23",
+  "id": "p102"
+ },
+ {
+  "name": "Target India",
+  "url": "https://india.target.com/careers",
+  "host": "india.target.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://india.target.com/careers",
+  "kind": "company",
+  "sheets": [
+   "Frontier_Labs_India"
+  ],
+  "notes": "",
+  "id": "p103"
+ },
+ {
+  "name": "Uber Bangalore AI/ML (Direct Apply — GCC)",
+  "url": "https://www.uber.com/in/en/careers",
+  "host": "uber.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://www.uber.com/in/en/careers/list/?query={q}",
+  "kind": "company",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Uber Bangalore AI/ML | Uber Engineering India | ✅ Bangalore | 🟢 Low | Applied ML, ML platform, staff ML engineer roles; Maps, Eats, Rides AI | NOT in your sheet. Uber Bangalore hires Sr Manager ML, Sr Staff ML, Applied AI roles actively. Less crowded than Amazon/Google applicatio",
+  "id": "p104"
+ },
+ {
+  "name": "Walmart Global Tech",
+  "url": "https://careers.walmart.com/results?q=machine%20learning&page=1&sort=rank&expand=department,type&jobCity=Bangalore",
+  "host": "careers.walmart.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://careers.walmart.com/results?q=machine%20learning&page=1&sort=rank&expand=department,type&jobCity=Bangalore",
+  "kind": "company",
+  "sheets": [
+   "Frontier_Labs_India"
+  ],
+  "notes": "",
+  "id": "p105"
+ },
+ {
+  "name": "Weights & Biases (W&B) (AI Infra Company)",
+  "url": "https://wandb.ai/site/careers",
+  "host": "wandb.ai",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://wandb.ai/site/careers",
+  "kind": "company",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "REMOTE_GENUINE_EMPLOYERS_INDIA",
+   "CONSOLIDATED_AI_INFRA_COMPANIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Weights & Biases (W&B) | MLOps platform company | ✅ Remote-India eligible | 🟢 Low | MLOps engineer, ML platform, customer-facing ML roles | NOT in your sheet. The standard MLOps tool (experiment tracking, model registry). Hires India-based engineers for platform, ML engineer, and",
+  "id": "p106"
+ },
+ {
+  "name": "Yellow.ai",
+  "url": "https://yellow.ai/careers/",
+  "host": "yellow.ai",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch",
+   "linkedin"
+  ],
+  "searchTemplate": "https://yellow.ai/careers/",
+  "kind": "company",
+  "sheets": [
+   "Frontier_Labs_India"
+  ],
+  "notes": "",
+  "id": "p107"
+ },
+ {
+  "name": "Zepto",
+  "url": "https://zeptonow.com/careers/",
+  "host": "zeptonow.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://zeptonow.com/careers/",
+  "kind": "company",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_DIRECT_CAREERS_BANGALORE",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_DIRECT_CAREERS_BANGALORE | Company Career Page",
+  "id": "p108"
+ },
+ {
+  "name": "Zoho Corp (AI/ML team) (Chennai — Key Companies)",
+  "url": "https://careers.zohocorp.com",
+  "host": "careers.zohocorp.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://careers.zohocorp.com",
+  "kind": "company",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Zoho Corp (AI/ML team) | Product company — Chennai HQ | ✅ Chennai + Hybrid | 🟢 Low | AI/ML for enterprise SaaS; Zia AI team; in-house LLM work | NOT in your sheet. Zoho builds their own AI ('Zia'). No VC pressure = steady hiring. Strong AI/ML team building LLMs, NLP, prediction s",
+  "id": "p109"
+ },
+ {
+  "name": "AngelList / Wellfound India filter (Strategy)",
+  "url": "https://wellfound.com/role/l/ai-engineer/india",
+  "host": "wellfound.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch",
+   "linkedin"
+  ],
+  "searchTemplate": "https://wellfound.com/jobs?query={q}",
+  "kind": "job_board",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "AngelList / Wellfound India filter | Startup-only platform | ✅ Yes | 🟡 Medium | India AI startups; direct founder contact; equity shown | Already in your sheet but use the India-specific filter more aggressively. Filter: India → Remote → AI → Seed/Series A. Apply within 24 hours.",
+  "id": "p110"
+ },
+ {
+  "name": "Apna.co (Tech section) (India Board — Product)",
+  "url": "https://apna.co",
+  "host": "apna.co",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://apna.co/jobs?search=true&text={q}",
+  "kind": "job_board",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "NEW_VERIFIED_BOARDS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Apna.co (Tech section) | Mobile-first India job app | ✅ Yes | 🟡 Medium | Entry-level & mid-level AI/data roles; Bangalore; startup-friendly | NOT in your sheet. 50M+ users but tech/AI section far less crowded than main feed. Use filters: Technology → AI/ML → Bangalore. Direct emp",
+  "id": "p111"
+ },
+ {
+  "name": "Cutshort",
+  "url": "https://cutshort.io",
+  "host": "cutshort.io",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://cutshort.io/jobs/{qslug}-jobs",
+  "kind": "job_board",
+  "sheets": [
+   "Job_Boards",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "T2 | India Board | Free | Quality AI roles, salary filters | 50+ curated | India | ATS-free, direct company contact. Underused.",
+  "id": "p112"
+ },
+ {
+  "name": "Foundit (formerly Monster India)",
+  "url": "https://www.foundit.in/",
+  "host": "foundit.in",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://www.foundit.in/srp/results?query={q}&locations=Bengaluru",
+  "kind": "job_board",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_LOW_CROWD_BOARDS",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_LOW_CROWD_BOARDS | Job Board",
+  "id": "p113"
+ },
+ {
+  "name": "Glassdoor / Fishbowl (career intel) (Community — Forum)",
+  "url": "https://glassdoor.co.in",
+  "host": "glassdoor.co.in",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://www.glassdoor.co.in/Job/india-{qslug}-jobs-SRCH_IL.0,5_IN115_KO6,40.htm",
+  "kind": "job_board",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Glassdoor / Fishbowl (career intel) | Company review + job board | ✅ Yes | 🟡 Medium | Company salary data, interview process intel, AI role listings | In your Scam sheet but not as a job source. Glassdoor has 6,490+ India AI jobs. Key use: ask current employees on Fishbowl 'is th",
+  "id": "p114"
+ },
+ {
+  "name": "hirist.tech (India Board — Premium)",
+  "url": "https://hirist.tech/c/ai-ml-jobs",
+  "host": "hirist.tech",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://www.hirist.tech/search/{qslug}",
+  "kind": "job_board",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "NEW_VERIFIED_BOARDS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "hirist.tech | Tech-only job board | ✅ Yes | 🟡 Medium | AI/ML/LLM roles at India startups & unicorns; Bangalore-heavy | NOT in your sheet. Deepest concentration of Bangalore tech jobs. Direct recruiter access in-app. Real-time app tracking shows when recruiter views your profile. ",
+  "id": "p115"
+ },
+ {
+  "name": "iimjobs.com (India Board — Premium)",
+  "url": "https://iimjobs.com/k/machine-learning-jobs",
+  "host": "iimjobs.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://www.iimjobs.com/search/{qslug}",
+  "kind": "job_board",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "NEW_VERIFIED_BOARDS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "iimjobs.com | Premium management/tech board | ✅ Yes | 🟡 Medium | Senior & mid-level AI/ML roles; GCC + product companies; salary filters | NOT in your sheet. Premium Indian board. Salary shown on every listing. GCC companies (JPMorgan, Goldman, Walmart) post here. Less volume tha",
+  "id": "p116"
+ },
+ {
+  "name": "Indeed India",
+  "url": "https://indeed.com",
+  "host": "indeed.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://in.indeed.com/jobs?q={q}&l=India&fromage=3",
+  "kind": "job_board",
+  "sheets": [
+   "Job_Boards",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "T3 | Global Aggregator | Free | Largest global aggregator | 600+ AI WFH | India/Global | Use Salary Search. Take Indeed Assessments to stand out.",
+  "id": "p117"
+ },
+ {
+  "name": "Internshala",
+  "url": "https://internshala.com",
+  "host": "internshala.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://internshala.com/jobs/keywords-{qslug}/",
+  "kind": "job_board",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "Job_Boards",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "T3 | Freshers/PT | Free | Freshers & part-time | 106+ AI WFH Blr | India | Best for first exp: annotation, labeling, junior LLM.",
+  "id": "p118"
+ },
+ {
+  "name": "Naukri",
+  "url": "https://naukri.com",
+  "host": "naukri.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://www.naukri.com/{qslug}-jobs-in-bengaluru?jobAge=3",
+  "kind": "job_board",
+  "sheets": [
+   "Job_Boards",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "T3 | India Volume Board | Free | Volume — largest India job DB | 17,000+ Blr AI | India | Update profile weekly to stay visible. Change headline every Sunday. Mass-applying close to useless for FDE.",
+  "id": "p119"
+ },
+ {
+  "name": "Shine.com (India Board — All-level)",
+  "url": "https://shine.com",
+  "host": "shine.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://www.shine.com/job-search/{qslug}-jobs",
+  "kind": "job_board",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "NEW_VERIFIED_BOARDS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Shine.com | General India job board | ✅ Yes | 🟡 Medium | Full-time + WFH AI roles; Bangalore/Chennai; less used by senior candidates | NOT in your sheet. India's #3 job board. Search 'Machine Learning' + 'Work from Home' filter. Lower competition than Naukri for AI roles. Good fo",
+  "id": "p120"
+ },
+ {
+  "name": "Unrealistic salary promises",
+  "url": "https://glassdoor.com",
+  "host": "glassdoor.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://www.glassdoor.co.in/Job/index.htm",
+  "kind": "job_board",
+  "sheets": [
+   "Scam_Red_Flags"
+  ],
+  "notes": "₹30 LPA for 'freshers with basic Python' is a lie. | Cross-check on Glassdoor, AmbitionBox, Levels.fyi. | glassdoor.com, ambitionbox.com",
+  "id": "p121"
+ },
+ {
+  "name": "Wellfound",
+  "url": "https://wellfound.com",
+  "host": "wellfound.com",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch",
+   "linkedin"
+  ],
+  "searchTemplate": "https://wellfound.com/jobs?query={q}",
+  "kind": "job_board",
+  "sheets": [
+   "Job_Boards",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "T1 | Startup Board | Free | AI startups + equity + founders | 130,000 listings, 35,000 cos | Global | Salary+equity shown. No agencies. Filter seed/SeriesA, apply <24hrs. Caveat: some spam/low-response.",
+  "id": "p122"
+ },
+ {
+  "name": "◆  B1 · Curated AI-Only Boards (Less crowded than aijobs.net)",
+  "url": "https://aijobs.net",
+  "host": "aijobs.net",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://aijobs.net/?key={q}",
+  "kind": "job_board",
+  "sheets": [
+   "Job_Boards",
+   "Hidden_Channels_Full",
+   "MASTER_WEBSITES_INDEX",
+   "NEW_HOW_TO_USE"
+  ],
+  "notes": "T1 | AI-Only Board | Free | AI/ML/Data roles only | 46,000+ jobs | Global | Filters: LLM, MLOps, GenAI, salary, remote/on-site. Updated daily. Publishes free global AI salary dataset on GitHub.",
+  "id": "p123"
+ },
+ {
+  "name": "Michael Page India (AI/Tech) (Staffing — Premium Search)",
+  "url": "https://michaelpage.co.in/jobs/technology",
+  "host": "michaelpage.co.in",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://www.michaelpage.co.in/jobs/technology",
+  "kind": "staffing",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "CONSOLIDATED_STAFFING_AGENCIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Michael Page India (AI/Tech) | Executive search — India | ✅ Bangalore + Remote | 🟢 Very Low | Senior AI/ML roles (5+ yrs); GCC leadership; AI architect level | NOT in your sheet. Global executive search. For senior candidates (5+ yrs). AI team leads, ML architects, AI product rol",
+  "id": "p124"
+ },
+ {
+  "name": "Randstad India (Staffing — IT Generalist (AI teams))",
+  "url": "https://randstad.in",
+  "host": "randstad.in",
+  "mapping": "aggregated",
+  "connectors": [
+   "serpapi",
+   "jsearch"
+  ],
+  "searchTemplate": "https://www.randstad.in/jobs/q-{qslug}/",
+  "kind": "staffing",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "CONSOLIDATED_STAFFING_AGENCIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Randstad India | Global staffing — India | ✅ Yes | 🟡 Medium | Contract + permanent AI/ML roles; large GCC and enterprise clients | NOT in your sheet. Global agency with strong GCC relationships (Infosys, Wipro, GCC clients). Good for bulk contract AI roles. Less ideal for niche A",
+  "id": "p125"
+ },
+ {
+  "name": "Dstack (AI Infra Company)",
+  "url": "https://dstack.ai/careers",
+  "host": "dstack.ai",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://dstack.ai/careers",
+  "kind": "company",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "CONSOLIDATED_AI_INFRA_COMPANIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Dstack | Open-source AI infrastructure | ✅ Remote | 🟢 Very Low | AI infra, GPU orchestration, open-source contributor → hire | NOT in your sheet. Open-source GPU orchestration for ML workloads. Small team. Contributing to their GitHub is the best path to getting noticed. Remote-f",
+  "id": "p126"
+ },
+ {
+  "name": "E2E Networks (AI Infra Company)",
+  "url": "https://e2enetworks.com/careers",
+  "host": "e2enetworks.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://e2enetworks.com/careers",
+  "kind": "company",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "CONSOLIDATED_AI_INFRA_COMPANIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "E2E Networks | Indian GPU cloud provider | ✅ Yes — India HQ | 🟢 Low | ML infra, GPU cloud engineering, AI platform — India only | NOT in your sheet. India's leading GPU cloud (INR-priced, data centers in Mumbai/Delhi/Bangalore). Actively building their AI infra team. Bangalore an",
+  "id": "p127"
+ },
+ {
+  "name": "Payoda Technology (Chennai — Key Companies)",
+  "url": "https://payoda.com/careers",
+  "host": "payoda.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://payoda.com/careers",
+  "kind": "company",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Payoda Technology | AI services + product — Chennai | ✅ Chennai + Remote | 🟢 Low | GenAI, ML engineering, AI product development; small but genuine | NOT in your sheet. Chennai-based AI services + own products. Genuine AI work. Less known = low competition. Remote + Chennai offic",
+  "id": "p128"
+ },
+ {
+  "name": "WhyLabs (AI Infra Company)",
+  "url": "https://whylabs.ai/careers",
+  "host": "whylabs.ai",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://whylabs.ai/careers",
+  "kind": "company",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "CONSOLIDATED_AI_INFRA_COMPANIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "WhyLabs | ML monitoring & AI observability | ✅ Remote | 🟢 Low | ML ops, data quality, LLM monitoring engineering | NOT in your sheet. Also cited in your Skills sheet. Builds AI observability tooling. Remote-first. India-eligible for senior engineers.",
+  "id": "p129"
+ },
+ {
+  "name": "Zerodha",
+  "url": "https://careers.zerodha.com/",
+  "host": "careers.zerodha.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://careers.zerodha.com/",
+  "kind": "company",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_DIRECT_CAREERS_BANGALORE",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_DIRECT_CAREERS_BANGALORE | Company Career Page",
+  "id": "p130"
+ },
+ {
+  "name": "HackerEarth",
+  "url": "https://www.hackerearth.com",
+  "host": "hackerearth.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://www.hackerearth.com/challenges/hiring/",
+  "kind": "competition",
+  "sheets": [
+   "NEW_VERIFIED_BOARDS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Assessments + hiring challenges board | India / Global ✔ | Medium | 'Hiring Radar' (50 ML roles/week) + direct hiring challenges (e.g., ZS ML Engineer Bengaluru) | NOT in your sheet: compete in hiring challenges -> interview pipeline; GCCs recruit winners.",
+  "id": "p131"
+ },
+ {
+  "name": "HackerEarth Hiring Challenges",
+  "url": "https://www.hackerearth.com/challenges",
+  "host": "hackerearth.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://www.hackerearth.com/challenges/hiring/",
+  "kind": "competition",
+  "sheets": [
+   "COMPETITIONS_HACKATHONS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Coding + direct-hiring challenges | India / Global ✔ | Practitioners w/ Python/ML | Interviews for challenge winners; weekly 'Hiring Radar' (50 ML roles) | ZS, SimplifyX-style challenges convert to offers; build a challenge-wins section.",
+  "id": "p132"
+ },
+ {
+  "name": "Unstop (ex-Dare2Compete)",
+  "url": "https://unstop.com/hiring-challenges",
+  "host": "unstop.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://unstop.com/hiring-challenges",
+  "kind": "competition",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_LOW_CROWD_BOARDS",
+   "NEW_FAST_HIRE_HACKS",
+   "NEW_FAST_HIRE_EVIDENCE",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_LOW_CROWD_BOARDS | Job Board",
+  "id": "p133"
+ },
+ {
+  "name": "Codementor",
+  "url": "https://codementor.io",
+  "host": "codementor.io",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://www.codementor.io/jobs",
+  "kind": "freelance",
+  "sheets": [
+   "NEW_VERIFIED_BOARDS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Developer mentorship + freelance marketplace | Global ✔ | Low | On-demand freelance devs; niche AI/RAG/fine-tuning gigs | NOT in your sheet: niche freelance gigs + mentorship connections.",
+  "id": "p134"
+ },
+ {
+  "name": "Upwork",
+  "url": "https://upwork.com",
+  "host": "upwork.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://www.upwork.com/nx/search/jobs/?q={q}&sort=recency",
+  "kind": "freelance",
+  "sheets": [
+   "Talent_Marketplaces",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "$30-80+/hr for LLM/RAG/fine-tuning | Profile-based | Yes | Freelance AI gigs for resume bullets | Worth it for billable, referenceable project bullets. Avoid race-to-bottom categories. | INCOME + RESUME BULLET",
+  "id": "p135"
+ },
+ {
+  "name": "AIGigJobs.com (Global AI Board)",
+  "url": "https://aigigjobs.com/locations/india",
+  "host": "aigigjobs.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://aigigjobs.com/locations/india",
+  "kind": "gig_rlhf",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "NEW_VERIFIED_BOARDS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "AIGigJobs.com | India-eligible AI gig aggregator | ✅ Yes | 🟢 Low | 87 current AI gig jobs India-eligible; RLHF, annotation, ML engineering | NOT in your sheet. Aggregates India-eligible gigs from Mercor, micro1, Alignerr, Handshake AI etc. Filter by Python, ML, Software Eng. Upda",
+  "id": "p136"
+ },
+ {
+  "name": "AITrainingJobs.it / Finder (Global AI Board)",
+  "url": "https://aitrainingjobsfinder.com",
+  "host": "aitrainingjobsfinder.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://aitrainingjobsfinder.com",
+  "kind": "gig_rlhf",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "NEW_VERIFIED_BOARDS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "AITrainingJobs.it / Finder | AI training job aggregator | ✅ Yes | 🟢 Low | 1,000+ live RLHF, annotation, SME gig listings; no signup to browse | NOT in your sheet. Aggregates from Mercor, micro1, Alignerr, Handshake, and 8+ more. Pay-transparent. Refresh daily. Start with Mercor (",
+  "id": "p137"
+ },
+ {
+  "name": "Alignerr (by Labelbox) (Talent Marketplace)",
+  "url": "https://alignerr.com/jobs",
+  "host": "alignerr.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://alignerr.com/jobs",
+  "kind": "gig_rlhf",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "NEW_GIG_TRAINING_PLATFORMS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Alignerr (by Labelbox) | AI model training platform | ✅ Yes — 61+ countries | 🟢 Low | AI training, RLHF, model evaluation; SWE + domain experts | NOT in your sheet. Up to $150/hr for domain-expert alignment work. $14–$30/hr baseline. Flexible hours. India eligible. Work dries up ",
+  "id": "p138"
+ },
+ {
+  "name": "Clickworker",
+  "url": "https://clickworker.com",
+  "host": "clickworker.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://clickworker.com",
+  "kind": "gig_rlhf",
+  "sheets": [
+   "NEW_GIG_TRAINING_PLATFORMS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Microtask platform | India ✔ | Per-task, low-to-moderate | Quick micro-tasks to supplement income | Not a resume-builder; micro-income only.",
+  "id": "p139"
+ },
+ {
+  "name": "DataAnnotation.tech (RLHF Platform)",
+  "url": "https://dataannotation.tech",
+  "host": "dataannotation.tech",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://dataannotation.tech",
+  "kind": "gig_rlhf",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "DataAnnotation.tech | AI training platform | ⚠️ Primarily US | 🟡 Medium (in US) | AI training, RLHF, coding evaluation; higher pay than Outlier | NOT in your sheet. Currently US/Canada-primary but expanding. Pay: $20–$40/hr. Coding tasks pay more. India eligibility limited — chec",
+  "id": "p140"
+ },
+ {
+  "name": "iMerit Scholars (RLHF Platform)",
+  "url": "https://imerit.net",
+  "host": "imerit.net",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://imerit.net",
+  "kind": "gig_rlhf",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "iMerit Scholars | Expert network for AI training | ✅ Yes — India HQ | 🟢 Very Low | PhD/MSc level AI data labeling; structured team model (not gig); healthcare/finance/legal focus | NOT in your sheet. Headquartered in India (Kolkata). Clients: Microsoft, Google. Places you on a sm",
+  "id": "p141"
+ },
+ {
+  "name": "micro1 (talent.micro1.ai) (Talent Marketplace)",
+  "url": "https://talent.micro1.ai",
+  "host": "talent.micro1.ai",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://talent.micro1.ai",
+  "kind": "gig_rlhf",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "NEW_GIG_TRAINING_PLATFORMS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "micro1 (talent.micro1.ai) | Expert AI training platform | ✅ Yes | 🟢 Low | RLHF + AI training for frontier labs; engineers, PhDs, domain experts | NOT in your sheet. AI recruiter 'Zara' does the screening interview. Accepts ~top 1%. Pays $20–$40/hr annotation, $20–$65/hr eval, $50",
+  "id": "p142"
+ },
+ {
+  "name": "Mindrift (RLHF Platform)",
+  "url": "https://mindrift.ai",
+  "host": "mindrift.ai",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://mindrift.ai",
+  "kind": "gig_rlhf",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Mindrift | AI training gig platform | ✅ Yes | 🟢 Low | RLHF, prompt writing, AI feedback; flexible schedule | NOT in your sheet. India-eligible. Low competition. Flexible hours. Good supplement platform. Pay: $15–$35/hr. Better than Appen for ML-specific tasks.",
+  "id": "p143"
+ },
+ {
+  "name": "NOTE — CROSS-REFERENCE TO YOUR ORIGINAL FILE (do not duplicate): Outlier.ai/Scale AI, Cros",
+  "url": "https://Outlier.ai/Scale",
+  "host": "outlier.ai",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://outlier.ai/experts",
+  "kind": "gig_rlhf",
+  "sheets": [
+   "NEW_GIG_TRAINING_PLATFORMS"
+  ],
+  "notes": "",
+  "id": "p144"
+ },
+ {
+  "name": "OneForma",
+  "url": "https://oneforma.com",
+  "host": "oneforma.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://oneforma.com/jobs/",
+  "kind": "gig_rlhf",
+  "sheets": [
+   "NEW_GIG_TRAINING_PLATFORMS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Crowdsourced data collection | India ✔ | Project-dependent | Translation, audio, captioning, image/data annotation tasks | Stable micro-task income; verify per-project pay rate.",
+  "id": "p145"
+ },
+ {
+  "name": "OpenTrain.ai (Global AI Board)",
+  "url": "https://opentrain.ai/jobs",
+  "host": "opentrain.ai",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://opentrain.ai/jobs",
+  "kind": "gig_rlhf",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "NEW_VERIFIED_BOARDS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "OpenTrain.ai | RLHF & AI training job board | ✅ Yes | 🟢 Low | Remote AI training, eval, data labeling roles; updated daily | NOT in your sheet. Aggregates remote AI training jobs from 10+ platforms. Filter by country and specialty. Good for supplemental income while job hunting +",
+  "id": "p146"
+ },
+ {
+  "name": "Scale AI / Outlier.ai",
+  "url": "https://outlier.ai",
+  "host": "outlier.ai",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://outlier.ai/experts",
+  "kind": "gig_rlhf",
+  "sheets": [
+   "Talent_Marketplaces",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "$10-60/hr (documented $25-30/hr) | Domain expert vetting | Skews US/CA/AU/NZ | RLHF/annotation/AI-training | Inconsistent task availability, unpaid training, payment complaints. Skews to domain experts (law/med/PhD), not SWEs. Stepping stone for eval/rubric skills, NOT resume-bui",
+  "id": "p147"
+ },
+ {
+  "name": "Surge AI (Surge Labs) (Talent Marketplace)",
+  "url": "https://surgehq.ai",
+  "host": "surgehq.ai",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://surgehq.ai/careers",
+  "kind": "gig_rlhf",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "NEW_GIG_TRAINING_PLATFORMS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Surge AI (Surge Labs) | Expert AI data company | ✅ Yes — India | 🟢 Low | Annotation, content moderation, RLHF; Meta, OpenAI, Google clients | NOT in your sheet. $25M funded. Forbes AI 50. Partners: Meta, OpenAI, Google, Microsoft, Anthropic. Premium quality — better pay than gene",
+  "id": "p148"
+ },
+ {
+  "name": "TELUS International AI (RLHF Platform)",
+  "url": "https://telusinternational.com/solutions/ai-data",
+  "host": "telusinternational.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://telusinternational.com/solutions/ai-data",
+  "kind": "gig_rlhf",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "TELUS International AI | Structured AI data project platform | ✅ Yes | 🟡 Medium | Multilingual AI eval, NLP, search quality; structured project-based | NOT in your sheet. Formerly Lionbridge AI. Well-organized project teams. India eligible for many roles. Better structured than r",
+  "id": "p149"
+ },
+ {
+  "name": "80,000 Hours",
+  "url": "https://jobs.80000hours.org",
+  "host": "jobs.80000hours.org",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://jobs.80000hours.org/?query={q}",
+  "kind": "job_board",
+  "sheets": [
+   "Job_Boards",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "T3 | AI Safety Board | Free | AI safety, alignment, ethics | Niche | Global Remote | Emerging, well-funded globally. Remote-first, high salaries. Roles close in ~2 weeks.",
+  "id": "p150"
+ },
+ {
+  "name": "ai-jobs.careers (Global AI Board)",
+  "url": "https://ai-jobs.careers",
+  "host": "ai-jobs.careers",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://ai-jobs.careers",
+  "kind": "job_board",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "NEW_VERIFIED_BOARDS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "ai-jobs.careers | AI role scoring board | ✅ Yes | 🟢 Low | Scores every AI role 0–100 for how much it actually builds AI; filter for real AI-depth roles | NOT in your sheet. Unique: Claude reads each JD and scores how much it really involves building AI. Filter for high-score role",
+  "id": "p151"
+ },
+ {
+  "name": "Alterwork",
+  "url": "https://alterwork.com/jobs",
+  "host": "alterwork.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://alterwork.com/jobs",
+  "kind": "job_board",
+  "sheets": [
+   "Job_Boards",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "T2 | AI-Only Board | Free | FDE + Agent roles | 100+ AI cos | Global | Live AI-native roles: Anthropic, OpenAI, Mercor.",
+  "id": "p152"
+ },
+ {
+  "name": "Analytics Vidhya Jobs (India Board — Analytics)",
+  "url": "https://jobs.analyticsvidhya.com",
+  "host": "jobs.analyticsvidhya.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://jobs.analyticsvidhya.com/",
+  "kind": "job_board",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "NEW_VERIFIED_BOARDS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Analytics Vidhya Jobs | AI/DS community job board | ✅ Yes | 🟢 Low | Data science, ML, AI analytics roles from India product companies | NOT in your sheet. Run by India's largest ML community (1M+ members). Companies specifically targeting ML practitioners post here. Very low nois",
+  "id": "p153"
+ },
+ {
+  "name": "Belong.co",
+  "url": "https://belong.co/",
+  "host": "belong.co",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://belong.co/",
+  "kind": "job_board",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_LOW_CROWD_BOARDS",
+   "NEW_FAST_HIRE_HACKS",
+   "NEW_VERIFICATION_LOG",
+   "NEW_HOW_TO_USE"
+  ],
+  "notes": "NEW_LOW_CROWD_BOARDS | Job Board",
+  "id": "p154"
+ },
+ {
+  "name": "Cord",
+  "url": "https://cord.com/",
+  "host": "cord.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://cord.com/",
+  "kind": "job_board",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_LOW_CROWD_BOARDS",
+   "NEW_FAST_HIRE_HACKS",
+   "NEW_FAST_HIRE_EVIDENCE",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_LOW_CROWD_BOARDS | Job Board",
+  "id": "p155"
+ },
+ {
+  "name": "CWJobs",
+  "url": "https://www.cwjobs.co.uk/",
+  "host": "cwjobs.co.uk",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://www.cwjobs.co.uk/jobs/{qslug}",
+  "kind": "job_board",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_LOW_CROWD_BOARDS",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_LOW_CROWD_BOARDS | Job Board",
+  "id": "p156"
+ },
+ {
+  "name": "Data Elixir Job Board",
+  "url": "https://hirement.com/listing/data-elixirs-job-board/",
+  "host": "hirement.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://hirement.com/listing/data-elixirs-job-board/",
+  "kind": "job_board",
+  "sheets": [
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_NEWSLETTER_JOBS | Yes | Board reachable 01-Sep-2026 | Yes (remote) | Low | Small but genuine listings",
+  "id": "p157"
+ },
+ {
+  "name": "Dynamite Jobs (Global Remote Board)",
+  "url": "https://dynamitejobs.com",
+  "host": "dynamitejobs.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://dynamitejobs.com/remote-jobs?search={q}",
+  "kind": "job_board",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "NEW_VERIFIED_BOARDS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Dynamite Jobs | Remote-first curated board | ✅ Yes | 🟢 Low | Verified remote-first employers only; AI/tech roles | NOT in your sheet. Works only with remote-first employers. Less volume but near-zero fake 'remote-ish' postings. Good for filtering genuine globally-distributed team",
+  "id": "p158"
+ },
+ {
+  "name": "eFinancialCareers",
+  "url": "https://www.efinancialcareers.com/jobs/artificial-intelligence",
+  "host": "efinancialcareers.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://www.efinancialcareers.com/jobs/artificial-intelligence",
+  "kind": "job_board",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_LOW_CROWD_BOARDS",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_LOW_CROWD_BOARDS | Job Board",
+  "id": "p159"
+ },
+ {
+  "name": "Far Horizons",
+  "url": "https://farhorizons.io",
+  "host": "farhorizons.io",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://farhorizons.io",
+  "kind": "job_board",
+  "sheets": [
+   "Job_Boards",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "T3 | AI Talent Directory | Free | Curated niche AI boards | Directory | Global | Safety, robotics, CV boards list.",
+  "id": "p160"
+ },
+ {
+  "name": "Freshersworld",
+  "url": "https://www.freshersworld.com/",
+  "host": "freshersworld.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://www.freshersworld.com/",
+  "kind": "job_board",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_LOW_CROWD_BOARDS",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_LOW_CROWD_BOARDS | Job Board",
+  "id": "p161"
+ },
+ {
+  "name": "GeeksforGeeks Get Hired (GfG)",
+  "url": "https://www.geeksforgeeks.org/jobs",
+  "host": "geeksforgeeks.org",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://www.geeksforgeeks.org/jobs",
+  "kind": "job_board",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_LOW_CROWD_BOARDS",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_LOW_CROWD_BOARDS | Job Board",
+  "id": "p162"
+ },
+ {
+  "name": "Hirect (India Board — Startup)",
+  "url": "https://hirect.in",
+  "host": "hirect.in",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://hirect.in",
+  "kind": "job_board",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Hirect | Chat-to-founder mobile app | ✅ Yes | 🟢 Low | Direct founder DMs; AI startup roles; Bangalore & Chennai | Listed in your sheet under Tier 3 but underused. AI-matched. You can MESSAGE the founder directly via chat (no recruiter). Especially effective for seed-stage AI star",
+  "id": "p163"
+ },
+ {
+  "name": "HowToAIJob.com (Global AI Board)",
+  "url": "https://howtoaijobs.com",
+  "host": "howtoaijobs.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://howtoaijobs.com",
+  "kind": "job_board",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "NEW_VERIFIED_BOARDS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "HowToAIJob.com | Global remote AI job directory | ✅ Yes | 🟢 Low | Global + India remote AI companies; structured by type and country | NOT in your sheet. Verified remote AI roles. Lists iMerit, Avalara India, and others with Pune/India offices. Transparent about what each platfor",
+  "id": "p164"
+ },
+ {
+  "name": "Jaabz",
+  "url": "https://jaabz.com/",
+  "host": "jaabz.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://jaabz.com/jobs?search={q}",
+  "kind": "job_board",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_LOW_CROWD_BOARDS",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_LOW_CROWD_BOARDS | Job Board",
+  "id": "p165"
+ },
+ {
+  "name": "job.careers (Curated AI Jobs) (Global AI Board)",
+  "url": "https://job.careers",
+  "host": "job.careers",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://job.careers",
+  "kind": "job_board",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "NEW_VERIFIED_BOARDS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "job.careers (Curated AI Jobs) | AI-only curated board | ✅ Yes | 🟢 Low | ML engineering, LLMs, MLOps, AI infra — direct from company ATS | NOT in your sheet. Pulls listings directly from Greenhouse/Lever/Ashby of top AI companies (OpenAI, Anthropic, Databricks, Mistral). No middle",
+  "id": "p166"
+ },
+ {
+  "name": "Jobgether (Global Remote Board)",
+  "url": "https://jobgether.com",
+  "host": "jobgether.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://jobgether.com/search-offers?keyword={q}",
+  "kind": "job_board",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "NEW_VERIFIED_BOARDS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Jobgether | Remote + Bangalore hybrid board | ✅ Yes | 🟡 Medium | Remote AI/ML roles + Bangalore office roles; salary transparency | NOT in your sheet. Shows salary ranges. Strong filter for India-eligible remote roles. Mix of startup and mid-size company listings.",
+  "id": "p167"
+ },
+ {
+  "name": "JustRemote",
+  "url": "https://justremote.co",
+  "host": "justremote.co",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://justremote.co/remote-developer-jobs",
+  "kind": "job_board",
+  "sheets": [
+   "NEW_VERIFIED_BOARDS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Curated remote job board | Global / India ✔ | Low | Curated remote tech jobs incl. AI/ML categories | NOT in your sheet: category filtering of remote jobs.",
+  "id": "p168"
+ },
+ {
+  "name": "KDnuggets Jobs",
+  "url": "https://www.kdnuggets.com/jobs",
+  "host": "kdnuggets.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://www.kdnuggets.com/jobs",
+  "kind": "job_board",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_NEWSLETTER_JOBS",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_NEWSLETTER_JOBS | Newsletter Job Section",
+  "id": "p169"
+ },
+ {
+  "name": "moaijobs.com",
+  "url": "https://moaijobs.com",
+  "host": "moaijobs.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://www.moaijobs.com/",
+  "kind": "job_board",
+  "sheets": [
+   "Job_Boards",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "T2 | AI Board | Free | AI-only curated | Varied | Global | Links straight to employer ATS.",
+  "id": "p170"
+ },
+ {
+  "name": "nodesk.co",
+  "url": "https://nodesk.co/remote-jobs/ai",
+  "host": "nodesk.co",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://nodesk.co/remote-jobs/ai/",
+  "kind": "job_board",
+  "sheets": [
+   "Job_Boards",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "T3 | Remote Aggregator | Free | Remote AI open to India | Curated | India-eligible | Curates remote jobs incl Mercor SWE roles. Less crowded than LinkedIn.",
+  "id": "p171"
+ },
+ {
+  "name": "Open Data Science (ODSC) Jobs",
+  "url": "https://jobs.opendatascience.com/",
+  "host": "jobs.opendatascience.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://jobs.opendatascience.com/",
+  "kind": "job_board",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_NEWSLETTER_JOBS",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_NEWSLETTER_JOBS | Newsletter Job Section",
+  "id": "p172"
+ },
+ {
+  "name": "Remote.co (Global Remote Board)",
+  "url": "https://remote.co/remote-jobs/developer",
+  "host": "remote.co",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://remote.co/remote-jobs/search/?search_keywords={q}",
+  "kind": "job_board",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "NEW_VERIFIED_BOARDS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Remote.co | Remote-only board | ✅ Yes | 🟡 Medium | Curated remote tech + AI roles; companies vetted for remote-first culture | NOT in your sheet. Smaller but vetted. Only remote-first companies. Less noise than RemoteOK. Good supplement.",
+  "id": "p173"
+ },
+ {
+  "name": "RemoteBharat (India Board — Niche)",
+  "url": "https://remotebharat.com",
+  "host": "remotebharat.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://remotebharat.com",
+  "kind": "job_board",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "NEW_VERIFIED_BOARDS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "RemoteBharat | India WFH/Remote specialist | ✅ Yes | 🟢 Low | India-based remote & WFH roles exclusively; AI/tech mix | NOT in your sheet. India-first remote job board. Less crowded than global platforms. Good for companies posting India-only remote roles that don't bother with Li",
+  "id": "p174"
+ },
+ {
+  "name": "RemoteRocketship",
+  "url": "https://remoterocketship.com",
+  "host": "remoterocketship.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://www.remoterocketship.com/?jobTitle={q}",
+  "kind": "job_board",
+  "sheets": [
+   "Job_Boards",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "T2 | Remote Board | Free | Intl remote AI open to India | 26+ remote AI eng | India-eligible | Good for niche roles missed by mainstream boards.",
+  "id": "p175"
+ },
+ {
+  "name": "Simplify Jobs",
+  "url": "https://simplify.jobs",
+  "host": "simplify.jobs",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://simplify.jobs/jobs?query={q}",
+  "kind": "job_board",
+  "sheets": [
+   "AI_Tools",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Autofill (L1) | USE | Unlimited autofill | $39.99/mo (skip paid AI writing) | Workday, Taleo, Greenhouse, 50+ | Yes | BEST FREE AUTOFILL. YC W21. 1M+ users. 4.9/5 Chrome. Fills forms, you click submit. Free is genuinely free forever. Skip paid Simplify+.",
+  "id": "p176"
+ },
+ {
+  "name": "Simplify YC Jobs",
+  "url": "https://simplify.jobs/YC",
+  "host": "simplify.jobs",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://simplify.jobs/jobs?query={q}",
+  "kind": "job_board",
+  "sheets": [
+   "Job_Boards",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "T2 | YC + Autofill | Free | YC feed with one-click autofill | YC subset | Global | Simplify's curated YC feed.",
+  "id": "p177"
+ },
+ {
+  "name": "startup.jobs",
+  "url": "https://startup.jobs",
+  "host": "startup.jobs",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://startup.jobs/?q={q}",
+  "kind": "job_board",
+  "sheets": [
+   "Job_Boards",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "T2 | Research/Eng | Free | AI research/engineering | Varied | Global | Incl DeepMind India roles.",
+  "id": "p178"
+ },
+ {
+  "name": "TechGig (India Board — Engineering)",
+  "url": "https://techgig.com",
+  "host": "techgig.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://www.techgig.com/jobs",
+  "kind": "job_board",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "NEW_VERIFIED_BOARDS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "TechGig | Tech-only board + coding contests | ✅ Yes | 🟡 Medium | AI/ML coding challenges → direct hiring; Wipro, TCS, etc. recruit here | NOT in your sheet. TechGig's AI/ML hackathons are a direct hiring pipeline — companies post challenges and shortlist winners for interviews. L",
+  "id": "p179"
+ },
+ {
+  "name": "Welcome to the Jungle (Otta)",
+  "url": "https://welcometothejungle.com",
+  "host": "welcometothejungle.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://www.welcometothejungle.com/en/jobs?query={q}",
+  "kind": "job_board",
+  "sheets": [
+   "Job_Boards",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "T2 | Curated Board | Free | Tech/startup roles, ML matching | 70,000+ live jobs, 7000 cos | Global | Salary transparency. Polished after merger. 'Salary not provided' creep is a complaint.",
+  "id": "p180"
+ },
+ {
+  "name": "Zedtreeo Careers (Remote India)",
+  "url": "https://careers.zedtreeo.com",
+  "host": "careers.zedtreeo.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://careers.zedtreeo.com",
+  "kind": "job_board",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "NEW_VERIFIED_BOARDS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Zedtreeo Careers | India → global remote placement | ✅ Yes | 🟢 Low | Pre-vetted Indian professionals in long-term global remote AI roles | NOT in your sheet. Places Indian AI professionals in long-term dedicated roles with US/UK/AU companies. Not gig work. Pays in hard currency a",
+  "id": "p181"
+ },
+ {
+  "name": "Data Elixir Job Board (hosted via Hirement)",
+  "url": "https://dataelixir.com/",
+  "host": "dataelixir.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://dataelixir.com/",
+  "kind": "newsletter",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_NEWSLETTER_JOBS"
+  ],
+  "notes": "NEW_NEWSLETTER_JOBS | Newsletter Job Section",
+  "id": "p182"
+ },
+ {
+  "name": "GermanTechJobs.de",
+  "url": "https://germantechjobs.de/en/with-visa-sponsorship",
+  "host": "germantechjobs.de",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://germantechjobs.de/en/with-visa-sponsorship",
+  "kind": "relocation",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_RELOCATION_ABROAD",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_RELOCATION_ABROAD | Relocation / Abroad",
+  "id": "p183"
+ },
+ {
+  "name": "IF STUCK",
+  "url": "https://thehub.io",
+  "host": "thehub.io",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://thehub.io/jobs?search={q}",
+  "kind": "relocation",
+  "sheets": [
+   "NEW_HOW_TO_USE"
+  ],
+  "notes": "If Bangalore/remote-India stalls after 4-6 weeks, activate relocation channels in priority order: Relocate.me -> thehub.io -> GermanTechJobs.de -> SwissDevJobs.ch -> VanHack (Canada). | Contingency | Competition from Indian applicants drops sharply once you accept another country",
+  "id": "p184"
+ },
+ {
+  "name": "Landing.jobs",
+  "url": "https://landing.jobs/",
+  "host": "landing.jobs",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://landing.jobs/jobs?q={q}",
+  "kind": "relocation",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_RELOCATION_ABROAD",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_RELOCATION_ABROAD | Relocation / Abroad",
+  "id": "p185"
+ },
+ {
+  "name": "Relocate.me",
+  "url": "https://relocate.me/",
+  "host": "relocate.me",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://relocate.me/search?query={q}",
+  "kind": "relocation",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_RELOCATION_ABROAD",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_RELOCATION_ABROAD | Relocation / Abroad",
+  "id": "p186"
+ },
+ {
+  "name": "SwissDevJobs.ch",
+  "url": "https://swissdevjobs.ch/with-visa-sponsorship",
+  "host": "swissdevjobs.ch",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://swissdevjobs.ch/with-visa-sponsorship",
+  "kind": "relocation",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_RELOCATION_ABROAD",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_RELOCATION_ABROAD | Relocation / Abroad",
+  "id": "p187"
+ },
+ {
+  "name": "thehub.io",
+  "url": "https://thehub.io/jobs",
+  "host": "thehub.io",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://thehub.io/jobs?search={q}",
+  "kind": "relocation",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_RELOCATION_ABROAD",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_RELOCATION_ABROAD | Relocation / Abroad",
+  "id": "p188"
+ },
+ {
+  "name": "VanHack",
+  "url": "https://vanhack.com/jobs/software-developer-jobs",
+  "host": "vanhack.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://vanhack.com/jobs/software-developer-jobs",
+  "kind": "relocation",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_RELOCATION_ABROAD",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_RELOCATION_ABROAD | Relocation / Abroad",
+  "id": "p189"
+ },
+ {
+  "name": "Scout by AgentCo (Strategy)",
+  "url": "https://agentco.in",
+  "host": "agentco.in",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://agentco.in",
+  "kind": "resource",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "SMART_TRICKS_COMPREHENSIVE",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Scout by AgentCo | AI overnight job-search agent | ✅ India | 🟢 Low | Searches 30+ sources overnight; scores fit; rewrites resume per match | NOT in your sheet. India-built AI job search agent. Searches Naukri, iimjobs, Hirist, LinkedIn, Wellfound, YC, Greenhouse, Lever, Ashby, In",
+  "id": "p190"
+ },
+ {
+  "name": "Alp Consulting (Staffing — IT Generalist (AI teams))",
+  "url": "https://alp.consulting",
+  "host": "alp.consulting",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://alp.consulting",
+  "kind": "staffing",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "CONSOLIDATED_STAFFING_AGENCIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Alp Consulting | IT recruitment + headhunting | ✅ Bangalore | 🟡 Medium | AI/ML headhunting; temp + permanent; global company Indian offices | NOT in your sheet. Specializes in skill-first and domain-specific AI hiring. Works with global companies' India offices. Headhunting for s",
+  "id": "p191"
+ },
+ {
+  "name": "Cybotrix Technologies (Staffing — AI Specialist)",
+  "url": "https://cybotrix.com",
+  "host": "cybotrix.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://cybotrix.com",
+  "kind": "staffing",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "CONSOLIDATED_STAFFING_AGENCIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Cybotrix Technologies | AI/ML job consultancy — Bangalore | ✅ Bangalore + Remote | 🟢 Low | Data Scientists, ML Eng, MLOps, GenAI, NLP — freshers & experienced | NOT in your sheet. Specialized AI/ML consultancy in Bangalore. Partners with Fortune 200+ companies, product companies,",
+  "id": "p192"
+ },
+ {
+  "name": "F5 Hiring Solutions (Staffing — Freelance Infra)",
+  "url": "https://f5hiringsolutions.com",
+  "host": "f5hiringsolutions.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://f5hiringsolutions.com",
+  "kind": "staffing",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "CONSOLIDATED_STAFFING_AGENCIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "F5 Hiring Solutions | Remote AI engineer placement | ✅ Yes — India specialized | 🟢 Low | Production AI engineers placed remotely for US/global clients; IIT/NIT pool | NOT in your sheet. Sources India IIT/NIT-pedigree AI engineers for global clients. Filters for production-only ex",
+  "id": "p193"
+ },
+ {
+  "name": "Hyring.com (Staffing — AI Specialist)",
+  "url": "https://hyring.com",
+  "host": "hyring.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://hyring.com",
+  "kind": "staffing",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "CONSOLIDATED_STAFFING_AGENCIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Hyring.com | AI-native recruitment platform | ✅ Yes | 🟢 Low | AI/ML specialist search; 900K+ AI interviews run; startup to Fortune 500 | NOT in your sheet. AI-native agency that has run 900,000+ AI interviews. Purpose-built for niche AI/ML hiring. Boutique approach vs big agencie",
+  "id": "p194"
+ },
+ {
+  "name": "Robert Half Technology (India) (Staffing — Premium Search)",
+  "url": "https://roberthalf.com/in/en",
+  "host": "roberthalf.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://www.roberthalf.com/in/en/jobs",
+  "kind": "staffing",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "CONSOLIDATED_STAFFING_AGENCIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Robert Half Technology (India) | Tech staffing + executive search | ✅ Yes | 🟢 Low | AI/ML engineer permanent + contract; mid to senior level | NOT in your sheet. Strong in GCC and product company AI hires. Bangalore office. Register with their tech division.",
+  "id": "p195"
+ },
+ {
+  "name": "SutraHR (Staffing — AI Specialist)",
+  "url": "https://sutrahr.com",
+  "host": "sutrahr.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://sutrahr.com",
+  "kind": "staffing",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "CONSOLIDATED_STAFFING_AGENCIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "SutraHR | Tech startup focused agency | ✅ Bangalore HQ | 🟢 Low | AI/ML roles at startups and growth-stage companies; equity-stage hiring | NOT in your sheet. Specializes in startup hiring across India. Good for AI roles at seed/Series A/B startups. Direct access to founders. Free",
+  "id": "p196"
+ },
+ {
+  "name": "TeamLease Digital (Staffing — IT Generalist (AI teams))",
+  "url": "https://teamleasedigital.com",
+  "host": "teamleasedigital.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://teamleasedigital.com",
+  "kind": "staffing",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "CONSOLIDATED_STAFFING_AGENCIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "TeamLease Digital | IT staffing — India | ✅ Yes | 🟡 Medium | Contract + permanent IT/AI roles; payroll compliance strength; Bangalore hub | NOT in your sheet. 80,000+ placed professionals. Strong in Bangalore tech parks. Handles contract payroll complexity well. Good for AI contr",
+  "id": "p197"
+ },
+ {
+  "name": "V3 Staffing (Staffing — AI Specialist)",
+  "url": "https://v3staffing.in",
+  "host": "v3staffing.in",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://v3staffing.in",
+  "kind": "staffing",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "CONSOLIDATED_STAFFING_AGENCIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "V3 Staffing | AI-powered staffing — India | ✅ Yes | 🟢 Low | AI/ML/MLOps engineers, GCC ramp-ups, contract + permanent; niche roles | NOT in your sheet. AI-enabled staffing platform. Specializes in niche AI/ML/cybersecurity/VLSI roles that generic agencies can't fill. Handles GCC ",
+  "id": "p198"
+ },
+ {
+  "name": "Xpheno (Staffing — IT Generalist (AI teams))",
+  "url": "https://xpheno.com",
+  "host": "xpheno.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://xpheno.com",
+  "kind": "staffing",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "CONSOLIDATED_STAFFING_AGENCIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Xpheno | Specialist tech staffing | ✅ Bangalore + Pan India | 🟢 Low | AI/ML specialist permanent and contract roles; startup + enterprise | NOT in your sheet. Boutique specialist staffing for tech roles. Bangalore-heavy. AI/ML focus. Register as candidate for direct outreach to c",
+  "id": "p199"
+ },
+ {
+  "name": "A.Team (Talent Marketplace)",
+  "url": "https://a.team",
+  "host": "a.team",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://a.team",
+  "kind": "talent_marketplace",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "A.Team | Curated product team platform | ✅ Invite-only | 🟢 Very Low | Cross-functional AI product teams assembled per project; premium pay | NOT in your sheet. Invite-only or referral. Assembles full teams (PM + eng + design). If admitted, premium rates. Backed by Andreessen Horo",
+  "id": "p200"
+ },
+ {
+  "name": "Arc.dev",
+  "url": "https://arc.dev",
+  "host": "arc.dev",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://arc.dev/remote-jobs?search={q}",
+  "kind": "talent_marketplace",
+  "sheets": [
+   "Job_Boards",
+   "Talent_Marketplaces",
+   "Geographic_Strategy",
+   "MASTER_WEBSITES_INDEX",
+   "NEW_FAST_HIRE_HACKS",
+   "NEW_FAST_HIRE_EVIDENCE"
+  ],
+  "notes": "T2 | Vetted Remote | Free | Vetted remote; freelance + FT | ~12% accept | Global | AI shortlist in 72 hrs. $60-100+/hr. Good for senior AI/ML.",
+  "id": "p201"
+ },
+ {
+  "name": "Crossover",
+  "url": "https://crossover.com/jobs/ai-engineer/in",
+  "host": "crossover.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://www.crossover.com/jobs/ai-engineer/in",
+  "kind": "talent_marketplace",
+  "sheets": [
+   "Talent_Marketplaces",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Up to ~$200K | Varied | India-eligible | FT remote at US software cos | Advertises full-time remote. crossover.com/jobs/ai-engineer/in | CHECK LISTING",
+  "id": "p202"
+ },
+ {
+  "name": "Flexiple",
+  "url": "https://flexiple.com/talent",
+  "host": "flexiple.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://flexiple.com/talent",
+  "kind": "talent_marketplace",
+  "sheets": [
+   "NEW_VERIFIED_BOARDS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Pre-vetted India talent network | India ✔ | Low | Top ~2% pre-vetted India developers/ML engineers; payroll & compliance handled | NOT in your sheet: pre-vetted shortlist within 48h of request; companies initiate contact.",
+  "id": "p203"
+ },
+ {
+  "name": "Gun.io (Talent Marketplace)",
+  "url": "https://gun.io",
+  "host": "gun.io",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://gun.io",
+  "kind": "talent_marketplace",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "NEW_GIG_TRAINING_PLATFORMS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Gun.io | Developer-only vetted marketplace | ✅ Yes | 🟢 Low | Vetted senior AI/ML developers; live technical interview required | NOT in your sheet. Runs real live technical interview (not portfolio-only). AI-specific test. India-eligible. $60–$150/hr for senior ML roles. Less vol",
+  "id": "p204"
+ },
+ {
+  "name": "Lemon.io",
+  "url": "https://lemon.io",
+  "host": "lemon.io",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://lemon.io/for-developers/",
+  "kind": "talent_marketplace",
+  "sheets": [
+   "NEW_VERIFIED_BOARDS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Startup developer marketplace | Asia / EU / US / LATAM ✔ | Medium | Senior devs (5yr+) matched with funded startups, remote contract | NOT in your sheet: India/Asia eligible; startup contracts build portfolio quickly.",
+  "id": "p205"
+ },
+ {
+  "name": "Pesto Tech (Strategy)",
+  "url": "https://pesto.tech",
+  "host": "pesto.tech",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://pesto.tech",
+  "kind": "talent_marketplace",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "SMART_TRICKS_COMPREHENSIVE",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Pesto Tech | India remote talent accelerator | ✅ Yes — India | 🟢 Low | Accelerator + placement for Indian engineers at global companies | NOT in your sheet. Trains Indian engineers and places them at global companies (remote). 3-month ISA-based program (pay after placed). AI/ML t",
+  "id": "p206"
+ },
+ {
+  "name": "WorkGenius (Talent Marketplace)",
+  "url": "https://workgenius.com",
+  "host": "workgenius.com",
+  "mapping": "deep_link",
+  "connectors": [],
+  "searchTemplate": "https://workgenius.com",
+  "kind": "talent_marketplace",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "NEW_GIG_TRAINING_PLATFORMS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "WorkGenius | Hourly AI marketplace | ✅ Yes | 🟢 Low | AI/ML vetted hourly freelancers; medium vetting bar | NOT in your sheet. Similar model to Arc.dev. Accepts senior AI practitioners. Apply as a talent. Less known than Toptal so less competition. India-eligible.",
+  "id": "p207"
+ },
+ {
+  "name": "AWS Certified Machine Learning – Specialty",
+  "url": "https://aws.amazon.com/certification/certified-machine-learning-specialty",
+  "host": "aws.amazon.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://aws.amazon.com/certification/",
+  "kind": "certification",
+  "sheets": [
+   "CERTIFICATIONS_CREDENTIALS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Amazon Web Services | End-to-end ML on AWS; frequently requested explicitly in JDs | Paid exam voucher; study materials free.",
+  "id": "p208"
+ },
+ {
+  "name": "CodeSignal",
+  "url": "https://codesignal.com/",
+  "host": "codesignal.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://codesignal.com/",
+  "kind": "certification",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_LOW_CROWD_BOARDS",
+   "NEW_FAST_HIRE_HACKS",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_LOW_CROWD_BOARDS | Job Board",
+  "id": "p209"
+ },
+ {
+  "name": "Google Professional Machine Learning Engineer",
+  "url": "https://cloud.google.com/certification/machine-learning-engineer",
+  "host": "cloud.google.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://cloud.google.com/learn/certification",
+  "kind": "certification",
+  "sheets": [
+   "CERTIFICATIONS_CREDENTIALS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Google Cloud | Proves ML design/deployment on GCP; Vertex AI fluency | High signal for GCP-stack and enterprise roles.",
+  "id": "p210"
+ },
+ {
+  "name": "HackerRank Skills Verification",
+  "url": "https://www.hackerrank.com/skills-verification",
+  "host": "hackerrank.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://www.hackerrank.com/skills-verification",
+  "kind": "certification",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_LOW_CROWD_BOARDS",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_LOW_CROWD_BOARDS | Job Board",
+  "id": "p211"
+ },
+ {
+  "name": "Microsoft Azure AI Engineer Associate (Exam AI-102)",
+  "url": "https://learn.microsoft.com/certifications/azure-ai-engineer",
+  "host": "learn.microsoft.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://learn.microsoft.com/en-us/credentials/",
+  "kind": "certification",
+  "sheets": [
+   "CERTIFICATIONS_CREDENTIALS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Microsoft | AI/ML solution implementation on Azure; Azure OpenAI fluency | Well recognized in the Indian job market.",
+  "id": "p212"
+ },
+ {
+  "name": "Microsoft Cloud Advocates",
+  "url": "https://learn.microsoft.com/en-us/cloud-adoption/advocate",
+  "host": "learn.microsoft.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://learn.microsoft.com/en-us/credentials/",
+  "kind": "certification",
+  "sheets": [
+   "COMMUNITY_BUILDERS_DEVELOP_REL",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Microsoft | Advocacy network, events, early tech access | Technical advocacy program.",
+  "id": "p213"
+ },
+ {
+  "name": "NVIDIA Deep Learning Institute (DLI) Certifications",
+  "url": "https://developer.nvidia.com/training",
+  "host": "developer.nvidia.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://developer.nvidia.com/training",
+  "kind": "certification",
+  "sheets": [
+   "CERTIFICATIONS_CREDENTIALS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "NVIDIA | GPU-accelerated DL fundamentals; recognized by AI-infrastructure employers | Valuable specifically for AI-infra / serving roles.",
+  "id": "p214"
+ },
+ {
+  "name": "Skill Badges First, Resume Second",
+  "url": "https://hackerrank.com",
+  "host": "hackerrank.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://www.hackerrank.com/skills-verification",
+  "kind": "certification",
+  "sheets": [
+   "NEW_FAST_HIRE_HACKS"
+  ],
+  "notes": "Before mass-applying, earn 3 HackerRank skill certificates (Python/SQL/GenAI) -> pin them to your profile -> recruiters discover badge-holders via skill search | 26M+ developers certified; recruiters shortlist badge-holders for specific JDs instead of keyword-scanning resumes | h",
+  "id": "p215"
+ },
+ {
+  "name": "Skill proof compresses loops",
+  "url": "https://codesignal.com/technical-assessments",
+  "host": "codesignal.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://codesignal.com/",
+  "kind": "certification",
+  "sheets": [
+   "NEW_FAST_HIRE_EVIDENCE"
+  ],
+  "notes": "Employers accept CodeSignal Certified scores (e.g. 4/4) in place of coding rounds; CodeSignal reports 40-60% less interview time | A cert + score on your resume lets you skip the technical screen | codesignal.com/technical-assessments | Bring it up before the loop starts",
+  "id": "p216"
+ },
+ {
+  "name": "Bangalore MLOps Meetup",
+  "url": "https://meetup.com",
+  "host": "meetup.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://www.meetup.com/find/?keywords=mlops&location=in--Bangalore",
+  "kind": "community",
+  "sheets": [
+   "Communities",
+   "COMMUNITY_BUILDERS_DEVELOP_REL",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Meetup | Varied | Bengaluru | Explicit 'register as job seeker / submit job post' mechanism. Most directly hiring-linked. | Register as job seeker on platform.",
+  "id": "p217"
+ },
+ {
+  "name": "Blind (Tech version) (Community — Forum)",
+  "url": "https://teamblind.com",
+  "host": "teamblind.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://www.teamblind.com",
+  "kind": "community",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Blind (Tech version) | Anonymous verified employee network | ✅ Yes | 🟢 Low | Referral discovery; inside hiring intel; salary negotiation data | NOT in your sheet. Verified employees (company email required). Search target company — employees post about hiring, team growth, intern",
+  "id": "p218"
+ },
+ {
+  "name": "DataTalks #jobs Daily Pull",
+  "url": "https://DataTalks.Club",
+  "host": "datatalks.club",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://datatalks.club/slack",
+  "kind": "community",
+  "sheets": [
+   "NEW_FAST_HIRE_HACKS",
+   "NEW_FAST_HIRE_EVIDENCE"
+  ],
+  "notes": "Join DataTalks.Club Slack free -> check #jobs and #job-search every morning -> reply to posts with a 2-line relevant answer + Calendly link | Posters are usually the hiring manager or a teammate (not HR); fastest replies start the conversation | datatalks.club/slack #jobs/#job-se",
+  "id": "p219"
+ },
+ {
+  "name": "DataTalks.Club Slack",
+  "url": "https://datatalks.club/slack",
+  "host": "datatalks.club",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://datatalks.club/slack",
+  "kind": "community",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_COMMUNITIES_REAL_HIRING",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_COMMUNITIES_REAL_HIRING | Community",
+  "id": "p220"
+ },
+ {
+  "name": "EleutherAI Discord",
+  "url": "https://discord.gg/eleutherai",
+  "host": "discord.gg",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "",
+  "kind": "community",
+  "sheets": [
+   "Communities",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Discord | ~34,500 | Global | Original open-LLM research collective (GPT-Neo/J/NeoX/Pythia). No-PhD-friendly. | Strong engineering + open-source passion valued. People get pulled into roles via visible contribution.",
+  "id": "p221"
+ },
+ {
+  "name": "Hugging Face Discord",
+  "url": "https://discord.gg/huggingface",
+  "host": "discord.gg",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "",
+  "kind": "community",
+  "sheets": [
+   "Communities",
+   "Hidden_Channels_Full",
+   "COMMUNITY_BUILDERS_DEVELOP_REL",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Discord | 100K+ | Global | Post projects in #show-and-tell. Hiring managers ACTIVELY SCOUT here. | Lurk a week, then post builds in #showcase, answer questions.",
+  "id": "p222"
+ },
+ {
+  "name": "Indie Hackers",
+  "url": "https://www.indiehackers.com/",
+  "host": "indiehackers.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://www.indiehackers.com/",
+  "kind": "community",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_COMMUNITIES_REAL_HIRING",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_COMMUNITIES_REAL_HIRING | Community",
+  "id": "p223"
+ },
+ {
+  "name": "LangChain Discord",
+  "url": "https://discord.gg/langchain",
+  "host": "discord.gg",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "",
+  "kind": "community",
+  "sheets": [
+   "Communities",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Discord | Large | Global | Core RAG/agent ecosystem. Active job-board channel. Indian engineers landed GCC roles here. | Post LangChain/RAG builds. Answer agent questions.",
+  "id": "p224"
+ },
+ {
+  "name": "Locally Optimistic Slack",
+  "url": "https://locallyoptimistic.com/community/",
+  "host": "locallyoptimistic.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://locallyoptimistic.com/community/",
+  "kind": "community",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_COMMUNITIES_REAL_HIRING",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_COMMUNITIES_REAL_HIRING | Community",
+  "id": "p225"
+ },
+ {
+  "name": "ML Collective",
+  "url": "https://mlcollective.org/community/",
+  "host": "mlcollective.org",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://mlcollective.org/community/",
+  "kind": "community",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_COMMUNITIES_REAL_HIRING",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_COMMUNITIES_REAL_HIRING | Community",
+  "id": "p226"
+ },
+ {
+  "name": "MLOps Community",
+  "url": "https://mlops.community",
+  "host": "mlops.community",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://mlops.community/jobs/",
+  "kind": "community",
+  "sheets": [
+   "Communities",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Slack | 70,000+ | Global | Curated job board + Slack. Global but genuinely job-linked. | Active in job board. Post MLOps builds.",
+  "id": "p227"
+ },
+ {
+  "name": "SaaSBoomi -> AIBoomi events",
+  "url": "https://saasboomi.org/",
+  "host": "saasboomi.org",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://saasboomi.org/",
+  "kind": "community",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_COMMUNITIES_REAL_HIRING",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_COMMUNITIES_REAL_HIRING | Community",
+  "id": "p228"
+ },
+ {
+  "name": "The Fifth Elephant (HasGeek)",
+  "url": "https://hasgeek.com",
+  "host": "hasgeek.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://hasgeek.com",
+  "kind": "community",
+  "sheets": [
+   "Communities",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Conference | Large | Bengaluru | India's most established data/AI conf since 2012. 'Less hype. More engineering.' Year-round meetups (Sarvam AI/IBM Research). Best for warm intros to founders/architects. | Attend year-round meetups. Network with founders.",
+  "id": "p229"
+ },
+ {
+  "name": "Devfolio",
+  "url": "https://devfolio.co/hackathons",
+  "host": "devfolio.co",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://devfolio.co/hackathons",
+  "kind": "competition",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_COMMUNITIES_REAL_HIRING",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_COMMUNITIES_REAL_HIRING | Community",
+  "id": "p230"
+ },
+ {
+  "name": "Devpost",
+  "url": "https://devpost.com",
+  "host": "devpost.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://devpost.com/hackathons",
+  "kind": "competition",
+  "sheets": [
+   "NEW_VERIFIED_BOARDS",
+   "COMPETITIONS_HACKATHONS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Hackathon home | Global ✔ | Medium | 10,000+ online/in-person hackathons; companies scout finalists/participants | NOT in your sheet: build, compete, and network directly with founders and recruiters.",
+  "id": "p231"
+ },
+ {
+  "name": "Google Solution Challenge",
+  "url": "https://gdg.com",
+  "host": "gdg.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://developers.google.com/community/gdsc-solution-challenge",
+  "kind": "competition",
+  "sheets": [
+   "COMPETITIONS_HACKATHONS"
+  ],
+  "notes": "Student AI innovation competition | Global | India ✔ (students) | Student developers | Build w/ Google tech; awards + acceleration; GDG network access | gdg.community.dev | Great credibility builder for early-career AI engineers.",
+  "id": "p232"
+ },
+ {
+  "name": "Kaggle",
+  "url": "https://kaggle.com",
+  "host": "kaggle.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://www.kaggle.com/competitions",
+  "kind": "competition",
+  "sheets": [
+   "Job_Boards",
+   "Talent_Marketplaces",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "T3 | Competition/Signal | Free | Master/Grandmaster credential | Top finishes | Global | NVIDIA, H2O.ai, quant/AI teams recruit. Worth 1-2 serious LLM competitions. | (They are closing this)",
+  "id": "p233"
+ },
+ {
+  "name": "Kaggle Competitions",
+  "url": "https://www.kaggle.com/competitions",
+  "host": "kaggle.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://www.kaggle.com/competitions",
+  "kind": "competition",
+  "sheets": [
+   "COMPETITIONS_HACKATHONS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "ML / data science competitions | Global | India ✔ | All skill levels | Master/Grandmaster credential; NVIDIA/H2O.ai/quant teams recruit; top finishes = verifiable proof | Do 1-2 serious LLM/NLP contests; list rank prominently on resume.",
+  "id": "p234"
+ },
+ {
+  "name": "Kaggle Master / Grandmaster Rank",
+  "url": "https://www.kaggle.com",
+  "host": "kaggle.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://www.kaggle.com/competitions",
+  "kind": "competition",
+  "sheets": [
+   "CERTIFICATIONS_CREDENTIALS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Kaggle | Globally recognised ML credential; Google/Microsoft/Amazon Bangalore explicitly screen for it | Competition results rank higher than most certificates.",
+  "id": "p235"
+ },
+ {
+  "name": "NASA Global AI Hackathon / Space Apps",
+  "url": "https://www.spaceappschallenge.org",
+  "host": "spaceappschallenge.org",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://www.spaceappschallenge.org",
+  "kind": "competition",
+  "sheets": [
+   "COMPETITIONS_HACKATHONS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Largest global annual hackathon | Global | India ✔ | Anyone (teams encouraged) | Biennial event; $100K prize fund; global problem-solvers community; showcases end-to-end AI builds | Team up with diverse skills; highlight as an 'end-to-end deployment' example.",
+  "id": "p236"
+ },
+ {
+  "name": "AWS Builders Circle (India)",
+  "url": "https://builder.aws.com",
+  "host": "builder.aws.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://builder.aws.com",
+  "kind": "devrel",
+  "sheets": [
+   "COMMUNITY_BUILDERS_DEVELOP_REL",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "AWS India | India-specific builder meetups/events network | India builder community.",
+  "id": "p237"
+ },
+ {
+  "name": "AWS Community Builders",
+  "url": "https://builder.aws.com/community/community-builders",
+  "host": "builder.aws.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://builder.aws.com",
+  "kind": "devrel",
+  "sheets": [
+   "COMMUNITY_BUILDERS_DEVELOP_REL",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Amazon Web Services | Technical resources, networking, early access to services | Also join AWS Builders Circle programs.",
+  "id": "p238"
+ },
+ {
+  "name": "GDG Bangalore + Global GDG Discord",
+  "url": "https://gdg.community.dev",
+  "host": "gdg.community.dev",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://gdg.community.dev",
+  "kind": "devrel",
+  "sheets": [
+   "COMMUNITY_BUILDERS_DEVELOP_REL",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Google Developer Groups | Local meetups + global Discord community | Attend 'Build with AI' / DL sessions in Bangalore; network locally.",
+  "id": "p239"
+ },
+ {
+  "name": "Google Developer Experts (GDE)",
+  "url": "https://developers.google.com/community/experts",
+  "host": "developers.google.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://developers.google.com/community/experts",
+  "kind": "devrel",
+  "sheets": [
+   "COMMUNITY_BUILDERS_DEVELOP_REL",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Google | Speaking + networking; free GCP credits; direct Google access | Selection-based; builds authority.",
+  "id": "p240"
+ },
+ {
+  "name": "Crunchbase",
+  "url": "https://www.crunchbase.com",
+  "host": "crunchbase.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://www.crunchbase.com",
+  "kind": "funding",
+  "sheets": [
+   "FUNDING_TRACKERS_AI_STARTUPS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Global funding database | Global + India (free tier limited) | Set alerts on target company fundraises; cold-email CEO within 2 weeks",
+  "id": "p241"
+ },
+ {
+  "name": "DealStreetAsia",
+  "url": "https://dealstreetasia.com",
+  "host": "dealstreetasia.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://dealstreetasia.com",
+  "kind": "funding",
+  "sheets": [
+   "FUNDING_TRACKERS_AI_STARTUPS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "India deep-tech + AI coverage | Strong deep-tech focus | Track India AI deep-tech fundraising rounds",
+  "id": "p242"
+ },
+ {
+  "name": "Entrackr",
+  "url": "https://entrackr.com",
+  "host": "entrackr.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://entrackr.com",
+  "kind": "funding",
+  "sheets": [
+   "FUNDING_TRACKERS_AI_STARTUPS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Independent India Internet/AI economy news | Strong India coverage | Early intel on Indian AI startup growth",
+  "id": "p243"
+ },
+ {
+  "name": "GrowthList India Startups",
+  "url": "https://growthlist.co/india-startups",
+  "host": "growthlist.co",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://growthlist.co/india-startups",
+  "kind": "funding",
+  "sheets": [
+   "FUNDING_TRACKERS_AI_STARTUPS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Verified startup DB + contacts | 3,928+ verified Indian startups, updated weekly | Decision-maker contacts built-in; AI-tagged",
+  "id": "p244"
+ },
+ {
+  "name": "Inc42",
+  "url": "https://inc42.com/funding",
+  "host": "inc42.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://inc42.com/buzz/funding-galore/",
+  "kind": "funding",
+  "sheets": [
+   "FUNDING_TRACKERS_AI_STARTUPS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "India tech + AI funding & news | Excellent | Funding + acquisition intel on Indian AI startups",
+  "id": "p245"
+ },
+ {
+  "name": "Track funding via YourStory / Inc42 (Strategy)",
+  "url": "https://yourstory.com",
+  "host": "yourstory.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://yourstory.com/funding",
+  "kind": "funding",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Track funding via YourStory / Inc42 | India startup funding tracker | ✅ India | 🟢 Very Low | Find AI startups that just raised → reach out before JD posted | NOT in your sheet. YourStory and Inc42 report every India startup funding round. Strategy: company just closed Series A → ",
+  "id": "p246"
+ },
+ {
+  "name": "Tracxn",
+  "url": "https://tracxn.com/d/geographies/india/__ujYf3QI9FSnpS3x-zJCSwnay2nENQhm1kAN-U8-6Kfg",
+  "host": "tracxn.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://tracxn.com",
+  "kind": "funding",
+  "sheets": [
+   "FUNDING_TRACKERS_AI_STARTUPS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Startup intelligence + vertical directories | Strong; 3,928+ Indian startups, decision-maker contacts | AI-vertical filters; extract founder/CTO emails",
+  "id": "p247"
+ },
+ {
+  "name": "YourStory",
+  "url": "https://yourstory.com/funding",
+  "host": "yourstory.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://yourstory.com/funding",
+  "kind": "funding",
+  "sheets": [
+   "FUNDING_TRACKERS_AI_STARTUPS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "India startup news + funding | Excellent | Track every Indian AI startup raise",
+  "id": "p248"
+ },
+ {
+  "name": "Ben's Bites",
+  "url": "https://bensbites.com",
+  "host": "bensbites.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://bensbites.com",
+  "kind": "newsletter",
+  "sheets": [
+   "NEWSLETTERS_INFLUENCERS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "AI startups + tools newsletter (~160K subs) | India ✔ | Startup launches = imminent hiring signals; tools worth learning",
+  "id": "p249"
+ },
+ {
+  "name": "DeepLearning.AI TensorFlow Developer Certificate",
+  "url": "https://deeplearning.ai/courses/tensorflow-developer",
+  "host": "deeplearning.ai",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://www.deeplearning.ai/the-batch/",
+  "kind": "newsletter",
+  "sheets": [
+   "CERTIFICATIONS_CREDENTIALS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "DeepLearning.AI | Hands-on Keras/TensorFlow + production model building | Low-cost, practical, recognizable.",
+  "id": "p250"
+ },
+ {
+  "name": "Import AI (Jack Clark)",
+  "url": "https://jackwclark.com/newsletter",
+  "host": "jackwclark.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://jack-clark.net",
+  "kind": "newsletter",
+  "sheets": [
+   "NEWSLETTERS_INFLUENCERS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "AI policy + landscape newsletter | Global ✔ | Context for AI strategy, safety, governance roles",
+  "id": "p251"
+ },
+ {
+  "name": "Latent Space Newsletter + Jobs (Community — Substack/Newsletter)",
+  "url": "https://latent.space",
+  "host": "latent.space",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://latent.space",
+  "kind": "newsletter",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "NEWSLETTERS_INFLUENCERS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Latent Space Newsletter + Jobs | AI builder newsletter + Discord | ✅ Yes | 🟢 Low | AI-native startup jobs; frontier builders community; founders post roles | In your Communities sheet but jobs section underused. Latent Space Discord has a jobs channel where AI-native founders dir",
+  "id": "p252"
+ },
+ {
+  "name": "Superagi's AI Digest",
+  "url": "https://superagi.substack.com",
+  "host": "superagi.substack.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://superagi.substack.com",
+  "kind": "newsletter",
+  "sheets": [
+   "NEWSLETTERS_INFLUENCERS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "India-centric AI newsletter | India ✔ | India AI news + job leads from the Indian ecosystem",
+  "id": "p253"
+ },
+ {
+  "name": "The Batch (DeepLearning.AI newsletter) (Community — Substack/Newsletter)",
+  "url": "https://www.deeplearning.ai/thebatch",
+  "host": "deeplearning.ai",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://www.deeplearning.ai/the-batch/",
+  "kind": "newsletter",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "MASTER_WEBSITES_INDEX",
+   "NEWSLETTERS_INFLUENCERS"
+  ],
+  "notes": "The Batch (DeepLearning.AI newsletter) | AI newsletter with jobs section | ✅ Yes | 🟢 Very Low | AI job openings posted by companies specifically targeting ML talent | NOT in your sheet. DeepLearning.AI's newsletter. Job section features AI-specific companies. Very targeted reader",
+  "id": "p254"
+ },
+ {
+  "name": "The Rundown AI",
+  "url": "https://therundown.ai",
+  "host": "therundown.ai",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://therundown.ai",
+  "kind": "newsletter",
+  "sheets": [
+   "NEWSLETTERS_INFLUENCERS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Top-tier AI news digest | Global ✔ | Broad AI awareness for interviews and networking",
+  "id": "p255"
+ },
+ {
+  "name": "TLDR DL",
+  "url": "https://tldr-dl.substack.com",
+  "host": "tldr-dl.substack.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://tldr.tech/ai",
+  "kind": "newsletter",
+  "sheets": [
+   "NEWSLETTERS_INFLUENCERS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Daily ML papers + news digest (Substack) | Global ✔ | Stay current -> cite recent work in applications/interviews",
+  "id": "p256"
+ },
+ {
+  "name": "Google Summer of Code (GSoC)",
+  "url": "https://summerofcode.withgoogle.com",
+  "host": "summerofcode.withgoogle.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://summerofcode.withgoogle.com",
+  "kind": "oss_program",
+  "sheets": [
+   "OPENSOURCE_PROGRAMS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Google | ~3 months; stipend varies by org | All ages; contributors to 185+ participating orgs | Long contributor relationships -> many contributors get hired by their org/company.",
+  "id": "p257"
+ },
+ {
+  "name": "Google Summer of HPC",
+  "url": "https://google.github.io/gsocguides/mentor",
+  "host": "google.github.io",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://google.github.io/gsocguides/mentor",
+  "kind": "oss_program",
+  "sheets": [
+   "OPENSOURCE_PROGRAMS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Google | ~3 months; stipend | Contributors to HPC / openHPC / HPC-relevant orgs | Niche intersection of HPC + AI compute; strong for infrastructure roles.",
+  "id": "p258"
+ },
+ {
+  "name": "LFX Mentorship",
+  "url": "https://mentor.lfx.linuxfoundation.org",
+  "host": "mentor.lfx.linuxfoundation.org",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://mentorship.lfx.linuxfoundation.org",
+  "kind": "oss_program",
+  "sheets": [
+   "OPENSOURCE_PROGRAMS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Linux Foundation | 12 weeks; $3,000-$6,600; 3 terms/year | Open-source contributors; CNCF/Kernel/Hyperledger orgs | Kubernetes, Linux, CNCF-adjacent orgs with AI/infra relevance.",
+  "id": "p259"
+ },
+ {
+  "name": "MLH Fellowship",
+  "url": "https://fellowship.mlh.com",
+  "host": "fellowship.mlh.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://fellowship.mlh.com",
+  "kind": "oss_program",
+  "sheets": [
+   "OPENSOURCE_PROGRAMS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Major League Hacking | 12 weeks; stipend up to ~$5,000; 3 tracks: Open Source / SE / SRE | 18+; students & recent grads; Indian students eligible | Batch-based pods with professional mentors; year-round cohorts.",
+  "id": "p260"
+ },
+ {
+  "name": "Outreachy",
+  "url": "https://www.outreachy.org",
+  "host": "outreachy.org",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://www.outreachy.org",
+  "kind": "oss_program",
+  "sheets": [
+   "OPENSOURCE_PROGRAMS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Outreachy (stipend-funded) | 3 months; ~$7,000 USD total | Underrepresented groups in tech in your country; FOSS internships | Fully remote; strong referral & visibility effect.",
+  "id": "p261"
+ },
+ {
+  "name": "Referral Marketplaces",
+  "url": "https://EmployeeReferrals.com",
+  "host": "employeereferrals.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://employeereferrals.com",
+  "kind": "referral",
+  "sheets": [
+   "Referral_System"
+  ],
+  "notes": "refer.me (shows per-company bonuses), Teamable, EmployeeReferrals.com, Teal referral feature, Blind threads, Reddit threads, Discord channels. | Multiple platforms | Sec 13, 17",
+  "id": "p262"
+ },
+ {
+  "name": "CoffeeMug.ai (Strategy)",
+  "url": "https://coffeemug.ai",
+  "host": "coffeemug.ai",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://coffeemug.ai",
+  "kind": "resource",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "SMART_TRICKS_COMPREHENSIVE",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "CoffeeMug.ai | Reverse referral + mentorship platform | ✅ Yes — India | 🟢 Low | AI engineer mentorship → warm referrals at target companies | NOT in your sheet. India-specific platform connecting candidates with employees at target companies for coffee chats. Warm intro → referra",
+  "id": "p263"
+ },
+ {
+  "name": "GitHub (profile + OSS)",
+  "url": "https://github.com",
+  "host": "github.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://github.com",
+  "kind": "resource",
+  "sheets": [
+   "Social_Media"
+  ],
+  "notes": "",
+  "id": "p264"
+ },
+ {
+  "name": "GitHub Explore + Job Offers (Strategy)",
+  "url": "https://github.com/explore",
+  "host": "github.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://github.com/search?q={q}&type=repositories",
+  "kind": "resource",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "GitHub Explore + Job Offers | GitHub trending repos → companies | ✅ Yes | 🟢 Very Low | Find AI companies via trending repos → apply directly before JD posted | NOT fully in your sheet. GitHub Trending shows hot ML/AI repos. Companies building trending AI tools are about to hire. ",
+  "id": "p265"
+ },
+ {
+  "name": "GitHub Trending -> Careers Page",
+  "url": "https://github.com/trending/python",
+  "host": "github.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://github.com/search?q={q}&type=repositories",
+  "kind": "resource",
+  "sheets": [
+   "SMART_TRICKS_COMPREHENSIVE"
+  ],
+  "notes": "Glance github.com/trending/python daily; when an AI repo/org rises, visit its careers page BEFORE a JD is posted | Emerging AI companies hire early; DM repo maintainers on X for warm intros | New — scouting",
+  "id": "p266"
+ },
+ {
+  "name": "JobSpy (python-jobspy)",
+  "url": "https://github.com/Bunsly/JobSpy",
+  "host": "github.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://github.com/search?q={q}&type=repositories",
+  "kind": "resource",
+  "sheets": [
+   "AI_Tools",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Scraper | BUILD | Open source | Free | LinkedIn/Indeed/Glassdoor/Google/ZipRecruiter/Naukri/Bayt | Yes | pip install python-jobspy. Scrapes into pandas DataFrame. Indeed most reliable. LinkedIn rate-limits ~10th page. Build Bengaluru+'AI/ML/LLM' filter → Telegram bot. WARNING: sc",
+  "id": "p267"
+ },
+ {
+  "name": "Product Hunt (AI launches + hiring) (Community — Product Hunt)",
+  "url": "https://producthunt.com/topics/artificial-intelligence",
+  "host": "producthunt.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://www.producthunt.com/topics/artificial-intelligence",
+  "kind": "resource",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Product Hunt (AI launches + hiring) | Tech product launch platform | ✅ Yes | 🟢 Very Low | AI startups launching → immediately hiring; founder DMs after upvoting | NOT in your sheet as hiring channel. Every AI product launch = company about to hire. Upvote + comment technically on",
+  "id": "p268"
+ },
+ {
+  "name": "vLLM / Blaze ML (AI Infra Company)",
+  "url": "https://github.com/vllm-project/vllm",
+  "host": "github.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://github.com/search?q={q}&type=repositories",
+  "kind": "resource",
+  "sheets": [
+   "Hidden_Channels_Full",
+   "CONSOLIDATED_AI_INFRA_COMPANIES",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "vLLM / Blaze ML | LLM serving framework | ✅ Remote / OSS | 🟢 Very Low | LLM inference optimization; OSS contributor → researcher/engineer hire | NOT in your sheet. vLLM is the dominant open-source LLM serving engine. Contributing PRs (optimization, features) is the primary route ",
+  "id": "p269"
+ },
+ {
+  "name": "Apollo.io",
+  "url": "https://apollo.io",
+  "host": "apollo.io",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://apollo.io",
+  "kind": "tool",
+  "sheets": [
+   "AI_Tools",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Email Finder | USE | Generous free tier | Paid plans | Web/Chrome/LinkedIn ext | Yes | 275M+ contacts. Built-in sequencing. Best 'all-in-one' starting point for volume.",
+  "id": "p270"
+ },
+ {
+  "name": "Careerflow",
+  "url": "https://careerflow.ai",
+  "host": "careerflow.ai",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://careerflow.ai",
+  "kind": "tool",
+  "sheets": [
+   "AI_Tools",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Tracking | — | 15 apps free | ~$12-19/mo | Web/Chrome | Yes | Techstars-backed, 1.2M users. LinkedIn optimizer. Good if LinkedIn is main channel.",
+  "id": "p271"
+ },
+ {
+  "name": "DearHiringManager.io",
+  "url": "https://dearhiringmanager.io",
+  "host": "dearhiringmanager.io",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://dearhiringmanager.io",
+  "kind": "tool",
+  "sheets": [
+   "AI_Tools",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Email Finder | USE | Free | N/A | Web | Yes | Paste job URL → identifies actual hiring manager + verified email in <1 min. Works on LinkedIn, Indeed, Greenhouse, Lever.",
+  "id": "p272"
+ },
+ {
+  "name": "Google Alerts",
+  "url": "https://google.com/alerts",
+  "host": "google.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://www.google.com/alerts",
+  "kind": "tool",
+  "sheets": [
+   "AI_Tools",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Monitoring | USE | Free | Free | Web | Yes | Set alerts for '[company]' 'hiring' 'AI'. Track funding via Crunchbase/PitchBook.",
+  "id": "p273"
+ },
+ {
+  "name": "Hunter.io",
+  "url": "https://hunter.io",
+  "host": "hunter.io",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://hunter.io",
+  "kind": "tool",
+  "sheets": [
+   "AI_Tools",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Email Finder | USE | 25-50 searches/mo | Paid plans | Web/Chrome | Yes | Best for email accuracy + domain search. ~91-96% accuracy on 100+ employee cos (drops to 30-50% on startups). No phone numbers.",
+  "id": "p274"
+ },
+ {
+  "name": "Huntr",
+  "url": "https://huntr.co",
+  "host": "huntr.co",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://huntr.co",
+  "kind": "tool",
+  "sheets": [
+   "AI_Tools",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Tracking | — | 100 jobs free | Pro ~$40/mo | Web/Chrome | Yes | #1 ranked. CRM tracking. ~1 interview per 17 apps.",
+  "id": "p275"
+ },
+ {
+  "name": "Huru.ai",
+  "url": "https://huru.ai",
+  "host": "huru.ai",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://huru.ai",
+  "kind": "tool",
+  "sheets": [
+   "AI_Tools",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Interview Prep | USE | Free tier | ~$19/mo | Web | Yes | Dedicated AI interview sim. Webcam body-language feedback.",
+  "id": "p276"
+ },
+ {
+  "name": "Jobscan",
+  "url": "https://jobscan.co",
+  "host": "jobscan.co",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://jobscan.co",
+  "kind": "tool",
+  "sheets": [
+   "AI_Tools",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Resume/ATS | — | 5 scans/mo | ~₹2,500/mo | Web | Yes | Global benchmark for ATS scoring. Keyword gap report. Target 75-85% match.",
+  "id": "p277"
+ },
+ {
+  "name": "Lusha",
+  "url": "https://lusha.com",
+  "host": "lusha.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://lusha.com",
+  "kind": "tool",
+  "sheets": [
+   "AI_Tools",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Email Finder | USE | 150 free email credits/mo | Paid plans | Web/Chrome | India-effective | Particularly effective in the Indian market.",
+  "id": "p278"
+ },
+ {
+  "name": "myjobb AI",
+  "url": "https://myjobb.ai",
+  "host": "myjobb.ai",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://myjobb.ai",
+  "kind": "tool",
+  "sheets": [
+   "AI_Tools",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Resume/ATS | — | Free tier | Paid plans | Web | India-specific | Per-JD tailoring in 10-20 sec. India-specific. Also has Referral Finder.",
+  "id": "p279"
+ },
+ {
+  "name": "Rezi",
+  "url": "https://rezi.ai",
+  "host": "rezi.ai",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://rezi.ai",
+  "kind": "tool",
+  "sheets": [
+   "AI_Tools",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Resume/ATS | — | Free tier | $149 lifetime | Web | Yes | Strict ATS-safe formatting. AI bullets from job titles.",
+  "id": "p280"
+ },
+ {
+  "name": "RocketReach",
+  "url": "https://rocketreach.co",
+  "host": "rocketreach.co",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://rocketreach.co",
+  "kind": "tool",
+  "sheets": [
+   "AI_Tools",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Email Finder | USE | 5 lookups free | Expensive | Web/Chrome/LinkedIn ext | Yes | 700M+ profiles. Better for phone/senior contacts. ~65-80% email accuracy.",
+  "id": "p281"
+ },
+ {
+  "name": "Snov.io",
+  "url": "https://snov.io",
+  "host": "snov.io",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://snov.io",
+  "kind": "tool",
+  "sheets": [
+   "AI_Tools",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Email Finder | USE | Free tier | Paid | Web/Chrome | Yes | Email finder + sequencing.",
+  "id": "p282"
+ },
+ {
+  "name": "Teal HQ",
+  "url": "https://tealhq.com",
+  "host": "tealhq.com",
+  "mapping": "resource",
+  "connectors": [],
+  "searchTemplate": "https://tealhq.com",
+  "kind": "tool",
+  "sheets": [
+   "AI_Tools",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Tracking | — | Free unlimited | ~$29/wk | Web/Chrome | Yes | Strongest pipeline mgmt. Keyword-gap analysis (ideal for career-switcher). Free tier enough for most.",
+  "id": "p283"
+ },
+ {
+  "name": "Hired",
+  "url": "https://hired.com",
+  "host": "hired.com",
+  "mapping": "excluded",
+  "connectors": [],
+  "searchTemplate": "",
+  "kind": "job_board",
+  "sheets": [
+   "Job_Boards",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "T2 | Reverse Board | Free | Companies apply to YOU | Premium quality | Global | Pass screening once, then receive offers with salary attached.",
+  "id": "p284"
+ },
+ {
+  "name": "HONEYPOT.IO - DO NOT USE",
+  "url": "https://www.honeypot.io/",
+  "host": "honeypot.io",
+  "mapping": "excluded",
+  "connectors": [],
+  "searchTemplate": "",
+  "kind": "job_board",
+  "sheets": [
+   "MASTER_WEBSITES_INDEX",
+   "NEW_RELOCATION_ABROAD",
+   "NEW_VERIFICATION_LOG"
+  ],
+  "notes": "NEW_RELOCATION_ABROAD | Exclusion - Defunct Platform",
+  "id": "p285"
+ },
+ {
+  "name": "Papers With Code (Jobs)",
+  "url": "https://paperswithcode.com/jobs",
+  "host": "paperswithcode.com",
+  "mapping": "excluded",
+  "connectors": [],
+  "searchTemplate": "",
+  "kind": "job_board",
+  "sheets": [
+   "NEW_VERIFIED_BOARDS",
+   "MASTER_WEBSITES_INDEX"
+  ],
+  "notes": "Research + code job board | Global ✔ | Low | ML jobs sourced from state-of-the-art research repos with public code | NOT in your sheet: highest signal for research-heavy ML/LLM roles.",
+  "id": "p286"
+ }
+]
