@@ -25,7 +25,8 @@ export async function POST(req: Request) {
     if (b.action === 'password') { await setPassword(b.password || ''); return Response.json({ ok: true, note: 'Password changed — everyone has to sign in again.' }); }
     if (b.action === 'invite') {
       const e = (b.email || '').trim().toLowerCase();
-      if (!(await roleOf(e))) return bad('Add this email first (or lockdown is on)');
+      if (await getLockdown() && !ownerEmails().includes(e)) return bad('Lockdown is ON — turn it off first, otherwise this person cannot get in');
+      if (!(await roleOf(e))) return bad('Add this email first');
       return Response.json({ link: `${new URL(req.url).origin}/api/auth/magic?t=${await makeLinkToken(e, 7 * 24 * 60)}`, note: 'Single use, valid 7 days. Send it only to that person.' });
     }
     return bad('unknown action');

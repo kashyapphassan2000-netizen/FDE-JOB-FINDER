@@ -176,6 +176,10 @@
     {
       "path": "/api/cron/careers",
       "schedule": "55 20 * * *"
+    },
+    {
+      "path": "/api/cron/mentor",
+      "schedule": "40 1 * * *"
     }
   ]
 }
