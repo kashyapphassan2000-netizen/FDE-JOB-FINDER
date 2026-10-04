@@ -41,6 +41,37 @@ export const SCOPE: Record<string, string> = {
   communities: 'ONLY community channels: news.ycombinator.com, reddit.com, indiehackers.com, latent.space, producthunt.com, dev communities.',
 };
 
+/**
+ * STRICT tab rules — every tab does ONLY its own job (results outside the rule are never searched for, classified, saved or shown).
+ */
+export interface MissionRule { label: string; site?: string; only?: string; exclude?: string; kinds: Find['kind'][]; boards: boolean; careers: boolean; where?: 'blr' | 'remote' }
+const SOCIAL = '//(www\\.|mobile\\.)?(x|twitter|linkedin)\\.com/';
+export const RULES: Record<string, MissionRule> = {
+  'x-posts': { label: 'X / Twitter posts only', site: 'site:x.com', only: '//(www\\.|mobile\\.)?(x|twitter)\\.com/[^/]+/status/', kinds: ['post'], boards: false, careers: false },
+  'li-posts': { label: 'LinkedIn posts only', site: 'site:linkedin.com/posts', only: 'linkedin\\.com/(posts|feed/update)/', kinds: ['post'], boards: false, careers: false },
+  'blr-hidden': { label: 'Bengaluru jobs at startups (job boards & careers pages)', exclude: SOCIAL, kinds: ['job', 'company', 'careers_page'], boards: true, careers: true, where: 'blr' },
+  'remote-india': { label: 'Remote jobs open to India', exclude: SOCIAL, kinds: ['job'], boards: true, careers: false, where: 'remote' },
+  'global-remote': { label: 'US / EU companies hiring remote worldwide', exclude: SOCIAL, kinds: ['job'], boards: true, careers: false, where: 'remote' },
+  domains: { label: 'AI roles at semiconductor / embedded / robotics companies', exclude: SOCIAL, kinds: ['job', 'company'], boards: true, careers: true },
+  'new-startups': { label: 'Newly funded AI startups & their open roles', exclude: SOCIAL, kinds: ['company', 'careers_page', 'job'], boards: true, careers: true },
+  communities: { label: 'Community posts only (HN, Reddit, Indie Hackers, newsletters)', only: 'news\\.ycombinator\\.com|reddit\\.com|indiehackers\\.com|latent\\.space|producthunt\\.com|dev\\.to|hashnode|substack\\.com|discord', kinds: ['post', 'job'], boards: false, careers: false },
+};
+export function urlFitsRule(url: string, r?: MissionRule): boolean {
+  if (!r) return true;
+  if (r.only && !new RegExp(r.only, 'i').test(url)) return false;
+  if (r.exclude && new RegExp(r.exclude, 'i').test(url)) return false;
+  return true;
+}
+/** Does a saved find belong on this tab? */
+export function fitsMission(f: Pick<Find, 'url' | 'kind' | 'location' | 'title'>, missionId: string): boolean {
+  const r = RULES[missionId];
+  if (!r) return true;
+  if (!r.kinds.includes(f.kind) || !urlFitsRule(f.url, r)) return false;
+  if (f.kind === 'job' && r.where === 'blr' && !/bengaluru|bangalore/i.test(`${f.location} ${f.title}`)) return false;
+  if (f.kind === 'job' && r.where === 'remote' && !/remote|anywhere|worldwide|work from home|distributed/i.test(`${f.location} ${f.title}`)) return false;
+  return true;
+}
+
 const ROLE = '("forward deployed" OR "applied AI" OR "AI engineer" OR "ML engineer" OR "machine learning engineer" OR "LLM engineer" OR "GenAI engineer")';
 const HIRE = '(hiring OR "we\'re hiring" OR "join us" OR "we\'re looking" OR "DM me")';
 
@@ -320,6 +351,10 @@ Results:\n${JSON.stringify(items)}\nJSON: {"items":[{"i":0,"relevant":"yes|maybe
   try {
     if (!run.engines.length) throw new Error('No web-search engine configured. Add a free Tavily / Exa / Serper / Firecrawl / Linkup key (or your SearXNG URL) in "AI & Keys".');
 
+    const rule = mission ? RULES[mission.id] : undefined;
+    const scopeQ = (qs: string[]) => (rule?.site ? qs.map((q) => q.replace(/site:\S+/gi, '').trim()).filter(Boolean).map((q) => `${rule.site} ${q}`) : qs);
+    const onlyMine = (hs: Hit[]) => { if (!rule) return hs; const keep = hs.filter((h) => urlFitsRule(h.url, rule)); if (keep.length < hs.length) log(`tab rule (${rule.label}): ${hs.length - keep.length} off-tab results dropped`); return keep; };
+
     // 1. PLAN
     let queries = mission?.queries || [];
     let rec: Recency = opts.recency || mission?.recency || 'month';
@@ -345,18 +380,19 @@ ${scope ? `SCOPE (strict): ${scope}\n` : ''}Request: ${opts.prompt}\nJSON: {"que
       else if (mission && depth === 'deep') queries = [...queries, ...mission.queries.slice(0, 6)]; // your request + the tab's standard sweep
       if (wantsPosts && !queries.some((q) => q.includes('site:x.com'))) queries.push(...MISSIONS[0].queries.slice(0, 4));
     } else if (depth === 'quick') queries = queries.slice(0, 6);
+    queries = Array.from(new Set(scopeQ(queries))); // X tab → only site:x.com queries, LinkedIn tab → only site:linkedin.com/posts
     run.queries = [...queries];
 
     // 2. SEARCH
-    const results = await searchAll(queries, rec);
+    const results = onlyMine(await searchAll(queries, rec));
     log(`search: ${results.length} unique results from ${queries.length} queries (${run.searches} engine calls, freshness: ${rec})`);
 
     // 3. READ X posts in full
     await readX(results);
     const fresh = results.filter((r) => !r.stale);
 
-    // 4. VERIFY ATS boards
-    await verifyBoards(fresh);
+    // 4. VERIFY ATS boards (only tabs whose job includes company boards)
+    if (!rule || rule.boards) await verifyBoards(fresh);
 
     // 5. CLASSIFY everything else
     await classifyAll(fresh.filter((r) => isJobLink(r.url)));
@@ -367,15 +403,15 @@ ${scope ? `SCOPE (strict): ${scope}\n` : ''}Request: ${opts.prompt}\nJSON: {"que
       if (top) {
         try {
           const { data } = await chatJson<{ queries: string[] }>(SYSTEM,
-            `Here is what a first search round found:\n${top}\n\nWrite 6 follow-up web-search queries that find MORE opportunities the first round missed: other roles at these companies (their careers pages / ATS boards), similar companies, and more hiring posts in the same niche. Google syntax. JSON: {"queries":["..."]}`, { maxTokens: 700, timeoutMs: 30000 });
-          const fq = (data?.queries || []).slice(0, 6);
+            `Here is what a first search round found:\n${top}\n\n${rule ? `STRICT TAB SCOPE: ${rule.label}. ${mission ? SCOPE[mission.id] : ''}\nWrite 6 follow-up web-search queries that find MORE results of exactly this kind (nothing else).` : 'Write 6 follow-up web-search queries that find MORE opportunities the first round missed: other roles at these companies (their careers pages / ATS boards), similar companies, and more hiring posts in the same niche.'} Google syntax. JSON: {"queries":["..."]}`, { maxTokens: 700, timeoutMs: 30000 });
+          const fq = scopeQ((data?.queries || []).slice(0, 6));
           if (fq.length) {
             run.queries.push(...fq.map((q) => `↳ ${q}`));
-            const more = await searchAll(fq, rec === 'day' ? 'week' : rec);
+            const more = onlyMine(await searchAll(fq, rec === 'day' ? 'week' : rec));
             log(`follow-up: ${more.length} new results from ${fq.length} queries`);
             await readX(more);
             const moreFresh = more.filter((r) => !r.stale);
-            await verifyBoards(moreFresh);
+            if (!rule || rule.boards) await verifyBoards(moreFresh);
             await classifyAll(moreFresh.filter((r) => isJobLink(r.url)));
           }
         } catch (e) {
@@ -384,8 +420,8 @@ ${scope ? `SCOPE (strict): ${scope}\n` : ''}Request: ${opts.prompt}\nJSON: {"que
       }
     }
 
-    // 7. DEEP READ careers pages
-    if (hasAI && careerPages.length && left() > 60000) {
+    // 7. DEEP READ careers pages (only tabs whose job includes careers pages)
+    if (hasAI && careerPages.length && left() > 60000 && (!rule || rule.careers)) {
       const pages = careerPages.slice(0, depth === 'deep' ? 6 : 3);
       const read = await pool(pages, 3, async (p) => ({ p, text: await readPage(p.url, 12000) }));
       for (const x of read) {
@@ -408,9 +444,10 @@ ${scope ? `SCOPE (strict): ${scope}\n` : ''}Request: ${opts.prompt}\nJSON: {"que
     const existing = await hgetall<Find>('agent:finds');
     const ids = new Set<string>();
     const newOnes: Find[] = [];
-    let skippedOld = 0;
+    let skippedOld = 0, offTab = 0;
     for (const f of finds) {
       if (ids.has(f.id)) continue;
+      if (mission && !fitsMission(f, mission.id)) { offTab++; continue; } // STRICT: only what this tab is for
       if (!isFreshFind(f)) { skippedOld++; continue; } // LinkedIn / X: proven date in the last 24 h only; others: not older than 30 days
       if (f.kind !== 'company' && !f.role.length) continue;
       if (f.kind === 'job' && f.location && !locationAllowed(f.locTags, f.location)) continue;
@@ -429,7 +466,7 @@ ${scope ? `SCOPE (strict): ${scope}\n` : ''}Request: ${opts.prompt}\nJSON: {"que
     run.findIds = [...ids];
     run.total = ids.size;
     run.finds = newOnes.length;
-    log(`saved ${run.total} relevant (${run.finds} new, ${run.total - run.finds} seen before)${oldDropped + skippedOld ? ` · ${oldDropped + skippedOld} skipped as old (LinkedIn / X: older than ${FRESH_HOURS} h or no provable post date)` : ''}`);
+    log(`saved ${run.total} relevant (${run.finds} new, ${run.total - run.finds} seen before)${oldDropped + skippedOld ? ` · ${oldDropped + skippedOld} skipped as old (LinkedIn / X: older than ${FRESH_HOURS} h or no provable post date)` : ''}${offTab ? ` · ${offTab} off-tab results not saved` : ''}`);
     await purgeOldFinds().catch(() => null);
 
     if (opts.alert !== false && newOnes.length) {

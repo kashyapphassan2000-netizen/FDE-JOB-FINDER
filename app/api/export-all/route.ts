@@ -5,7 +5,7 @@ import { computeTrends, type MarketReport } from '@/lib/trends';
 import { getDiscovered } from '@/lib/discover';
 import { getDirectory } from '@/lib/directory';
 import { getJSON, hgetall } from '@/lib/store';
-import { findTime, isFreshFind, withRealDate, MISSIONS, type Find } from '@/lib/agent';
+import { findTime, fitsMission, isFreshFind, withRealDate, MISSIONS, type Find } from '@/lib/agent';
 import { locationAllowed, locationTags, regionRank } from '@/lib/classify';
 import type { Opp } from '@/lib/opportunities';
 import type { TrackEntry } from '@/lib/types';
@@ -33,7 +33,7 @@ export async function GET(req: Request) {
     .map((f) => ({ ...f, locTags: locationTags({ title: f.title, company: f.company, location: f.location, url: f.url }) }))
     .filter((f) => f.kind !== 'job' || !f.location || locationAllowed(f.locTags, f.location));
   for (const m of MISSIONS) {
-    const list = finds.filter((f) => f.mission === m.id || f.missions?.includes(m.id)).sort((a, b) => (findTime(b) || 0) - (findTime(a) || 0));
+    const list = finds.filter((f) => (f.mission === m.id || f.missions?.includes(m.id)) && fitsMission(f, m.id)).sort((a, b) => (findTime(b) || 0) - (findTime(a) || 0));
     if (!list.length) continue;
     S.push({ title: `Agent — ${m.title} (${list.length})`, headers: ['Type', 'Title', 'Company / author', 'Location', 'Date', 'How to apply', 'Link'],
       rows: list.slice(0, 200).map((f) => [f.kind, f.title, f.author || f.company, f.location, d10(f.postedAt || f.foundAt), f.applyHow || f.why || '', f.url]) });

@@ -5,10 +5,10 @@ import FitDrawer, { type FitJob } from './FitDrawer';
 import CaptureButton from './CaptureButton';
 import ExportButton from './ExportButton';
 
-type Mission = { id: string; title: string; desc: string; queries: string[] };
+type Mission = { id: string; title: string; desc: string; queries: string[]; rule?: { label: string; kinds: Find['kind'][] } | null };
 type Find = {
   id: string; kind: 'job' | 'post' | 'careers_page' | 'company'; title: string; company: string; location: string; url: string; snippet: string; why: string;
-  role: string[]; domain: string; locTags: string[]; mission: string; missions?: string[]; engine: string; foundAt: string; status: 'new' | 'saved' | 'dismissed' | 'applied';
+  role: string[]; domain: string; locTags: string[]; mission: string; missions?: string[]; fits?: string[]; engine: string; foundAt: string; status: 'new' | 'saved' | 'dismissed' | 'applied';
   ats?: { ats: string; slug: string; total: number; relevant: number }; author?: string; postedAt?: string | null; applyHow?: string; confidence?: 'high' | 'maybe';
 };
 type Run = { id: string; mission: string; prompt?: string; depth?: string; startedAt: string; ms: number; queries: string[]; engines: string[]; ai: string | null; log: string[]; finds: number; total?: number; companies: number; searches?: number; findIds?: string[]; error?: string };
@@ -48,7 +48,7 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(() => api<Payload>('/api/agent').then((p) => { setD(p); setLastRun((r) => r || (missionId ? p.runs.find((x) => x.mission === missionId) : p.runs[0]) || null); }).catch((e) => toast(e.message)), [toast, missionId]);
-  useEffect(() => { setMission(missionId || ''); setView(missionId ? 'all' : 'run'); setLastRun(null); }, [missionId]);
+  useEffect(() => { setMission(missionId || ''); setView(missionId ? 'all' : 'run'); setLastRun(null); setKind(''); }, [missionId]);
   useEffect(() => { load(); }, [load]);
 
   async function run(body: { missionId?: string; prompt?: string }) {
@@ -100,7 +100,7 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
 
   const byId = useMemo(() => new Map((d?.finds || []).map((f) => [f.id, f])), [d]);
   const runFinds = useMemo(() => (lastRun?.findIds || []).map((id) => byId.get(id)).filter(Boolean) as Find[], [lastRun, byId]);
-  const inMission = (f: Find, m: string) => f.mission === m || Boolean(f.missions?.includes(m));
+  const inMission = (f: Find, m: string) => (f.fits ? f.fits.includes(m) : f.mission === m || Boolean(f.missions?.includes(m)));
   const when = (f: Find) => Date.parse(f.postedAt || '') || Date.parse(f.foundAt);
   // on a tab page (X, LinkedIn, Hidden Bengaluru…) ONLY that tab's results are shown and exported
   const scoped = useMemo(() => (view === 'run' ? runFinds : d?.finds || []).filter((f) => !mission || inMission(f, mission)), [view, runFinds, d, mission]);
@@ -136,6 +136,7 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
           <div>
             <h2>{cur.title}</h2>
             <p>{cur.desc}</p>
+            {cur.rule && <div className="small" style={{ color: 'var(--mint)', marginTop: 6, fontWeight: 600 }}>🔒 This tab searches and shows only: {cur.rule.label}</div>}
             <textarea className="prompt tabprompt" placeholder={`Ask in plain English — searched only inside “${cur.title}”. e.g. ${cur.id === 'x-posts' ? '“founders hiring AI agent engineers who DM, remote, this week”' : cur.id === 'blr-hidden' ? '“seed-stage voice-AI startups in Bengaluru hiring FDEs”' : '“LLM / agent roles posted this week”'}`} value={prompt} onChange={(e) => setPrompt(e.target.value)} />
             <div className="row" style={{ marginTop: 10 }}>
               {prompt.trim() && <button className="primary" disabled={!!busy} onClick={() => run({ missionId: cur.id, prompt })}>{busy === cur.id ? `Searching… ${secs}s` : '🔎 Search my request'}</button>}
@@ -220,7 +221,7 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
         </span>
         <span className="seg">
           <button className={!kind ? 'on' : ''} onClick={() => setKind('')}>All</button>
-          {(['post', 'job', 'company', 'careers_page'] as const).map((k) => <button key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{KIND[k][0]} {KIND[k][1]}s · {counts[k] || 0}</button>)}
+          {(['post', 'job', 'company', 'careers_page'] as const).filter((k) => !cur?.rule || cur.rule.kinds.includes(k)).map((k) => <button key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{KIND[k][0]} {KIND[k][1]}s · {counts[k] || 0}</button>)}
         </span>
         <select value={age} onChange={(e) => setAge(Number(e.target.value))} title="Window for results that are NOT from LinkedIn / X">
           {[24, 72, 168, 720, 0].map((h) => <option key={h} value={h}>Other results: {AGE_LABEL[h]}</option>)}
