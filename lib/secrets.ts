@@ -39,6 +39,7 @@ export const VAULT_KEYS: { name: string; label: string; group: string; url: stri
   // daily email digest
   { name: 'RESEND_API_KEY', label: 'Resend API key (daily job email, free 100/day)', group: 'Email digest', url: 'https://resend.com/api-keys' },
   { name: 'DIGEST_TO', label: 'Send the daily job email to (your email)', group: 'Email digest', url: 'https://resend.com/docs' },
+  { name: 'WATCH_NOTIFY_TO', label: 'Email for Watch-companies alerts (optional — defaults to DIGEST_TO)', group: 'Email digest', url: 'https://resend.com/docs' },
   { name: 'DIGEST_FROM', label: 'From address (optional; needs a verified domain in Resend)', group: 'Email digest', url: 'https://resend.com/domains' },
   // alerts
   { name: 'TELEGRAM_BOT_TOKEN', label: 'Telegram bot token', group: 'Alerts', url: 'https://t.me/BotFather' },

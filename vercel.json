@@ -112,6 +112,54 @@
     {
       "path": "/api/cron/alerts",
       "schedule": "5 5 * * *"
+    },
+    {
+      "path": "/api/cron/watch",
+      "schedule": "25 1 * * *"
+    },
+    {
+      "path": "/api/cron/watch",
+      "schedule": "25 3 * * *"
+    },
+    {
+      "path": "/api/cron/watch",
+      "schedule": "25 5 * * *"
+    },
+    {
+      "path": "/api/cron/watch",
+      "schedule": "25 7 * * *"
+    },
+    {
+      "path": "/api/cron/watch",
+      "schedule": "25 9 * * *"
+    },
+    {
+      "path": "/api/cron/watch",
+      "schedule": "25 11 * * *"
+    },
+    {
+      "path": "/api/cron/watch",
+      "schedule": "25 13 * * *"
+    },
+    {
+      "path": "/api/cron/watch",
+      "schedule": "25 15 * * *"
+    },
+    {
+      "path": "/api/cron/watch",
+      "schedule": "25 17 * * *"
+    },
+    {
+      "path": "/api/cron/watch",
+      "schedule": "25 19 * * *"
+    },
+    {
+      "path": "/api/cron/watch",
+      "schedule": "25 21 * * *"
+    },
+    {
+      "path": "/api/cron/watch",
+      "schedule": "25 23 * * *"
     }
   ]
 }

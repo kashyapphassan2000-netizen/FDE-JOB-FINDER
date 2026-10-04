@@ -39,7 +39,7 @@ export const CAREER_PAGES: [string, string][] = [
 const ROLE_HINT = /engineer|scientist|machine|learning|\bml\b|\bai\b|llm|genai|deploy|solutions|research|data|mlops|applied/i;
 const PER_RUN = 6;
 
-async function extract(name: string, url: string, md: string): Promise<RawJob[]> {
+export async function extract(name: string, url: string, md: string): Promise<RawJob[]> {
   const links = [...md.matchAll(/\[([^\]]{3,140})\]\((https?:\/\/[^)\s]+)\)/g)].map((m) => ({ text: m[1].trim(), url: m[2] }));
   // 1. embedded public ATS board → read it properly
   const ats = links.map((l) => atsFromUrl(l.url)).find(Boolean);
