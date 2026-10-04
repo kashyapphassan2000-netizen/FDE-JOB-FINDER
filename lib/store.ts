@@ -18,7 +18,45 @@ const g = globalThis as unknown as { __fjMem?: Mem; __fjHash?: Map<string, Map<s
 const mem: Mem = (g.__fjMem ||= new Map());
 const memHash = (g.__fjHash ||= new Map());
 
-export const storeMode = redis ? 'redis' : 'memory';
+/**
+ * Localhost without Redis: data is kept in .data/store.json so it survives restarts (agents, chats, keys, tracker).
+ * Never used on Vercel (read-only disk) — there Redis is required for persistence.
+ */
+const FILE = !redis && !process.env.VERCEL ? `${process.cwd()}/.data/store.json` : '';
+const gl = globalThis as unknown as { __fjLoaded?: boolean; __fjSaveT?: ReturnType<typeof setTimeout> | null };
+if (FILE && !gl.__fjLoaded) {
+  gl.__fjLoaded = true;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fs = require('node:fs') as typeof import('node:fs');
+    if (fs.existsSync(FILE)) {
+      const d = JSON.parse(fs.readFileSync(FILE, 'utf8')) as { kv: Record<string, string>; hash: Record<string, Record<string, string>> };
+      for (const [k, v] of Object.entries(d.kv || {})) mem.set(k, v);
+      for (const [k, h] of Object.entries(d.hash || {})) memHash.set(k, new Map(Object.entries(h)));
+    }
+  } catch (e) {
+    console.error('local store load failed', e);
+  }
+}
+function persist() {
+  if (!FILE || gl.__fjSaveT) return;
+  gl.__fjSaveT = setTimeout(() => {
+    gl.__fjSaveT = null;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fs = require('node:fs') as typeof import('node:fs');
+      fs.mkdirSync(`${process.cwd()}/.data`, { recursive: true });
+      const kv = Object.fromEntries([...mem.entries()].filter(([k]) => !k.startsWith(P + 'lock:')));
+      const hash = Object.fromEntries([...memHash.entries()].map(([k, h]) => [k, Object.fromEntries(h)]));
+      fs.writeFileSync(`${FILE}.tmp`, JSON.stringify({ kv, hash }));
+      fs.renameSync(`${FILE}.tmp`, FILE);
+    } catch (e) {
+      console.error('local store save failed', e);
+    }
+  }, 800);
+}
+
+export const storeMode = redis ? 'redis' : FILE ? 'local-file' : 'memory';
 const P = 'fj:';
 
 export async function getJSON<T>(key: string, fallback: T): Promise<T> {
@@ -39,7 +77,7 @@ export async function setJSON(key: string, value: unknown): Promise<void> {
   let s = JSON.stringify(value);
   if (s.length > 32_000) s = 'gz:' + gzipSync(Buffer.from(s, 'utf8'), { level: 6 }).toString('base64');
   if (redis) await redis.set(P + key, s);
-  else mem.set(P + key, s);
+  else { mem.set(P + key, s); persist(); }
 }
 
 export async function hgetall<T>(key: string): Promise<Record<string, T>> {
@@ -73,13 +111,14 @@ export async function hset(key: string, field: string, value: unknown): Promise<
     const h = memHash.get(P + key) || new Map();
     h.set(field, s);
     memHash.set(P + key, h);
+    persist();
   }
 }
 
 /** Delete a whole key (hash or value). */
 export async function delKey(key: string): Promise<void> {
   if (redis) await redis.del(P + key);
-  else { mem.delete(P + key); memHash.delete(P + key); }
+  else { mem.delete(P + key); memHash.delete(P + key); persist(); }
 }
 
 /** Atomic counter inside a hash (safe under parallel calls). */
@@ -89,12 +128,13 @@ export async function hincr(key: string, field: string, by = 1): Promise<number>
   const v = Number(h.get(field) || 0) + by;
   h.set(field, String(v));
   memHash.set(P + key, h);
+  persist();
   return v;
 }
 
 export async function hdel(key: string, field: string): Promise<void> {
   if (redis) await redis.hdel(P + key, field);
-  else memHash.get(P + key)?.delete(field);
+  else { memHash.get(P + key)?.delete(field); persist(); }
 }
 
 /** Simple distributed lock so cron + manual refresh never overlap. */
@@ -116,6 +156,7 @@ export async function releaseLock(name: string): Promise<void> {
 }
 
 export async function ping(): Promise<{ ok: boolean; mode: string; error?: string }> {
+  if (!redis && FILE) return { ok: true, mode: 'local-file' };
   if (!redis) return { ok: false, mode: 'memory', error: 'No Redis env vars – data will not persist between deployments/cold starts.' };
   try {
     await redis.ping();

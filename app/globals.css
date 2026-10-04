@@ -632,3 +632,6 @@ input:focus, select:focus, textarea:focus { border-color: var(--brand); box-shad
 .st-step { border-left: 3px solid var(--brand); padding: 6px 10px; margin: 8px 0; }
 .md-li { margin: 2px 0 2px 4px; }
 @media (max-width: 900px) { .st-layout { grid-template-columns: 1fr; } .st-list { position: static; max-height: none; } .st-types { grid-template-columns: 1fr; } }
+.st-box { border: 1px solid var(--line, #e3e8ef); border-radius: 12px; padding: 10px 12px; margin-top: 12px; background: rgba(0, 240, 160, 0.04); }
+.st-box select { max-width: 100%; }
+.st-types { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }

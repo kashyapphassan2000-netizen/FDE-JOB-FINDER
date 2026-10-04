@@ -58,3 +58,15 @@ Collected from the owner's instructions. Brutally honest, no fake claims.
 - **24×7 alerts**: every refresh (all automatic sources), the agent (posts), the watched-company watcher and new careers roles alert on every NEW job matching the priority profile (or score ≥ alert threshold) — once only (alerts:sent) — by email (Gmail or Resend) and **WhatsApp** (CallMeBot free, or Twilio) and Telegram if set.
 - **Deep post reading**: LinkedIn posts are opened and read in full (Jina reader), X posts via their embed; every apply route kept (all emails, real apply links incl. lnkd.in / forms, DM / comment instructions, phone), experience & salary when stated.
 - **Tone**: mentor and suggestions are brutally honest — a strict friend, no sugarcoating, focused on getting a job and earning money.
+- **Time-limited access**: owner can give an email access for N hours; it expires automatically (Extend button).
+- **Agents follow orders**: every custom agent obeys the owner's instructions and rules directly, without questioning or asking for confirmation; only illegal / harmful-to-others / impossible orders are refused, in one line, with the closest allowed action.
+- **Agent studio** (＋ button, any kind of agent, private per person):
+  - 10 agentic modes: autonomous (ReAct), plan & execute, reflexion, tree of thought, hierarchical team, pipeline, debate, swarm, router, 24×7 monitor.
+  - Instructions + rules + tools per agent; every agent and member is isolated (own tools, skills, model, memory, chat) and touches only what it was granted.
+  - **Skills**: owner-written know-how (playbooks, checklists, style) or API tools (own API / n8n / Zapier URL with `{input}`, encrypted headers), attachable to any agent or member.
+  - **Thinking**: depth fast / deep / elite + a free-text "how to think" design per agent.
+  - **Models**: map any agent, member and supervisor to any provider/model from AI & Keys (cloud or local), "only this model" = never fall back.
+  - **Supervisor**: independent reviewer compares what was asked vs what was done (incl. a computed check that every link really came from a tool), scores 1-10, sends the work back with exact fixes until it passes or rounds/time run out; the report says honestly when it was NOT approved.
+  - Multi-agent collaboration: an agent can delegate to other agents the owner allows (ask_agent).
+  - Schedules manual → hourly 24×7; reports to page, email, WhatsApp, webhook; "only if new"; every agent has its own chat; results export to PDF.
+- **Localhost + local LLMs**: `npm run dev` works without Redis (data in .data/store.json); Ollama / LM Studio / llama.cpp presets need no key; OLLAMA_BASE_URL env; built-in scheduler runs due agents every 5 min while the local app runs. The cloud app cannot reach a PC's localhost (use a tunnel URL instead).

@@ -9,7 +9,7 @@ import { getJSON, hgetall, hset, setJSON } from './store';
  * Profiles are tried in order; if one hits a rate limit / error, the next one is used (free-tier stacking).
  */
 export type Wire = 'anthropic' | 'openai';
-export interface Preset { id: string; label: string; wire: Wire; baseUrl: string; keyUrl: string; free: string; prefer: RegExp[]; defaultModel?: string; keyless?: boolean }
+export interface Preset { id: string; label: string; wire: Wire; baseUrl: string; keyUrl: string; free: string; prefer: RegExp[]; defaultModel?: string; keyless?: boolean; local?: boolean }
 
 export const PRESETS: Preset[] = [
   { id: 'gemini', label: 'Google Gemini', wire: 'openai', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', keyUrl: 'https://aistudio.google.com/apikey', free: 'Free tier on Flash models (limits shown in AI Studio)', prefer: [/flash-lite-latest/, /\d-flash-lite$/, /flash-latest/, /\d-flash$/] },
@@ -26,6 +26,9 @@ export const PRESETS: Preset[] = [
   { id: 'github', label: 'GitHub Models', wire: 'openai', baseUrl: 'https://models.github.ai/inference', keyUrl: 'https://github.com/settings/personal-access-tokens', free: 'Free with any GitHub account (token with models:read): 150 req/day low-tier', prefer: [], defaultModel: 'openai/gpt-4.1-mini' },
   { id: 'pollinations', label: 'Pollinations (no key needed)', wire: 'openai', baseUrl: 'https://text.pollinations.ai/openai', keyUrl: 'https://pollinations.ai/', free: 'Free, anonymous, slow (~1 request / 15 s) — last-resort fallback', prefer: [], defaultModel: 'openai', keyless: true },
   { id: 'ovh', label: 'OVHcloud AI Endpoints (no key needed)', wire: 'openai', baseUrl: 'https://oai.endpoints.kepler.ai.cloud.ovh.net/v1', keyUrl: 'https://endpoints.ai.cloud.ovh.net/', free: 'Free anonymous tier, 2 req/min per model — last-resort fallback', prefer: [/gpt-oss-120b/i, /llama-3_3-70b/i, /qwen/i], defaultModel: 'gpt-oss-120b', keyless: true },
+  { id: 'ollama', label: 'Ollama (local LLM on your machine)', wire: 'openai', baseUrl: 'http://localhost:11434/v1', keyUrl: 'https://ollama.com/download', free: 'Free, runs on your PC/GPU — works when the app runs on localhost (or via an https tunnel)', prefer: [], keyless: true, local: true },
+  { id: 'lmstudio', label: 'LM Studio (local LLM)', wire: 'openai', baseUrl: 'http://localhost:1234/v1', keyUrl: 'https://lmstudio.ai/', free: 'Free, local — start its server (Developer → Start server)', prefer: [], keyless: true, local: true },
+  { id: 'llamacpp', label: 'llama.cpp / vLLM / LocalAI server (local)', wire: 'openai', baseUrl: 'http://localhost:8080/v1', keyUrl: 'https://github.com/ggml-org/llama.cpp', free: 'Free, local', prefer: [], keyless: true, local: true },
   { id: 'custom-openai', label: 'Any third party (OpenAI-compatible)', wire: 'openai', baseUrl: '', keyUrl: '', free: 'Whatever your provider gives', prefer: [] },
   { id: 'custom-anthropic', label: 'Any third party (Anthropic-compatible)', wire: 'anthropic', baseUrl: '', keyUrl: '', free: 'Whatever your provider gives', prefer: [] },
 ];
@@ -57,6 +60,8 @@ function envProfiles(): Profile[] {
     const p = PRESETS.find((x) => x.id === pid)!;
     out.push({ id: `env-${pid}`, preset: pid, label: `${p.label} (env)`, wire: p.wire, baseUrl: p.baseUrl, model: process.env[`${envName.replace('_API_KEY', '')}_MODEL`] || '', key: process.env[envName]!, enabled: true });
   }
+  // local LLM via env (localhost runs): OLLAMA_BASE_URL=http://localhost:11434/v1, OLLAMA_MODEL=qwen2.5:14b
+  if (process.env.OLLAMA_BASE_URL) out.push({ id: 'env-ollama', preset: 'ollama', label: 'Ollama (env, local)', wire: 'openai', baseUrl: trimSlash(process.env.OLLAMA_BASE_URL), model: process.env.OLLAMA_MODEL || '', key: 'keyless', enabled: true });
   // keyless last-resort providers so the AI never fully stops (set NO_KEYLESS_AI=1 to disable)
   if (!process.env.NO_KEYLESS_AI) for (const pid of ['pollinations', 'ovh']) {
     const p = PRESETS.find((x) => x.id === pid)!;
@@ -97,10 +102,11 @@ export async function saveProfile(input: Partial<Profile> & { apiKey?: string })
     wire: (input.wire as Wire) || prev?.wire || preset.wire,
     baseUrl,
     model: (input.model ?? prev?.model ?? '').trim(),
-    key: input.apiKey ? encrypt(input.apiKey.trim()) : prev?.key || '',
+    key: input.apiKey ? encrypt(input.apiKey.trim()) : prev?.key || (preset.keyless ? encrypt('keyless') : ''),
     enabled: input.enabled ?? prev?.enabled ?? true,
   };
   if (!next.key) throw new Error('API key required');
+  if (preset.local && process.env.VERCEL && /localhost|127\.0\.0\.1|0\.0\.0\.0/.test(baseUrl)) throw new Error('This app is running on Vercel (cloud) — it cannot reach localhost on your PC. Run the app locally (npm run dev) or expose your local LLM with an https tunnel (e.g. cloudflared) and paste that URL.');
   if (idx >= 0) raw[idx] = next;
   else raw.push(next);
   await setJSON('ai:profiles', raw);
@@ -247,13 +253,25 @@ async function callModel(p: Profile, model: string, system: string, user: string
 export interface ChatResult { text: string; provider: string; model: string; tried: string[] }
 
 /** Runs through enabled profiles in order until one answers. */
-export async function chat(system: string, user: string, opts: { maxTokens?: number; timeoutMs?: number; profileId?: string } = {}): Promise<ChatResult> {
-  const profiles = (await allProfiles()).filter((p) => p.enabled && p.key && (!opts.profileId || p.id === opts.profileId));
+export interface ChatOpts {
+  maxTokens?: number; timeoutMs?: number;
+  /** pin a provider (AI & Keys entry) … */ profileId?: string;
+  /** … and optionally an exact model of it */ model?: string;
+  /** true = only the pinned provider/model, never fall back to others (e.g. a local-only agent) */ strict?: boolean;
+}
+export async function chat(system: string, user: string, opts: ChatOpts = {}): Promise<ChatResult> {
+  const all = (await allProfiles()).filter((p) => p.enabled && p.key);
+  // pinned provider first; others follow as fallback unless strict
+  const pinned = opts.profileId ? all.filter((p) => p.id === opts.profileId) : [];
+  if (opts.profileId && !pinned.length && opts.strict) throw new Error(`The model this agent is mapped to (${opts.profileId}) is not configured or disabled — fix it in AI & Keys`);
+  const profiles = opts.strict && pinned.length ? pinned : [...pinned, ...all.filter((p) => p.id !== opts.profileId)];
   if (!profiles.length) throw new Error('No AI provider configured. Add one in the "AI & Keys" tab (Gemini / Groq / OpenRouter have free tiers).');
   const tried: string[] = [];
   for (const p of profiles) {
     try {
-      const r = await callOne(p, system, user, opts.maxTokens ?? 1500, opts.timeoutMs ?? 60000);
+      const r = opts.model && p.id === opts.profileId
+        ? await callModel(p, opts.model, system, user, Math.max(opts.maxTokens ?? 1500, 1024), opts.timeoutMs ?? 60000)
+        : await callOne(p, system, user, opts.maxTokens ?? 1500, opts.timeoutMs ?? 60000);
       if (!r.text.trim()) throw new Error('empty response');
       return { text: r.text, provider: p.label, model: r.model, tried };
     } catch (e) {
@@ -282,7 +300,7 @@ export function parseJson<T = any>(text: string): T | null {
   return null;
 }
 
-export async function chatJson<T = any>(system: string, user: string, opts: Parameters<typeof chat>[2] = {}): Promise<{ data: T | null; meta: ChatResult }> {
+export async function chatJson<T = any>(system: string, user: string, opts: ChatOpts = {}): Promise<{ data: T | null; meta: ChatResult }> {
   const meta = await chat(`${system}\nReturn ONLY valid JSON. No prose, no markdown fences.`, user, opts);
   return { data: parseJson<T>(meta.text), meta };
 }

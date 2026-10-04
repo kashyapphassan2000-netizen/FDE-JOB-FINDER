@@ -11,7 +11,7 @@ export async function POST(req: Request) {
     if (b.id) p = (await allProfiles()).find((x) => x.id === b.id);
     else {
       const pr = PRESETS.find((x) => x.id === b.preset);
-      p = { wire: b.wire || pr?.wire || 'openai', baseUrl: b.baseUrl || pr?.baseUrl || '', key: b.apiKey || '' };
+      p = { wire: b.wire || pr?.wire || 'openai', baseUrl: b.baseUrl || pr?.baseUrl || '', key: b.apiKey || (pr?.keyless ? 'keyless' : '') };
     }
     if (!p || !p.key || !p.baseUrl) return bad('Need base URL and API key');
     return Response.json({ models: await listModels(p) });

@@ -36,6 +36,21 @@ npm run dev                  # http://localhost:3000
 ```
 Without Redis env vars the app runs in memory mode (data resets on restart).
 
+## Run on localhost with a local LLM
+1. Install Node 20+ and [Ollama](https://ollama.com/download) (or LM Studio). `ollama pull qwen2.5:14b`
+2. `npm install`, then create `.env.local`:
+   ```
+   APP_PASSWORD=choose-one
+   AUTH_SECRET=any-32-plus-random-characters
+   OLLAMA_BASE_URL=http://localhost:11434/v1
+   OLLAMA_MODEL=qwen2.5:14b
+   # optional: KV_REST_API_URL / KV_REST_API_TOKEN to share data with the cloud app
+   ```
+3. `npm run dev` → http://localhost:3000. Without Redis vars, data is saved in `.data/store.json`.
+4. Setup → AI & Keys → add **Ollama (local LLM)** (no key), or rely on the env vars above.
+5. Agent studio → open an agent → Brain → choose the 💻 local model (tick "only this model" to keep data on your PC).
+While the local app runs, scheduled agents run every 5 minutes (`LOCAL_SCHEDULER=0` disables it).
+
 ## Updating the Excel
 Replace `data/source_workbook.xlsx` and run `npm run excel` (needs Python + `pip install openpyxl`), then commit & push — Vercel redeploys automatically. Row tracking is keyed by `sheet:row`, so keep row order stable if you want existing ticks to stay aligned.
 

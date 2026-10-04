@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from './api';
 
-type Preset = { id: string; label: string; wire: 'anthropic' | 'openai'; baseUrl: string; keyUrl: string; free: string };
+type Preset = { id: string; label: string; wire: 'anthropic' | 'openai'; baseUrl: string; keyUrl: string; free: string; keyless?: boolean; local?: boolean };
 type Profile = { id: string; preset: string; label: string; wire: 'anthropic' | 'openai'; baseUrl: string; model: string; enabled: boolean; keyHint: string; fromEnv?: boolean };
 type VKey = { name: string; label: string; group: string; url: string; source: 'env' | 'vault' | null; hint: string };
 
@@ -127,6 +127,7 @@ export default function AiKeysTab({ toast }: { toast: (s: string) => void }) {
             <select value={form.preset} onChange={(e) => pickPreset(e.target.value)} style={{ width: '100%' }}>
               {presets.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
             </select>
+            {preset?.local && <div className="notice warn" style={{ margin: '4px 0' }}>Local LLM: run the app on your PC (<code>npm run dev</code>, see README “Run on localhost”) and start {preset.label.split(' (')[0]} first. The cloud site cannot reach localhost — for that, expose the LLM with an https tunnel and paste the tunnel URL as Base URL.</div>}
             {preset && <div className="muted">{preset.free}{preset.keyUrl && <> · <a href={preset.keyUrl} target="_blank" rel="noreferrer noopener">get key ↗</a></>}</div>}
           </label>
           <label className="small">Name (who is providing)<br /><input style={{ width: '100%' }} value={form.label} placeholder={preset?.label} onChange={(e) => setForm({ ...form, label: e.target.value })} /></label>
@@ -136,7 +137,7 @@ export default function AiKeysTab({ toast }: { toast: (s: string) => void }) {
               <option value="openai">OpenAI-compatible (/chat/completions)</option><option value="anthropic">Anthropic-compatible (/v1/messages)</option>
             </select>
           </label>
-          <label className="small">API key {form.id && <span className="muted">(leave empty to keep current)</span>}<br /><input style={{ width: '100%' }} type="password" value={form.apiKey} onChange={(e) => setForm({ ...form, apiKey: e.target.value })} /></label>
+          <label className="small">API key {form.id ? <span className="muted">(leave empty to keep current)</span> : preset?.keyless ? <span className="muted">(not needed)</span> : null}<br /><input style={{ width: '100%' }} type="password" value={form.apiKey} onChange={(e) => setForm({ ...form, apiKey: e.target.value })} /></label>
           <label className="small">Model <span className="muted">(empty = auto-pick)</span><br />
             <div className="row" style={{ flexWrap: 'nowrap' }}>
               <input className="mono" style={{ flex: 1 }} list="models" value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} placeholder="e.g. gemini-flash-latest" />
@@ -146,7 +147,7 @@ export default function AiKeysTab({ toast }: { toast: (s: string) => void }) {
           </label>
         </div>
         <div className="row" style={{ marginTop: 8 }}>
-          <button className="primary" disabled={busy === 'save' || (!form.apiKey && !form.id)} onClick={save}>{form.id ? 'Update' : 'Save provider'}</button>
+          <button className="primary" disabled={busy === 'save' || (!form.apiKey && !form.id && !preset?.keyless)} onClick={save}>{form.id ? 'Update' : 'Save provider'}</button>
           {form.id && <button onClick={() => { setForm(EMPTY); setModels([]); }}>Cancel</button>}
         </div>
       </div>
