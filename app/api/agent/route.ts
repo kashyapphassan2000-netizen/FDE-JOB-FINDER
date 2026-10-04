@@ -30,7 +30,8 @@ export async function GET(req: Request) {
     finds: Object.values(finds)
       .filter(isFreshFind)
       .map(withRealDate)
-      .map((f) => ({ ...f, fits: Array.from(new Set([f.mission, ...(f.missions || [])])).filter((m) => fitsMission(f, m)) }))
+      // a find shows on EVERY tab whose rule it satisfies (not only the tab that happened to find it)
+      .map((f) => ({ ...f, fits: MISSIONS.map((m) => m.id).filter((m) => (m === f.mission || (f.missions || []).includes(m) || Boolean(RULES[m])) && fitsMission(f, m)) }))
       .map((f) => ({ ...f, locTags: locationTags({ title: f.title, company: f.company, location: f.location, url: f.url }) }))
       .filter((f) => f.kind !== 'job' || !f.location || locationAllowed(f.locTags, f.location)) // your location rule, applied to older finds too
       .sort((a, b) => b.foundAt.localeCompare(a.foundAt)),

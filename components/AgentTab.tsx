@@ -1,5 +1,6 @@
 'use client';
 import LiveFeed from './LiveFeed';
+import FeedPanel, { hasFeed } from './FeedPanel';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ago, api, setTrack } from './api';
 import FitDrawer, { type FitJob } from './FitDrawer';
@@ -154,6 +155,7 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
           </div>
         </div>
       )}
+      {cur && hasFeed(cur.id) && <FeedPanel missionId={cur.id} />}
       {cur && (cur.id === 'li-posts' || cur.id === 'x-posts') && <LiveFeed kind={cur.id === 'li-posts' ? 'li' : 'x'} query={liveQ} toast={toast} />}
       {cur && (cur.id === 'li-posts' || cur.id === 'x-posts') && <div className="small muted" style={{ margin: '4px 2px 8px' }}>Below: hiring <b>posts</b> found through web search (last 24 h only, date proven from the post id). Search engines index posts with a delay, so this list is smaller than the live panel — that is normal, not a fault.</div>}
       {!cur && <>
