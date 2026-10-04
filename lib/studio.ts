@@ -51,8 +51,9 @@ export const TOOLS: Record<ToolId, { label: string; desc: string; args: string }
   http_get: { label: 'Call a public API / URL', desc: 'GET any public https URL (JSON or text)', args: '{"url":""}' },
   ask_agent: { label: 'Ask another agent', desc: 'delegate a sub-task to one of the other agents you are allowed to call; it runs with ITS tools and returns its report', args: '{"agent":"agent name","task":""}' },
 };
-export type Mode = 'autonomous' | 'plan_execute' | 'reflexion' | 'tree' | 'team' | 'pipeline' | 'debate' | 'swarm' | 'router' | 'monitor';
+export type Mode = 'deep_research' | 'autonomous' | 'plan_execute' | 'reflexion' | 'tree' | 'team' | 'pipeline' | 'debate' | 'swarm' | 'router' | 'monitor';
 export const MODES: Record<Mode, { label: string; desc: string; members: boolean }> = {
+  deep_research: { label: '🔬 Deep research', desc: 'Like Claude research: plans sub-questions, searches wide, reads 10-25 sources, finds gaps, digs again (1-3 rounds), writes a long cited report.', members: false },
   autonomous: { label: '🧠 Autonomous (ReAct)', desc: 'Reasons, picks a tool, acts, checks the result and repeats until done.', members: false },
   plan_execute: { label: '🗺 Plan & execute', desc: 'Writes a step-by-step plan first, executes each step with tools, then synthesises.', members: false },
   reflexion: { label: '🔁 Reflexion', desc: 'Does the job, critiques its own answer, then retries with the lessons learned.', members: false },
@@ -95,7 +96,7 @@ export interface SkillDef {
   createdAt: string; updatedAt: string;
 }
 export interface Step { who: string; thought: string; tool?: string; args?: unknown; observation?: string; at: number }
-export interface Report { title: string; summary: string; findings: { title: string; detail: string; url?: string }[]; actions: string[]; newSinceLast?: boolean }
+export interface Report { title: string; summary: string; findings: { title: string; detail: string; url?: string }[]; actions: string[]; newSinceLast?: boolean; body?: string; sources?: { n: number; title: string; url: string }[] }
 export interface Review { round: number; score: number; verdict: 'pass' | 'fail'; asked: string; done: string; gaps: string[]; fix: string }
 export interface Run { id: string; agentId: string; at: string; ms: number; trigger: 'manual' | 'schedule' | 'chat' | 'delegate'; steps: Step[]; report: Report | null; delivered: string[]; error?: string; reviews?: Review[]; approved?: boolean; models?: string[] }
 
@@ -204,7 +205,7 @@ async function callApiSkill(sk: SkillDef, input: string): Promise<string> {
 // ---------- tools ----------
 const trim = (s: string, n: number) => (s.length > n ? `${s.slice(0, n)}…` : s);
 /** Everything one run needs; isolation = an agent only sees its own tools, skills, memory and allowed agents. */
-interface Ctx { a: AgentDef; skills: SkillDef[]; deadline: number; steps: Step[]; depth: number; models: Set<string>; seen: string[] }
+interface Ctx { a: AgentDef; skills: SkillDef[]; deadline: number; steps: Step[]; depth: number; models: Set<string>; seen: string[]; research?: { body: string; sources: { n: number; title: string; url: string }[] } }
 async function runTool(ctx: Ctx, tool: string, args: Record<string, unknown>): Promise<string> {
   const agentId = ctx.a.id;
   if (tool.startsWith('skill_')) {
@@ -386,6 +387,7 @@ async function work(ctx: Ctx, base: string, task: string): Promise<string> {
       ctx.steps.push({ who: 'Swarm vote', thought: `Disagreements: ${(v?.disagreements || []).join('; ') || 'none'}`, at: Date.now() });
       return `${v?.consensus || ''}\n\nDISAGREEMENTS: ${(v?.disagreements || []).join('; ')}\n\n${outs}`;
     }
+    case 'deep_research': return deepResearch(ctx, me.system, me.ref, task, dl);
     case 'router': {
       const r = await ask<{ member: string; why: string }>(ctx, `You route tasks. ${OBEY}`, `TASK: ${task}\nMEMBERS:\n${a.members.map((m) => `- ${m.name}: ${m.role}`).join('\n')}\nPick the single best member. JSON: {"member":"","why":""}`, me.ref, 400);
       const m = a.members.find((x) => x.name.toLowerCase() === String(r?.member || '').toLowerCase()) || a.members[0];
@@ -395,6 +397,58 @@ async function work(ctx: Ctx, base: string, task: string): Promise<string> {
     default:
       return solo(task);
   }
+}
+
+// ---------- deep research (breadth → read → gaps → depth → cited report) ----------
+interface Note { n: number; url: string; title: string; date: string; facts: string[] }
+async function deepResearch(ctx: Ctx, system: string, ref: LlmOpts, task: string, deadline: number): Promise<string> {
+  const rounds = ctx.a.thinking.depth === 'elite' ? 3 : ctx.a.thinking.depth === 'deep' ? 2 : 1;
+  const notes: Note[] = [];
+  const seenUrls = new Set<string>();
+  const plan = await ask<{ questions: string[]; queries: string[] }>(ctx, `${system}\n${OBEY}`, `RESEARCH TOPIC: ${task}\nToday: ${new Date().toISOString().slice(0, 10)}.\nBreak it into 4-7 sub-questions that together fully answer it, and 6-10 diverse web search queries (different angles, primary sources, recent data, contrarian views; add the year for time-sensitive facts). JSON: {"questions":[""],"queries":[""]}`, ref, 1500);
+  const questions = plan?.questions?.slice(0, 7) || [task];
+  let queries = plan?.queries?.slice(0, 10) || [task];
+  ctx.steps.push({ who: 'Research planner', thought: `Sub-questions:\n- ${questions.join('\n- ')}\nQueries:\n- ${queries.join('\n- ')}`, at: Date.now() });
+  for (let round = 1; round <= rounds; round++) {
+    if (Date.now() > deadline - 80000) break;
+    // breadth: every query in parallel (web + news)
+    const hits = (await pool(queries, 5, async (q) => {
+      const [w, n] = await Promise.allSettled([webSearch(q, 8, 'any'), newsSearch([q], 365, { perQuery: 6 })]);
+      const out: { title: string; url: string; snippet: string; date: string }[] = [];
+      if (w.status === 'fulfilled') out.push(...w.value.results.map((x) => ({ title: x.title, url: x.url, snippet: x.snippet.slice(0, 220), date: (x.date || '').slice(0, 10) })));
+      if (n.status === 'fulfilled') out.push(...n.value.items.map((x) => ({ title: x.title, url: x.url, snippet: x.source, date: (x.date || '').slice(0, 10) })));
+      return out;
+    })).flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
+    const uniq = hits.filter((h, i) => h.url && !seenUrls.has(h.url) && hits.findIndex((x) => x.url === h.url) === i);
+    ctx.steps.push({ who: `Search (round ${round})`, thought: `${queries.length} queries → ${uniq.length} new sources`, tool: 'web_search', args: { queries }, at: Date.now() });
+    ctx.seen.push(uniq.map((u) => u.url).join(' '));
+    if (!uniq.length) break;
+    // pick the best sources to read
+    const pick = await ask<{ read: number[] }>(ctx, `You pick sources for a researcher. Prefer primary sources, official data, recent reputable reporting, expert analysis; avoid SEO spam and duplicates. ${OBEY}`, `TOPIC: ${task}\nSUB-QUESTIONS: ${questions.join(' | ')}\nCANDIDATES:\n${uniq.slice(0, 60).map((h, i) => `[${i}] ${h.title} — ${h.url} ${h.date} ${h.snippet}`).join('\n')}\nPick the ${round === 1 ? 10 : 6} most valuable to read fully. JSON: {"read":[0]}`, ref, 600);
+    const chosen = (pick?.read || []).map((i) => uniq[Number(i)]).filter(Boolean).slice(0, round === 1 ? 10 : 6);
+    for (const c of chosen) seenUrls.add(c.url);
+    // read + extract facts (parallel)
+    const read = await pool(chosen, 4, async (c) => {
+      const text = await readPage(c.url, 9000).catch(() => '');
+      ctx.seen.push(text);
+      if (text.length < 300) return null;
+      const ex = await ask<{ facts: string[]; date: string }>(ctx, `Extract facts relevant to the research topic. Keep numbers, names, dates and short exact quotes. No opinions. ${OBEY}`, `TOPIC: ${task}\nSUB-QUESTIONS: ${questions.join(' | ')}\nSOURCE: ${c.title} (${c.url})\n---\n${text.slice(0, 8000)}\n---\nJSON: {"date":"publication date if visible","facts":["fact with number/name"]}`, ref, 1200).catch(() => null);
+      return ex?.facts?.length ? { url: c.url, title: c.title, date: ex.date || c.date, facts: ex.facts.slice(0, 12) } : null;
+    });
+    for (const r of read) if (r.status === 'fulfilled' && r.value) notes.push({ n: notes.length + 1, ...r.value });
+    ctx.steps.push({ who: `Reader (round ${round})`, thought: `Read ${chosen.length} sources, ${notes.length} with usable facts so far`, tool: 'read_page', args: { urls: chosen.map((c) => c.url) }, at: Date.now() });
+    if (round === rounds || Date.now() > deadline - 90000) break;
+    // gaps → next round's queries
+    const gap = await ask<{ gaps: string[]; queries: string[] }>(ctx, `You are a demanding research lead. ${OBEY}`, `TOPIC: ${task}\nSUB-QUESTIONS: ${questions.join(' | ')}\nWHAT WE KNOW:\n${notes.map((x) => `[${x.n}] ${x.facts.join(' • ')}`).join('\n').slice(0, 9000)}\nWhat is still unanswered, weakly sourced or contradictory? Give 3-6 sharper follow-up queries. JSON: {"gaps":[""],"queries":[""]}`, ref, 900);
+    if (!gap?.queries?.length) break;
+    queries = gap.queries.slice(0, 6);
+    ctx.steps.push({ who: `Gap analysis (round ${round})`, thought: `Gaps: ${(gap.gaps || []).join(' | ')}`, at: Date.now() });
+  }
+  if (!notes.length) return 'No readable sources found for this topic.';
+  const w = await ask<{ report: string }>(ctx, `${system}\nYou write decision-grade research reports. ${OBEY}`, `TOPIC: ${task}\nSUB-QUESTIONS: ${questions.join(' | ')}\nNOTES (cite as [n]):\n${notes.map((x) => `[${x.n}] ${x.title} (${x.date || 'n.d.'}): ${x.facts.join(' • ')}`).join('\n').slice(0, 14000)}\n\nWrite the full report in markdown: ## Executive summary (5 bullets) · one ## section per sub-question with numbers and [n] citations after every claim · ## Contradictions & uncertainty · ## What this means for the owner (blunt, actionable) · no sources list (added automatically). Only use the notes. JSON: {"report":"markdown"}`, ref, 4000, 120000);
+  const sources = notes.map((x) => `[${x.n}] ${x.title} — ${x.url}`).join('\n');
+  ctx.research = { body: w?.report || notes.map((x) => `[${x.n}] ${x.facts.join(' • ')}`).join('\n'), sources: notes.map((x) => ({ n: x.n, title: x.title, url: x.url })) };
+  return `${ctx.research.body}\n\nSOURCES:\n${sources}`;
 }
 
 // ---------- supervisor: compares what was asked vs what was done, sends it back until it passes ----------
@@ -458,6 +512,7 @@ ${memory.length ? `YOUR MEMORY FROM EARLIER RUNS:\n- ${memory.slice(0, 25).join(
       `Turn this work into the final report for your owner. Keep every concrete item (names, numbers, links). Be brutally honest about what was NOT achieved. ${a.report.onlyIfNew && prev?.report ? `Set newSinceLast=false if nothing meaningfully new vs the last run (${prev.report.findings.map((f) => f.title).slice(0, 15).join('; ')}).` : 'newSinceLast=true.'}
 ${last ? `SUPERVISOR: ${last.verdict.toUpperCase()} ${last.score}/10${last.gaps.length ? `, open gaps: ${last.gaps.join('; ')}` : ''} — mention unresolved gaps in the summary.\n` : ''}WORK:\n${raw.slice(0, 16000)}\nJSON: {"title":"","summary":"3-6 sentences","findings":[{"title":"","detail":"","url":""}],"actions":["what the owner should do next"],"newSinceLast":true}`, llm(a.model), 3500, 90000);
     const report: Report = rep ? { title: rep.title || a.name, summary: rep.summary || '', findings: (rep.findings || []).slice(0, 40), actions: rep.actions || [], newSinceLast: rep.newSinceLast !== false } : { title: a.name, summary: raw.slice(0, 2000), findings: [], actions: [], newSinceLast: true };
+    if (ctx.research) { report.body = ctx.research.body; report.sources = ctx.research.sources; }
     if (reviews?.length && !approved) report.summary = `⚠ Supervisor did NOT approve (best ${Math.max(...reviews.map((r) => r.score))}/10 after ${reviews.length} round${reviews.length > 1 ? 's' : ''}). ${report.summary}`;
     const run: Run = { id: randomBytes(4).toString('hex'), agentId: a.id, at: new Date().toISOString(), ms: Date.now() - t0, trigger, steps: ctx.steps, report, delivered: [], reviews, approved, models: [...ctx.models] };
     if (trigger !== 'chat' && trigger !== 'delegate' && (!a.report.onlyIfNew || report.newSinceLast !== false)) run.delivered = await deliver(a, report);
@@ -496,7 +551,7 @@ export async function agentChat(a: AgentDef, text: string): Promise<{ reply: str
   const history = await getJSON<{ role: 'user' | 'agent'; text: string; at: string }[]>(`studio:chat:${a.id}`, []);
   const ctx = history.slice(-10).map((m) => `${m.role === 'user' ? 'OWNER' : 'YOU'}: ${m.text.slice(0, 800)}`).join('\n');
   const run = await runAgentDef(a, 'chat', `${ctx ? `Conversation so far:\n${ctx}\n\n` : ''}The owner now says: ${text}\nDo what they ask (use your tools as needed) and answer them directly.`, 200000);
-  const reply = run.report ? `**${run.report.title}**\n\n${run.report.summary}${run.report.findings.length ? `\n\n${run.report.findings.map((f) => `- **${f.title}** — ${f.detail}${f.url ? ` (${f.url})` : ''}`).join('\n')}` : ''}${run.report.actions.length ? `\n\n**Next:**\n${run.report.actions.map((x) => `- ${x}`).join('\n')}` : ''}` : `Failed: ${run.error}`;
+  const reply = run.report?.body ? `**${run.report.title}**\n\n${run.report.body}\n\n**Sources**\n${(run.report.sources || []).map((x) => `[${x.n}] ${x.title} — ${x.url}`).join('\n')}` : run.report ? `**${run.report.title}**\n\n${run.report.summary}${run.report.findings.length ? `\n\n${run.report.findings.map((f) => `- **${f.title}** — ${f.detail}${f.url ? ` (${f.url})` : ''}`).join('\n')}` : ''}${run.report.actions.length ? `\n\n**Next:**\n${run.report.actions.map((x) => `- ${x}`).join('\n')}` : ''}` : `Failed: ${run.error}`;
   const now = new Date().toISOString();
   await setJSON(`studio:chat:${a.id}`, [...history, { role: 'user', text, at: now }, { role: 'agent', text: reply, at: now }].slice(-60));
   return { reply, run };

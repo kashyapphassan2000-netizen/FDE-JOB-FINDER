@@ -64,6 +64,7 @@ export const EXTRA_SOURCES: SourceDef[] = [
   },
   {
     id: 'mercor',
+    retired: 'Retired: 6 relevant of 215 fetched — mostly data-labelling gigs, not engineering roles',
     name: 'Mercor (remote AI contracts)',
     group: 'Job boards',
     keyless: true,
@@ -117,6 +118,7 @@ export const EXTRA_SOURCES: SourceDef[] = [
   },
   {
     id: 'nodesk',
+    retired: 'Retired: 0 relevant of 10 fetched',
     name: 'NoDesk remote jobs',
     group: 'Job boards',
     keyless: true,

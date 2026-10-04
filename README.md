@@ -51,6 +51,15 @@ Without Redis env vars the app runs in memory mode (data resets on restart).
 5. Agent studio → open an agent → Brain → choose the 💻 local model (tick "only this model" to keep data on your PC).
 While the local app runs, scheduled agents run every 5 minutes (`LOCAL_SCHEDULER=0` disables it).
 
+## Background worker (no time limits)
+`npm run worker` runs every pipeline (refresh, semantic ranking + outreach drafts, careers index, watched companies, agent searches, custom agents, zero-day radar, weekly CV gap) on any machine with the same env vars as the app. It shares locks with the Vercel crons, so jobs never run twice. `npm run worker -- once` runs one cycle and exits.
+
+## Use the app from Claude Code (any model, via free-claude-code)
+1. Agent studio → 🔌 Connect Claude Code → create a token.
+2. `claude mcp add --transport http fde-job-finder https://<your-app>/api/mcp --header "Authorization: Bearer <token>"`
+3. Optional, any model for free: install [free-claude-code](https://github.com/alishahryar1/free-claude-code), run `fcc-server`, pick a provider/model, then `fcc-claude`.
+Tools: search_jobs, careers_search, analyze_job, find_referrals, deep_research, run_agent, list_agents, web_search, read_page, news, zero_day_radar, market_today, my_cv, resume_gap. Your Agent-studio skills appear as prompts.
+
 ## Updating the Excel
 Replace `data/source_workbook.xlsx` and run `npm run excel` (needs Python + `pip install openpyxl`), then commit & push — Vercel redeploys automatically. Row tracking is keyed by `sheet:row`, so keep row order stable if you want existing ticks to stay aligned.
 

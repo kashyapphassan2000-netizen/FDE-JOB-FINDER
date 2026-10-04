@@ -8,7 +8,7 @@ import { locationAllowed, locationTags } from './classify';
  *  exclude   : words that kill a job (title or company)
  *  exp       : years of experience you want (jobs clearly outside are dropped)
  */
-export interface Profile { roles: string[]; locations: string[]; exclude: string[]; expMin: number; expMax: number; mustAny: string[] }
+export interface Profile { roles: string[]; locations: string[]; exclude: string[]; expMin: number; expMax: number; mustAny: string[]; tech?: string[] }
 
 export const ROLE_LIB: Record<string, string> = {
   'Forward Deployed Engineer': 'forward[\\s-]*deploy|\\bfde\\b|deployed (ai |software )?engineer',
@@ -33,6 +33,7 @@ export const DEFAULT_PROFILE: Profile = {
   locations: ['Bengaluru', 'Remote (India OK)'],
   exclude: ['intern', 'internship', 'sales development', 'account executive', 'recruiter', 'marketing', 'paralegal'],
   expMin: 0, expMax: 30, mustAny: [],
+  tech: ['LLM deployment', 'RAG', 'AI agents', 'vLLM', 'TensorRT-LLM', 'Triton', 'CUDA', 'Ray', 'Kubernetes', 'Python', 'evals', 'customer-facing integration'],
 };
 
 const ALIAS: Record<string, string[]> = {

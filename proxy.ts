@@ -2,13 +2,13 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { SESSION_COOKIE, verifySession } from './lib/auth';
 
 // Everything is private except the login page, auth API, cron endpoint (own secret) and health ping.
-const PUBLIC = [/^\/login/, /^\/api\/auth\//, /^\/api\/cron/, /^\/api\/health/];
+const PUBLIC = [/^\/login/, /^\/api\/auth\//, /^\/api\/cron/, /^\/api\/health/, /^\/api\/mcp$/]; // /api/mcp checks its own bearer token
 
 // Owner-only areas: settings, API keys / AI providers, access & limits, sources, refresh of the shared feed,
 // digest / test alerts, job alerts for other people, adding companies to the shared boards list.
 const OWNER_ONLY = [/^\/api\/(settings|vault|sources|digest|notify|subscribers|companies\/detect|refresh|access)(\/|$)/, /^\/api\/ai\/(profiles|models|test)(\/|$)/];
 // shared market data: everyone can read, only the owner can force a rescan / edit
-const OWNER_WRITE = [/^\/api\/(discover|intel|trends|platforms|opportunities|directory)(\/|$)/];
+const OWNER_WRITE = [/^\/api\/(discover|intel|trends|platforms|opportunities|directory|radar)(\/|$)/];
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;

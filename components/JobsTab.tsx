@@ -30,7 +30,11 @@ export default function JobsTab({ data, reload, toast, onOutreach }: { data: Job
   const [quick, setQuick] = useState<'all' | 'blr' | 'remote' | 'fde' | 'saved'>('all');
   const [src, setSrc] = useState('');
   const [sen, setSen] = useState('');
-  const [sort, setSort] = useState<'prio' | 'blr' | 'score' | 'new' | 'cv'>('prio');
+  const [sort, setSort] = useState<'prio' | 'blr' | 'score' | 'new' | 'cv' | 'ai'>('prio');
+  const [ranking, setRanking] = useState(false);
+  // raw cosine values sit in a narrow band (≈0.80–0.92) → show where a job stands relative to the rest
+  const semSorted = useMemo(() => Object.values(data?.sem || {}).map((x) => x.s).sort((a, b) => a - b), [data?.sem]);
+  const semPct = (v: number) => (semSorted.length ? (semSorted.filter((x) => x <= v).length / semSorted.length) * 100 : 0);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [onlyPrio, setOnlyPrio] = useState(false);
   useEffect(() => { api<{ profile: Profile }>('/api/profile').then((d) => setProfile(d.profile)).catch(() => {}); }, []);
@@ -95,6 +99,7 @@ export default function JobsTab({ data, reload, toast, onOutreach }: { data: Job
     if (sort === 'blr') out = [...out].sort((a, b) => rank(a.locTags) - rank(b.locTags) || Date.parse(b.postedAt || b.firstSeen) - Date.parse(a.postedAt || a.firstSeen));
     if (sort === 'new') out = [...out].sort((a, b) => Date.parse(b.postedAt || b.firstSeen) - Date.parse(a.postedAt || a.firstSeen));
     if (sort === 'cv') out = [...out].sort((a, b) => b.cvMatch - a.cvMatch || b.score - a.score);
+    if (sort === 'ai') { const S = data?.sem || {}; const v = (id: string) => (S[id]?.r ?? -1) * 10 + (S[id]?.s ?? 0); out = [...out].sort((a, b) => v(b.id) - v(a.id)); }
     return out;
   }, [jobs, track, q, roles, domains, regions, win, src, sen, sort, hideTracked, onlyNew, lastVisit, hiddenOnly, salaryOnly, exp, quick, profile, onlyPrio]);
 
@@ -143,11 +148,12 @@ export default function JobsTab({ data, reload, toast, onOutreach }: { data: Job
           <input className="grow" placeholder="Search title, company, location…" value={q} onChange={(e) => setQ(e.target.value)} />
           <select value={win} onChange={(e) => setWin(e.target.value)}>{WINDOWS.map(([v, l]) => <option key={v} value={v}>Posted: {l}</option>)}</select>
           <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
-            <option value="prio">Sort: my priorities (roles → locations → newest)</option><option value="blr">Sort: Bengaluru first, then remote</option><option value="score">Sort: best match</option><option value="new">Sort: newest</option><option value="cv">Sort: CV match</option>
+            <option value="prio">Sort: my priorities (roles → locations → newest)</option><option value="blr">Sort: Bengaluru first, then remote</option><option value="score">Sort: best match</option><option value="new">Sort: newest</option><option value="cv">Sort: CV match</option><option value="ai">Sort: 🧠 best AI match (semantic + rerank)</option>
           </select>
           <select value={exp} onChange={(e) => setExp(e.target.value)}>{EXP.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
           <label className="small"><input type="checkbox" checked={onlyPrio} onChange={(e) => setOnlyPrio(e.target.checked)} /> only my priority roles & locations</label>
           <button onClick={() => setShowFilters(!showFilters)}>{showFilters ? 'Hide filters' : 'Filters'}</button>
+          <button disabled={ranking} title={data?.semMeta ? `Last ranked ${ago(data.semMeta.at)} ago · ${data.semMeta.engine} + ${data.semMeta.reranker}` : 'Embeds every job and your profile, then reranks your top 50 against your tech stack'} onClick={async () => { setRanking(true); try { const r = await api<{ embedded: number; reranked: number; engine: string; reranker: string; ms: number }>('/api/jobs', { method: 'POST', body: JSON.stringify({ action: 'semantic' }) }); toast(`🧠 Ranked: ${r.embedded} jobs embedded, top ${r.reranked} reranked (${r.engine} · ${r.reranker}) in ${Math.round(r.ms / 1000)}s`); setSort('ai'); reload(); } catch (e) { toast((e as Error).message); } finally { setRanking(false); } }}>{ranking ? '🧠 Ranking…' : '🧠 Rank with AI'}</button>
           <button onClick={clear}>Clear</button>
         </div>
         {showFilters && (
@@ -210,6 +216,8 @@ export default function JobsTab({ data, reload, toast, onOutreach }: { data: Job
                   {j.postedAt && Date.now() - Date.parse(j.postedAt) < 864e5 && <span className="jr-pill early">⚡ Be an early applicant</span>}
                   {j.hidden && <span className="jr-pill gem">💎 Low competition</span>}
                   {(j.flags || []).map((f) => <span key={f} className={`jr-pill ${f.startsWith('⚠') ? 'bad' : 'warn'}`}>{f}</span>)}
+                  {data?.sem?.[j.id] && <span className={`jr-pill ${(data.sem[j.id].r ?? 0) >= 0.85 ? 'gem' : 'early'}`} title={data.sem[j.id].why || 'semantic similarity to your profile'}>🧠 {data.sem[j.id].r !== undefined ? `fit ${Math.round(data.sem[j.id].r! * 100)}%` : `top ${Math.max(1, Math.round(100 - semPct(data.sem[j.id].s)))}%`}</span>}
+                  {data?.drafts?.[j.id] && <span className="jr-pill gem" title={data.drafts[j.id].text}>✉ outreach draft ready</span>}
                 </div>
                 <div className="jr-id">
                   <div className="jr-logo" style={{ ['--h' as string]: hue(j.company) }}>{(j.company || '?').replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase()}</div>

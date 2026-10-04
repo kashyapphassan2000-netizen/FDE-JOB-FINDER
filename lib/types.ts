@@ -47,6 +47,8 @@ export interface SourceDef {
   defaultIntervalMin: number; // cooldown between runs
   covers: string; // which platforms it covers
   docs: string; // where to get the key
+  /** retired = not run on normal refreshes (reason shown on Sources page); still runnable on its own */
+  retired?: string;
   run: (ctx: SourceContext) => Promise<RawJob[]>;
 }
 

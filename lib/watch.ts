@@ -1,7 +1,7 @@
 import type { CompanyEntry, RawJob } from './types';
 import { atsFromUrl, guessAts, probe } from './atsdetect';
 import { FETCHERS } from './sources/ats';
-import { extract } from './sources/careerpages';
+import { readRoles } from './sources/careerpages';
 import { getSettings, saveSettings } from './settings';
 import { getJobs } from './refresh';
 import { getJSON, hdel, hgetall, hset, setJSON } from './store';
@@ -64,26 +64,6 @@ export function locationMatch(loc: string, title: string, wanted: string[]): boo
 }
 
 // ---------- mapping ----------
-/** Read a careers page; if it lists no roles, follow up to 3 "open positions / search jobs" links on it (one hop). */
-async function readRoles(name: string, url: string): Promise<{ jobs: RawJob[]; url: string; md: string }> {
-  const md = await readPage(url, 30000);
-  if (!md || md.length < 300) throw new Error('page is empty to readers (login wall or heavy JavaScript)');
-  const jobs = await extract(name, url, md);
-  if (jobs.length) return { jobs, url, md };
-  const host = new URL(url).hostname.split('.').slice(-2).join('.');
-  const links = [...md.matchAll(/\[([^\]]{2,80})\]\((https?:\/\/[^)\s]+)\)/g)]
-    .filter(([, text, u]) => /job|position|opening|role|vacanc|search|explore|see all|view all|career/i.test(`${text} ${u}`) && u.includes(host) && u.split('#')[0] !== url.split('#')[0])
-    .map(([, , u]) => u).filter((u, i, a) => a.indexOf(u) === i).slice(0, 3);
-  for (const u of links) {
-    try {
-      const md2 = await readPage(u, 30000);
-      const j2 = md2.length > 300 ? await extract(name, u, md2) : [];
-      if (j2.length) return { jobs: j2, url: u, md: md2 };
-    } catch {}
-  }
-  return { jobs: [], url, md };
-}
-
 async function mapOne(input: string, careersUrl?: string): Promise<Omit<WatchEntry, 'locations' | 'addedAt'>> {
   const raw = input.trim();
   const url = /^https?:\/\//i.test(raw) ? raw : careersUrl && /^https?:\/\//i.test(careersUrl) ? careersUrl : '';

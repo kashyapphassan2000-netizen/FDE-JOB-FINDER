@@ -76,7 +76,7 @@ export const COMMUNITY_SOURCES: SourceDef[] = [
     group: 'Community & social',
     keyless: true,
     envKeys: [],
-    defaultIntervalMin: 60,
+    defaultIntervalMin: 20, // the monthly thread is picked up within ~20-30 min of going live
     covers: 'news.ycombinator.com monthly thread (also what hn.hiring-search.com indexes)',
     docs: 'https://hn.algolia.com/api',
     run: async (ctx) => {
@@ -94,8 +94,11 @@ export const COMMUNITY_SOURCES: SourceDef[] = [
         for (const h of r.value.hits || []) {
           if (seen.has(h.objectID) || h.parent_id !== Number(story.objectID)) continue;
           seen.add(h.objectID);
-          const text = stripHtml(h.comment_text || '', 1200);
-          const first = text.split(/\s{2,}|\n/)[0].slice(0, 220);
+          const raw = stripHtml(h.comment_text || '', 4000);
+          // direct founder / hiring emails (often obfuscated "name [at] co [dot] com") go first — they beat any apply form
+          const emails = Array.from(new Set((raw.replace(/\s*[\[(]\s*at\s*[\])]\s*/gi, '@').replace(/\s*[\[(]\s*dot\s*[\])]\s*/gi, '.').match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,7}\b/g) || []).map((e) => e.toLowerCase())));
+          const text = `${emails.length ? `📧 ${emails.slice(0, 3).join(', ')} · ` : ''}${raw.slice(0, 1200)}`;
+          const first = raw.split(/\s{2,}|\n/)[0].slice(0, 220);
           const parts = first.split('|').map((s) => s.trim());
           out.push({
             title: parts[1] && parts[1].length < 120 ? parts[1] : first.slice(0, 140),

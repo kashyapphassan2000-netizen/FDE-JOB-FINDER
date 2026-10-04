@@ -18,7 +18,7 @@ type Review = { round: number; score: number; verdict: 'pass' | 'fail'; asked: s
 const NO_MODEL: ModelRef = { profileId: '', model: '', strict: false };
 const BLANK_SKILL: Skill = { name: '', description: '', kind: 'prompt', instructions: '', tools: [], api: { method: 'GET', url: '', headers: '', body: '' } };
 type Step = { who: string; thought: string; tool?: string; args?: unknown; observation?: string; at: number };
-type Report = { title: string; summary: string; findings: { title: string; detail: string; url?: string }[]; actions: string[]; newSinceLast?: boolean };
+type Report = { title: string; summary: string; findings: { title: string; detail: string; url?: string }[]; actions: string[]; newSinceLast?: boolean; body?: string; sources?: { n: number; title: string; url: string }[] };
 type Run = { id: string; at: string; ms: number; trigger: string; steps: Step[]; report: Report | null; delivered: string[]; error?: string; reviews?: Review[]; approved?: boolean; models?: string[] };
 type ChatMsg = { role: 'user' | 'agent'; text: string; at: string };
 
@@ -34,6 +34,8 @@ const TEMPLATES: (Partial<Agent> & { label: string; blurb: string })[] = [
   { label: 'Research team', blurb: 'A multi-agent team: researcher, analyst, critic and writer for any deep question.', emoji: '👥', type: 'team', schedule: 'manual', tools: ['web_search', 'read_page', 'news'],
     goal: 'Answer the research question I give you with a deep, sourced, decision-ready report.', rules: 'Cite every claim. Separate facts from judgement. End with a clear recommendation.',
     members: [{ name: 'Researcher', role: 'finds and reads primary sources', instructions: 'Search widely, open the best 4-6 pages, extract facts with links.', tools: ['web_search', 'read_page', 'news'], skills: [], model: NO_MODEL }, { name: 'Analyst', role: 'numbers, comparisons, market view', instructions: 'Compare options with numbers; use market data.', tools: ['web_search', 'market'], skills: [], model: NO_MODEL }, { name: 'Contrarian', role: 'finds risks and counter-evidence', instructions: 'Look for what could go wrong and evidence against the obvious answer.', tools: ['web_search', 'news'], skills: [], model: NO_MODEL }] },
+  { label: 'Deep research', blurb: 'Give any topic — it plans sub-questions, searches wide, reads 10-25 sources, digs into gaps and writes a long cited report (like Claude research).', emoji: '🔬', type: 'deep_research', schedule: 'manual', tools: ['web_search', 'read_page', 'news'], thinking: { depth: 'elite', style: '' },
+    goal: 'Research the topic I give you in depth and write a decision-grade report with citations.', rules: 'Every claim cited. Prefer primary sources and data from the last 12 months. Say clearly what is uncertain.' },
   { label: 'Decision debate', blurb: 'Two agents argue for and against (offer A vs B, learn X vs Y, switch job or not); a judge decides on evidence.', emoji: '⚖', type: 'debate', schedule: 'manual', tools: ['web_search', 'read_page', 'news', 'market'], thinking: { depth: 'elite', style: '' },
     goal: 'Decide the question I give you. Use real data (salaries, market demand, company health) and give a clear verdict for me — an FDE / AI engineer in Bengaluru.', rules: 'Evidence over opinion. Cite links. Give one clear decision at the end.' },
   { label: 'Elite planner', blurb: 'Plan & execute with Elite thinking and a strict supervisor — for big multi-step jobs.', emoji: '🗺', type: 'plan_execute', schedule: 'manual', tools: ['web_search', 'read_page', 'news', 'company_jobs', 'my_cv', 'market'], thinking: { depth: 'elite', style: '' },
@@ -47,7 +49,7 @@ const TEMPLATES: (Partial<Agent> & { label: string; blurb: string })[] = [
 
 function Md({ text }: { text: string }) {
   const inline = (s: string) => s.split(/(\*\*[^*]+\*\*|https?:\/\/[^\s)]+)/g).map((p, i) => (p.startsWith('**') ? <b key={i}>{p.slice(2, -2)}</b> : /^https?:\/\//.test(p) ? <a key={i} href={p} target="_blank" rel="noreferrer">{p.replace(/^https?:\/\/(www\.)?/, '').slice(0, 50)}</a> : <Fragment key={i}>{p}</Fragment>));
-  return <div className="md">{text.split('\n').map((l, i) => { const t = l.trim(); if (!t) return null; if (/^[-*•]\s/.test(t)) return <div key={i} className="md-li">• {inline(t.replace(/^[-*•]\s/, ''))}</div>; return <p key={i}>{inline(t)}</p>; })}</div>;
+  return <div className="md">{text.split('\n').map((l, i) => { const t = l.trim(); if (!t) return null; if (/^#{1,4}\s/.test(t)) return <h4 key={i} style={{ margin: '12px 0 4px' }}>{inline(t.replace(/^#+\s/, ''))}</h4>; if (/^[-*•]\s/.test(t)) return <div key={i} className="md-li">• {inline(t.replace(/^[-*•]\s/, ''))}</div>; return <p key={i}>{inline(t)}</p>; })}</div>;
 }
 
 export default function StudioTab({ toast }: { toast: (s: string) => void }) {
@@ -61,7 +63,10 @@ export default function StudioTab({ toast }: { toast: (s: string) => void }) {
   const [hosted, setHosted] = useState(true);
   const [channels, setChannels] = useState<{ whatsapp: boolean; canEmailAnyone: boolean; email: boolean } | null>(null);
   const [sel, setSel] = useState<string | null>(null);
-  const [mode, setMode] = useState<'gallery' | 'edit' | 'view' | 'skills' | 'local' | null>(null);
+  const [mode, setMode] = useState<'gallery' | 'edit' | 'view' | 'skills' | 'local' | 'connect' | null>(null);
+  const [tokens, setTokens] = useState<{ id: string; label: string; createdAt: string; lastUsed?: string }[]>([]);
+  const [mcpUrl, setMcpUrl] = useState('');
+  const [newToken, setNewToken] = useState('');
   const [draft, setDraft] = useState<Agent>(BLANK);
   const [tab, setTab] = useState<'chat' | 'runs' | 'settings'>('chat');
   const [runs, setRuns] = useState<Run[]>([]);
@@ -73,7 +78,7 @@ export default function StudioTab({ toast }: { toast: (s: string) => void }) {
   const [openRun, setOpenRun] = useState<string | null>(null);
   useEffect(() => { if (!busy) return; setSecs(0); const t = setInterval(() => setSecs((x) => x + 1), 1000); return () => clearInterval(t); }, [busy]);
 
-  const load = useCallback(() => api<{ agents: Agent[]; skills: Skill[]; tools: Record<string, { label: string; desc: string }>; modes: Record<string, ModeInfo>; depths: Record<string, string>; models: ModelOpt[]; hosted: boolean; channels: { whatsapp: boolean; canEmailAnyone: boolean; email: boolean } }>('/api/studio').then((d) => { setAgents(d.agents); setSkills(d.skills); setTools(d.tools); setModes(d.modes); setDepths(d.depths); setModels(d.models); setHosted(d.hosted); setChannels(d.channels); if (!d.agents.length) setMode((m) => m || 'gallery'); }).catch((e) => toast(e.message)), [toast]);
+  const load = useCallback(() => api<{ agents: Agent[]; skills: Skill[]; tools: Record<string, { label: string; desc: string }>; modes: Record<string, ModeInfo>; depths: Record<string, string>; models: ModelOpt[]; hosted: boolean; tokens: { id: string; label: string; createdAt: string; lastUsed?: string }[]; mcpUrl: string; channels: { whatsapp: boolean; canEmailAnyone: boolean; email: boolean } }>('/api/studio').then((d) => { setAgents(d.agents); setSkills(d.skills); setTools(d.tools); setModes(d.modes); setDepths(d.depths); setModels(d.models); setHosted(d.hosted); setTokens(d.tokens || []); setMcpUrl(d.mcpUrl || ''); setChannels(d.channels); if (!d.agents.length) setMode((m) => m || 'gallery'); }).catch((e) => toast(e.message)), [toast]);
   useEffect(() => { load(); }, [load]);
   const open = useCallback(async (id: string) => {
     setSel(id); setMode('view'); setOpenRun(null);
@@ -107,7 +112,7 @@ export default function StudioTab({ toast }: { toast: (s: string) => void }) {
   async function del() { if (!sel || !confirm(`Delete agent “${draft.name}”?`)) return; await api('/api/studio', { method: 'POST', body: JSON.stringify({ action: 'delete', id: sel }) }); setSel(null); setMode(null); load(); }
   const set = <K extends keyof Agent>(k: K, v: Agent[K]) => setDraft((d) => ({ ...d, [k]: v }));
   const toggleTool = (t: string, list: string[]) => (list.includes(t) ? list.filter((x) => x !== t) : [...list, t]);
-  const runSections = (r: Run) => [{ title: r.report?.title || 'Run', text: r.report?.summary || r.error || '' }, { title: 'Findings', headers: ['Item', 'Detail', 'Link'], rows: (r.report?.findings || []).map((f) => [f.title, f.detail, f.url || '']) }, { title: 'Do next', text: (r.report?.actions || []).map((x) => `• ${x}`).join('\n') }, { title: 'How the agent worked', headers: ['Who', 'Thought', 'Tool', 'Result (short)'], rows: r.steps.map((s) => [s.who, s.thought, s.tool || '', (s.observation || '').slice(0, 300)]) }];
+  const runSections = (r: Run) => [{ title: r.report?.title || 'Run', text: r.report?.summary || r.error || '' }, ...(r.report?.body ? [{ title: 'Full report', text: r.report.body.replace(/[#*]/g, '') }, { title: 'Sources', headers: ['#', 'Source', 'Link'], rows: (r.report.sources || []).map((x) => [String(x.n), x.title, x.url]) }] : []), { title: 'Findings', headers: ['Item', 'Detail', 'Link'], rows: (r.report?.findings || []).map((f) => [f.title, f.detail, f.url || '']) }, { title: 'Do next', text: (r.report?.actions || []).map((x) => `• ${x}`).join('\n') }, { title: 'How the agent worked', headers: ['Who', 'Thought', 'Tool', 'Result (short)'], rows: r.steps.map((s) => [s.who, s.thought, s.tool || '', (s.observation || '').slice(0, 300)]) }];
 
   const modelPick = (v: ModelRef, on: (m: ModelRef) => void, inherit = 'Auto — best available, rotates on limits') => (
     <span className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
@@ -220,6 +225,7 @@ export default function StudioTab({ toast }: { toast: (s: string) => void }) {
         <aside className="st-list">
           <button className="st-plus" onClick={() => { setDraft(BLANK); setSel(null); setMode('gallery'); }}>＋ <span>New agent</span></button>
           <div className="row" style={{ gap: 6, margin: '0 0 8px' }}><button className={`small-btn grow ${mode === 'skills' ? 'primary' : ''}`} onClick={() => { setSel(null); setMode('skills'); }}>🧩 Skills ({skills.length})</button><button className={`small-btn grow ${mode === 'local' ? 'primary' : ''}`} onClick={() => { setSel(null); setMode('local'); }}>💻 Local LLM</button></div>
+          <button className={`small-btn ${mode === 'connect' ? 'primary' : ''}`} style={{ width: '100%', marginBottom: 8 }} onClick={() => { setSel(null); setMode('connect'); }}>🔌 Connect Claude Code / FCC</button>
           {agents.map((a) => (
             <button key={a.id} className={`st-item ${sel === a.id ? 'on' : ''}`} onClick={() => open(a.id!)}>
               <span className="st-emoji">{a.emoji}</span>
@@ -263,6 +269,30 @@ export default function StudioTab({ toast }: { toast: (s: string) => void }) {
                 </div>
               ))}
             </>
+          )}
+          {mode === 'connect' && (
+            <div className="panel">
+              <h3 style={{ marginTop: 0 }}>🔌 Use this app from Claude Code — with any model (free-claude-code)</h3>
+              <p className="small">This app is an <b>MCP server</b>. Connect Claude Code (or Codex / OpenCode / Cline) once and it can use everything here as tools — job feed with AI fit scores, every company board, job analyzer, referrals, zero-day radar, deep research, your own agents — plus <b>your skills as prompts</b>. Run Claude Code through <a href="https://github.com/alishahryar1/free-claude-code" target="_blank" rel="noreferrer">free-claude-code</a> and the model can be anything: NVIDIA NIM, OpenRouter free models, Groq, Ollama / LM Studio on your PC. Claude Code does the reasoning and coding on your machine; this app supplies the data and tools. Honest limit: “unlimited” = the free quotas of the model provider you pick in FCC; tool calls that cost AI here count against your daily limit.</p>
+              <h4>1 · Create your personal token</h4>
+              <div className="row"><button className="primary" onClick={async () => { try { const r = await api<{ token: string; tokens: typeof tokens }>('/api/studio', { method: 'POST', body: JSON.stringify({ action: 'mcp_create', label: 'Claude Code' }) }); setNewToken(r.token); setTokens(r.tokens); } catch (e) { toast((e as Error).message); } }}>＋ New token</button>
+                {newToken && <span className="small"><b>Copy it now — shown once:</b> <code style={{ wordBreak: 'break-all' }}>{newToken}</code></span>}</div>
+              <h4>2 · Add the MCP server to Claude Code (one command)</h4>
+              <pre className="st-code">{`claude mcp add --transport http fde-job-finder ${mcpUrl || 'https://fde-job-finder.vercel.app/api/mcp'} --header "Authorization: Bearer ${newToken || '<your token>'}"`}</pre>
+              <h4>3 · Run it on any model, free (free-claude-code)</h4>
+              <pre className="st-code">{`# install (macOS / Linux)
+curl -fsSL "https://raw.githubusercontent.com/Alishahryar1/free-claude-code/main/scripts/install.sh" | sh
+fcc-server        # opens the FCC Admin UI → paste e.g. NVIDIA_NIM_API_KEY or OPENROUTER_API_KEY, or point it at Ollama / LM Studio → pick MODEL → Apply
+fcc-claude        # Claude Code, routed through FCC — the fde-job-finder MCP tools are available`}</pre>
+              <p className="small muted">Then just ask, e.g. “use fde-job-finder: find my top 10 FDE roles this week, analyze the best 3, find referrers at each, and write tailored outreach” or “deep_research: which Bengaluru AI startups raised in the last 60 days and need FDEs?”. Type <code>/</code> in Claude Code to see your skills as MCP prompts.</p>
+              <h4>4 · (Optional) Run this app’s own agents on FCC models</h4>
+              <p className="small">AI &amp; Keys → add provider <b>Free Claude Code proxy</b> → Base URL from FCC’s server log → Save. Then in any agent’s 🧠 Brain pick it. Works when this app runs on the same machine as FCC (localhost) or when FCC is exposed through an https tunnel.</p>
+              <h4>5 · Export your skills to Claude Code</h4>
+              <p className="small muted">Each skill becomes <code>~/.claude/skills/&lt;name&gt;/SKILL.md</code> — Claude Code loads it automatically when relevant.</p>
+              <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>{skills.filter((k) => k.kind === 'prompt').map((k) => <button key={k.id} className="small-btn" onClick={() => { const name = k.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); const md = `---\nname: ${name}\ndescription: ${(k.description || k.instructions.slice(0, 150)).replace(/\n/g, ' ')}\n---\n\n# ${k.name}\n\n${k.instructions}\n`; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([md], { type: 'text/markdown' })); a.download = 'SKILL.md'; a.click(); toast(`Save it as ~/.claude/skills/${name}/SKILL.md`); }}>⬇ {k.name}</button>)}{!skills.some((k) => k.kind === 'prompt') && <span className="small muted">No know-how skills yet — create them in 🧩 Skills.</span>}</div>
+              <h4>Your tokens</h4>
+              {tokens.length ? <div className="tablewrap"><table><thead><tr><th>Label</th><th>Created</th><th>Last used</th><th /></tr></thead><tbody>{tokens.map((t) => <tr key={t.id}><td>{t.label}</td><td className="small">{ago(t.createdAt)} ago</td><td className="small">{t.lastUsed ? `${ago(t.lastUsed)} ago` : 'never'}</td><td><button className="small-btn danger" onClick={async () => { const r = await api<{ tokens: typeof tokens }>('/api/studio', { method: 'POST', body: JSON.stringify({ action: 'mcp_revoke', id: t.id }) }); setTokens(r.tokens); toast('Token revoked'); }}>Revoke</button></td></tr>)}</tbody></table></div> : <div className="small muted">No tokens yet.</div>}
+            </div>
           )}
           {mode === 'local' && (
             <div className="panel">
@@ -315,6 +345,7 @@ export default function StudioTab({ toast }: { toast: (s: string) => void }) {
                           {r.error && <div className="notice warn small">{r.error}</div>}
                           {r.reviews && r.reviews.length > 0 && <div className={`notice small ${r.approved ? 'ok' : 'warn'}`}><b>🕵 Supervisor: {r.approved ? 'APPROVED' : 'NOT approved'}</b> — {r.reviews.map((v) => `round ${v.round}: ${v.score}/10`).join(' → ')}{r.reviews[r.reviews.length - 1].gaps.length > 0 && <ul style={{ margin: '4px 0 0' }}>{r.reviews[r.reviews.length - 1].gaps.map((g, i) => <li key={i}>{g}</li>)}</ul>}</div>}
                           {r.models && r.models.length > 0 && <div className="small muted">Models used: {r.models.join(' · ')}</div>}
+                          {r.report?.body && <div className="st-research"><Md text={r.report.body} /><h4>Sources</h4><ol className="small">{(r.report.sources || []).map((x) => <li key={x.n}><a href={x.url} target="_blank" rel="noreferrer">{x.title}</a></li>)}</ol></div>}
                           {r.report && <><p>{r.report.summary}</p>{r.report.findings.map((f, i) => <div key={i} className="tline"><b>{f.url ? <a href={f.url} target="_blank" rel="noreferrer">{f.title} ↗</a> : f.title}</b><div className="small">{f.detail}</div></div>)}{r.report.actions.length > 0 && <div className="notice ok small"><b>Do next:</b><ul style={{ margin: '4px 0 0' }}>{r.report.actions.map((x, i) => <li key={i}>{x}</li>)}</ul></div>}</>}
                           <details className="small"><summary>How it reasoned ({r.steps.length} steps)</summary>{r.steps.map((s, i) => <div key={i} className="st-step"><b>{s.who}</b>{s.tool && <span className="badge b-dom">{s.tool}</span>}<div>{s.thought}</div>{s.observation && <pre>{s.observation}</pre>}</div>)}</details>
                         </div>

@@ -83,6 +83,7 @@ export default function CareersSearchTab({ toast, onAnalyze }: { toast: (s: stri
               </div>
               <input className="grow" style={{ width: '100%', marginTop: 8 }} placeholder="Exclude words (comma separated)" value={p.exclude.join(', ')} onChange={(e) => setP({ ...p, exclude: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) })} />
               <input className="grow" style={{ width: '100%', marginTop: 8 }} placeholder="Must mention at least one of (optional) — e.g. LLM, Python" value={p.mustAny.join(', ')} onChange={(e) => setP({ ...p, mustAny: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) })} />
+              <input className="grow" style={{ width: '100%', marginTop: 8 }} placeholder="🧠 My tech stack / what I want to work on — e.g. vLLM, TensorRT-LLM, Ray, RAG, agents (drives the AI ranking)" value={(p.tech || []).join(', ')} onChange={(e) => setP({ ...p, tech: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) })} />
               <button className="primary" style={{ marginTop: 10 }} disabled={busy === 'save'} onClick={saveProfile}>Save priorities</button>
             </div>
           </div>

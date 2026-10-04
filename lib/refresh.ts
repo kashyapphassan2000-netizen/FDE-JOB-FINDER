@@ -1,3 +1,4 @@
+import { GHOST_DAYS, hardNoise, trackGhosts } from './semantic';
 import type { Job, RawJob, SourceHealth } from './types';
 import { SOURCES, intervalFor, sourceConfigured } from './sources';
 import { getSettings } from './settings';
@@ -88,6 +89,11 @@ export async function refresh(opts: { only?: string[]; force?: boolean; trigger:
       targets.map(async (s) => {
         const prev = health[s.id];
         const base: SourceHealth = prev || { id: s.id, ok: false, lastRun: null, lastSuccess: null, count: 0, relevant: 0, ms: 0 };
+        if (s.retired && !opts.only) {
+          skipped.push(s.id);
+          health[s.id] = { ...base, skipped: s.retired };
+          return [] as RawJob[];
+        }
         if (settings.disabledSources.includes(s.id) && !opts.only) {
           skipped.push(s.id);
           health[s.id] = { ...base, skipped: 'Disabled in Settings' };
@@ -181,7 +187,11 @@ export async function refresh(opts: { only?: string[]; force?: boolean; trigger:
       .filter((j) => !j.postedAt || Date.now() - Date.parse(j.postedAt) < MAX_POSTED_DAYS * 864e5 || tracked[j.id])
       .map((j) => rescore(j, cv.skills))
       .filter((j) => j.categories.length > 0 || tracked[j.id]) // only FDE + AI/ML roles are kept
-      .filter((j) => locationAllowed(j.locTags, j.location) || tracked[j.id]); // only Bengaluru office or India-eligible remote
+      .filter((j) => locationAllowed(j.locTags, j.location) || tracked[j.id]) // only Bengaluru office or India-eligible remote
+      .filter((j) => !hardNoise(j) || tracked[j.id]); // stage 1: interns / sales / analysts / agencies / spam never reach you
+    // ghost jobs: same company + title open or reposted for 60+ days → flagged and pushed down
+    const ghosts = await trackGhosts(jobs).catch(() => new Set<string>());
+    for (const j of jobs) if (ghosts.has(j.id)) { j.flags = [...(j.flags || []), `👻 Ghost? open / reposted ${GHOST_DAYS}+ days`]; j.score -= 25; }
     jobs.sort((a, b) => b.score - a.score || Date.parse(b.postedAt || b.firstSeen) - Date.parse(a.postedAt || a.firstSeen));
     jobs = jobs.slice(0, MAX_JOBS);
     const kept = new Set(jobs.map((j) => j.id));

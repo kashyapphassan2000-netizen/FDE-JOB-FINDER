@@ -13,6 +13,8 @@ import DirectoryTab from '@/components/DirectoryTab';
 import WatchTab from '@/components/WatchTab';
 import MentorTab from '@/components/MentorTab';
 import StudioTab from '@/components/StudioTab';
+import RadarTab from '@/components/RadarTab';
+import AutopilotPanel from '@/components/AutopilotPanel';
 import KnowledgeGraph from '@/components/KnowledgeGraph';
 import CareersSearchTab from '@/components/CareersSearchTab';
 import AnalyzerTab from '@/components/AnalyzerTab';
@@ -31,7 +33,7 @@ import { ago, api, type JobsPayload } from '@/components/api';
 const NAV = [
   { group: 'Agents', items: [['Agent studio', '🤖']] },
   { group: 'Life', items: [['Life mentor', '🧭'], ['Knowledge graph', '🕸️']] },
-  { group: 'Companies', items: [['Careers search', '🎯'], ['Global companies hiring', '🌍'], ['Watch companies', '👁️']] },
+  { group: 'Companies', items: [['Zero-day radar', '🛰️'], ['Careers search', '🎯'], ['Global companies hiring', '🌍'], ['Watch companies', '👁️']] },
   { group: 'Get the job', items: [['Job analyzer & prep', '🔬'], ['Recruiters & referrals', '🤝'], ['Job alerts for others', '📬']] },
   { group: 'Find', items: [['My dashboard', '🏠'], ['Search any role', '🔍'], ['Jobs', '💼'], ['AI Agent', '🤖'], ['Trends', '📈'], ['Hiring radar', '📡'], ['Layoffs', '📉'], ['Hidden jobs & startups', '💎'], ['Outreach', '✉️'], ['Opportunities', '🏆']] },
   { group: 'Agent searches', items: [['X / Twitter', '𝕏'], ['LinkedIn posts', '🔗'], ['Hidden Bengaluru', '📍'], ['Remote India', '🏠'], ['US / EU remote', '🌍'], ['Semi & Embedded AI', '🔧'], ['New startups', '🚀'], ['Communities', '👥']] },
@@ -170,6 +172,7 @@ export default function Home() {
         {tab === 'Agent studio' && <StudioTab toast={setToast} />}
         {tab === 'Life mentor' && <MentorTab toast={setToast} seed={mentorSeed} openGraph={() => go('Knowledge graph')} />}
         {tab === 'Knowledge graph' && <KnowledgeGraph toast={setToast} onAsk={(q) => { setMentorSeed({ q, n: Date.now() }); go('Life mentor'); }} />}
+        {tab === 'Zero-day radar' && <RadarTab toast={setToast} isOwner={isOwner} onWatch={(c) => api('/api/watch', { method: 'POST', body: JSON.stringify({ input: c }) }).then(() => setToast(`Watching ${c} — see Watch companies`)).catch((e) => setToast((e as Error).message))} />}
         {tab === 'Careers search' && <CareersSearchTab toast={setToast} onAnalyze={(url, company) => { setAnaSeed({ url, company, n: Date.now() }); go('Job analyzer & prep'); }} />}
         {tab === 'Watch companies' && <WatchTab toast={setToast} />}
         {tab === 'Job analyzer & prep' && <AnalyzerTab toast={setToast} seed={anaSeed} onReferrals={(company, role) => { setRefSeed({ company, role, n: Date.now() }); go('Recruiters & referrals'); }} />}
@@ -188,7 +191,7 @@ export default function Home() {
         {tab === 'Search any role' && <SearchTab q={sq} toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}
         {MISSION_TABS[tab] && <AgentTab key={tab} missionId={MISSION_TABS[tab]} toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}
         {isOwner && tab === 'Sources & APIs' && <SourcesTab toast={setToast} reload={load} />}
-        {tab === 'CV' && <CvTab toast={setToast} />}
+        {tab === 'CV' && <><CvTab toast={setToast} /><AutopilotPanel toast={setToast} /></>}
         {isOwner && tab === 'Settings' && <SettingsTab toast={setToast} />}
       </main>
       {toast && <div className="toast" onClick={() => setToast('')}>{toast}</div>}

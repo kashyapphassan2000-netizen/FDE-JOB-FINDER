@@ -13,10 +13,11 @@ on:
     - cron: '10 */3 * * *'
     - cron: '15 1 * * *'
     - cron: '45 2 * * *'
+    - cron: '50 */6 * * *'
   workflow_dispatch:
     inputs:
       task:
-        description: 'refresh | agent | discover | digest'
+        description: 'refresh | agent | discover | digest | radar | semantic'
         default: 'refresh'
 jobs:
   run:
@@ -35,6 +36,7 @@ jobs:
           if [ "$SCHEDULE" = "10 */3 * * *" ]; then TASK=agent; fi
           if [ "$SCHEDULE" = "15 1 * * *" ]; then TASK=discover; fi
           if [ "$SCHEDULE" = "45 2 * * *" ]; then TASK=digest; fi
+          if [ "$SCHEDULE" = "50 */6 * * *" ]; then TASK=radar; fi
           echo "task=$TASK"
           code=$(curl -s -o out.json -w "%{http_code}" --max-time 300 -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron?task=$TASK")
           cat out.json; echo

@@ -20,6 +20,7 @@ export const isMember = () => tenant().role === 'member';
 export function enterTenant(t: Tenant) { als.enterWith(t); }
 /** Run background work as a specific user (their scheduled agents, their daily brief). */
 export function runAs<T>(t: Tenant, fn: () => Promise<T>): Promise<T> { return als.run(t, fn); }
+export type { Tenant as TenantT };
 export function tenantFor(email: string, ownerEmails: string[]): Tenant {
   const e = email.toLowerCase();
   if (e === 'owner' || ownerEmails.includes(e)) return OWNER;
@@ -27,7 +28,7 @@ export function tenantFor(email: string, ownerEmails: string[]): Tenant {
 }
 
 /** Personal data keys: each user has their own. Everything else is shared. */
-const PERSONAL = new Set(['cv', 'track', 'profile', 'analyses', 'referrals', 'fit', 'xl', 'outreach:leads', 'agent:finds', 'agent:runs', 'watch:list', 'watch:hits', 'watch:meta', 'watch:migrated']);
+const PERSONAL = new Set(['cv', 'track', 'profile', 'analyses', 'referrals', 'fit', 'xl', 'outreach:leads', 'agent:finds', 'agent:runs', 'watch:list', 'watch:hits', 'watch:meta', 'watch:migrated', 'sem', 'semvec', 'sem:meta', 'drafts', 'gap:reports']);
 const PERSONAL_PREFIX = ['watch:seen:'];
 export function scopedKey(key: string): string {
   const t = tenant();

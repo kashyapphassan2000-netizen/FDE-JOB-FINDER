@@ -18,6 +18,7 @@ export async function saveProfile(p: Partial<Profile>): Promise<Profile> {
     locations: clean(p.locations, 12) ?? cur.locations,
     exclude: (clean(p.exclude, 30) ?? cur.exclude).map((x) => x.toLowerCase()),
     mustAny: clean(p.mustAny, 15) ?? cur.mustAny,
+    tech: clean(p.tech, 30) ?? cur.tech,
     expMin: Math.max(0, Math.min(30, Number(p.expMin ?? cur.expMin) || 0)),
     expMax: Math.max(0, Math.min(40, Number(p.expMax ?? cur.expMax) || 30)),
   };

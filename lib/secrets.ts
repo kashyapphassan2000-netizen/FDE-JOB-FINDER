@@ -36,6 +36,9 @@ export const VAULT_KEYS: { name: string; label: string; group: string; url: stri
   // sign-in emails to people you give access (any address; Gmail app password: myaccount.google.com/apppasswords)
   { name: 'BREVO_API_KEY', label: 'Brevo API key — free 300 emails/day to anyone (alternative to Gmail)', group: 'Access', url: 'https://app.brevo.com/settings/keys/api' },
   { name: 'BREVO_SENDER', label: 'Brevo verified sender email (your Gmail is fine — verify it in Brevo → Senders)', group: 'Access', url: 'https://app.brevo.com/senders' },
+  { name: 'GITHUB_TOKEN', label: 'GitHub token (free, no scopes needed) — zero-day dependency radar covers all orgs (5,000 calls/h instead of 60)', group: 'AI', url: 'https://github.com/settings/personal-access-tokens' },
+  { name: 'SEC_CONTACT_EMAIL', label: 'Contact email SEC requires for automated EDGAR reads (zero-day funding radar) — defaults to your digest email', group: 'AI', url: 'https://www.sec.gov/os/accessing-edgar-data' },
+  { name: 'COHERE_API_KEY', label: 'Cohere (optional) — Rerank v3.5 for the semantic job ranking (free trial key)', group: 'AI', url: 'https://dashboard.cohere.com/api-keys' },
   { name: 'GOOGLE_CLIENT_ID', label: 'Google sign-in: OAuth Client ID (Web application)', group: 'Access', url: 'https://console.cloud.google.com/apis/credentials' },
   { name: 'GOOGLE_CLIENT_SECRET', label: 'Google sign-in: OAuth Client secret', group: 'Access', url: 'https://console.cloud.google.com/apis/credentials' },
   { name: 'GMAIL_USER', label: 'Gmail address that sends sign-in links', group: 'Access', url: 'https://myaccount.google.com/apppasswords' },

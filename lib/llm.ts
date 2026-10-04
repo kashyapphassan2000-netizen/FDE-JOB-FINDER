@@ -29,6 +29,7 @@ export const PRESETS: Preset[] = [
   { id: 'ollama', label: 'Ollama (local LLM on your machine)', wire: 'openai', baseUrl: 'http://localhost:11434/v1', keyUrl: 'https://ollama.com/download', free: 'Free, runs on your PC/GPU — works when the app runs on localhost (or via an https tunnel)', prefer: [], keyless: true, local: true },
   { id: 'lmstudio', label: 'LM Studio (local LLM)', wire: 'openai', baseUrl: 'http://localhost:1234/v1', keyUrl: 'https://lmstudio.ai/', free: 'Free, local — start its server (Developer → Start server)', prefer: [], keyless: true, local: true },
   { id: 'llamacpp', label: 'llama.cpp / vLLM / LocalAI server (local)', wire: 'openai', baseUrl: 'http://localhost:8080/v1', keyUrl: 'https://github.com/ggml-org/llama.cpp', free: 'Free, local', prefer: [], keyless: true, local: true },
+  { id: 'fcc', label: 'Free Claude Code proxy (FCC — any model behind it)', wire: 'anthropic', baseUrl: 'http://localhost:8082', keyUrl: 'https://github.com/alishahryar1/free-claude-code', free: 'Free: FCC routes to NVIDIA NIM / OpenRouter / Groq / Ollama / LM Studio / llama.cpp… Paste the proxy URL from FCC’s server log; key = FCC proxy token if you enabled Proxy Authentication, else leave empty', prefer: [], defaultModel: 'claude-sonnet-4-5', keyless: true, local: true },
   { id: 'custom-openai', label: 'Any third party (OpenAI-compatible)', wire: 'openai', baseUrl: '', keyUrl: '', free: 'Whatever your provider gives', prefer: [] },
   { id: 'custom-anthropic', label: 'Any third party (Anthropic-compatible)', wire: 'anthropic', baseUrl: '', keyUrl: '', free: 'Whatever your provider gives', prefer: [] },
 ];
@@ -161,6 +162,8 @@ export async function listModels(p: Pick<Profile, 'wire' | 'baseUrl' | 'key'>): 
 }
 
 const modelListCache = new Map<string, { at: number; models: string[] }>();
+const isGone = (e: unknown) => (e as any)?.status === 404 || /no longer available|not found for api version|model_not_found|does not exist|decommissioned/i.test((e as Error)?.message || '');
+const isTooBig = (e: unknown) => ((e as any)?.status === 413 || (e as any)?.status === 400) && /too large|tokens per minute|\btpm\b|context.{0,20}(length|window)|maximum context|reduce the length/i.test((e as Error)?.message || '');
 const isRateLimit = (e: unknown) => (e as any)?.status === 429 || /quota|rate.?limit|resource.?exhausted|too many requests/i.test((e as Error)?.message || '');
 
 /** The profile's own model first, then other good models of the same provider (each has its own free quota). */
@@ -179,7 +182,9 @@ async function modelCandidates(p: Profile): Promise<string[]> {
     }
   }
   const ranked: string[] = [];
-  for (const rx of prefer) for (const m of models) if (rx.test(m) && !ranked.includes(m) && !/image|tts|audio|live|embed|guard|whisper|orpheus|vision/i.test(m)) ranked.push(m);
+  // Gemini: newest versions first (older names stay listed after Google retires them for new keys)
+  const ordered = p.preset === 'gemini' ? [...models].sort((x, y) => y.localeCompare(x, undefined, { numeric: true })) : models;
+  for (const rx of prefer) for (const m of ordered) if (rx.test(m) && !ranked.includes(m) && !/image|tts|audio|live|embed|guard|whisper|orpheus|vision/i.test(m)) ranked.push(m);
   const out = Array.from(new Set([p.model, ...ranked.slice(0, 4)].filter(Boolean)));
   if (!out.length && models[0]) out.push(models[0]);
   if (!out.length && preset?.defaultModel) out.push(preset.defaultModel);
@@ -201,6 +206,8 @@ async function callOne(p: Profile, system: string, user: string, maxTokens: numb
       try {
         return await callModel(p, model, system, user, maxTokens, timeoutMs);
       } catch (e) {
+        // a retired / unknown model (404, "no longer available") or a request too big for this model's free window → try the next model
+        if (isGone(e) || isTooBig(e)) { lastErr = e; await hset('ai:cool', `${p.id}|${model}`, Date.now() + (isGone(e) ? 24 * 36e5 : 60000)); continue; }
         if (!isRateLimit(e)) throw e;
         lastErr = e;
         const sec = (e as any).retryAfterSec ?? (/per.?day|daily|quota/i.test((e as Error).message) ? 6 * 3600 : 60);
@@ -219,7 +226,8 @@ async function callOne(p: Profile, system: string, user: string, maxTokens: numb
 async function callModel(p: Profile, model: string, system: string, user: string, maxTokens: number, timeoutMs: number): Promise<{ text: string; model: string }> {
   const base = trimSlash(p.baseUrl);
   if (p.wire === 'anthropic') {
-    const d = await post(`${base}/v1/messages`, { 'x-api-key': p.key, 'anthropic-version': '2023-06-01' }, { model, max_tokens: maxTokens, system, messages: [{ role: 'user', content: user }] }, timeoutMs);
+    const auth: Record<string, string> = p.key === 'keyless' ? {} : p.preset === 'fcc' ? { 'x-api-key': p.key, Authorization: `Bearer ${p.key}` } : { 'x-api-key': p.key };
+    const d = await post(`${base}/v1/messages`, { ...auth, 'anthropic-version': '2023-06-01' }, { model, max_tokens: maxTokens, system, messages: [{ role: 'user', content: user }] }, timeoutMs);
     return { text: (d.content || []).filter((c: any) => c.type === 'text').map((c: any) => c.text).join(''), model };
   }
   const headers: Record<string, string> = p.key === 'keyless' ? {} : { Authorization: `Bearer ${p.key}` };

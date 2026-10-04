@@ -8,6 +8,9 @@ export type JobsPayload = {
   track: Record<string, TrackEntry>;
   storeMode: 'redis' | 'memory';
   sourcesOk: number;
+  sem?: Record<string, { s: number; r?: number; why?: string }>;
+  semMeta?: { at: string; engine: string; reranker: string; embedded: number; reranked: number } | null;
+  drafts?: Record<string, { hook: string; proof: string; ask: string; text: string; at: string }>;
 };
 
 export async function api<T = any>(url: string, init: RequestInit = {}): Promise<T> {

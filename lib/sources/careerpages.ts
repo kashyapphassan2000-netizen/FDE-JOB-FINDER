@@ -1,10 +1,10 @@
 import type { RawJob, SourceDef } from '../types';
 import { pool } from '../http';
-import { atsFromUrl, probe } from '../atsdetect';
+import { atsFromUrl, guessAts, probe } from '../atsdetect';
 import { classify, locationAllowed, locationTags } from '../classify';
 import { aiConfigured, chatJson } from '../llm';
 import { readPage } from '../search';
-import { getJSON, hset, setJSON } from '../store';
+import { getJSON, hgetall, hset, setJSON } from '../store';
 
 /**
  * Companies from the Excel that have NO public ATS API (custom careers sites): the page is opened with a
@@ -60,6 +60,48 @@ export async function extract(name: string, url: string, md: string): Promise<Ra
   return links.filter((l) => ROLE_HINT.test(l.text) && !/blog|news|about|life|team|culture/i.test(l.url)).map((l) => ({ title: l.text, company: name, location: '', url: l.url }));
 }
 
+/** Read a careers page; if it lists no roles, follow up to 3 "open positions / search jobs" links on it (one hop). */
+export async function readRoles(name: string, url: string): Promise<{ jobs: RawJob[]; url: string; md: string }> {
+  const md = await readPage(url, 30000);
+  if (!md || md.length < 300) throw new Error('page is empty to readers (login wall or heavy JavaScript)');
+  const jobs = await extract(name, url, md);
+  if (jobs.length) return { jobs, url, md };
+  const host = new URL(url).hostname.split('.').slice(-2).join('.');
+  const links = [...md.matchAll(/\[([^\]]{2,80})\]\((https?:\/\/[^)\s]+)\)/g)]
+    .filter(([, text, u]) => /job|position|opening|role|vacanc|search|explore|see all|view all|career/i.test(`${text} ${u}`) && u.includes(host) && u.split('#')[0] !== url.split('#')[0])
+    .map(([, , u]) => u).filter((u, i, a) => a.indexOf(u) === i).slice(0, 3);
+  for (const u of links) {
+    try {
+      const md2 = await readPage(u, 30000);
+      const j2 = md2.length > 300 ? await extract(name, u, md2) : [];
+      if (j2.length) return { jobs: j2, url: u, md: md2 };
+    } catch {}
+  }
+  return { jobs: [], url, md };
+}
+
+
+/** Verified by hand: these "custom" careers sites are really public ATS boards → exact JSON, no AI reading needed. */
+const KNOWN: Record<string, [RawAts, string]> = { Outlier: ['greenhouse', 'scaleai'], Turing: ['greenhouse', 'turing'], Alignerr: ['greenhouse', 'labelbox'], Mindrift: ['greenhouse', 'toloka'], 'Handshake AI': ['greenhouse', 'handshake'], PhonePe: ['smartrecruiters', 'PHONEPELIMITED'] };
+
+/** One-time mapping per company (re-checked every 14 days): its ATS JSON board if it has one, else the real listing page. */
+type CpMap = { kind: 'ats'; ats: RawAts; slug: string; at: string } | { kind: 'page'; url: string; at: string } | { kind: 'none'; at: string; why: string };
+type RawAts = Parameters<typeof probe>[0];
+async function mapCompany(name: string, url: string): Promise<CpMap & { jobs?: RawJob[] }> {
+  const at = new Date().toISOString();
+  const key = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const g = await guessAts(name).catch(() => null);
+  if (g && g.slug.replace(/[^a-z0-9]/g, '').includes(key.slice(0, Math.min(6, key.length)))) return { kind: 'ats', ats: g.ats, slug: g.slug, at, jobs: g.jobs };
+  try {
+    const r = await readRoles(name, url);
+    const link = (r.md.match(/https?:\/\/[^\s)"']+/g) || []).map((u) => atsFromUrl(u)).find(Boolean);
+    if (link) { const p = await probe(link.ats, link.slug, name); if (p) return { kind: 'ats', ats: p.ats, slug: p.slug, at, jobs: p.jobs }; }
+    return r.jobs.length ? { kind: 'page', url: r.url, at, jobs: r.jobs } : { kind: 'none', at, why: 'page opens but shows no job list (search widget / login wall)' };
+  } catch (e) {
+    return { kind: 'none', at, why: (e as Error).message.slice(0, 120) };
+  }
+}
+
 export const CAREER_PAGE_SOURCE: SourceDef = {
   id: 'careerpages',
   name: 'Company career pages (AI reader)',
@@ -67,39 +109,45 @@ export const CAREER_PAGE_SOURCE: SourceDef = {
   keyless: true,
   envKeys: [],
   defaultIntervalMin: 45,
-  covers: `${CAREER_PAGES.length} companies from the Excel with custom careers sites (PhonePe, Flipkart, Atlassian, Postman, Krutrim, W&B, Groq, micro1, Crossover…); ${PER_RUN} pages per run, rotating`,
+  covers: `${CAREER_PAGES.length} companies from the Excel with custom careers sites (PhonePe, Flipkart, Atlassian, Postman, Krutrim, W&B, Groq, micro1, Crossover…): each mapped once to its ATS JSON board when it has one (all checked every run), otherwise to its real listing page (AI reader, 4 per run)`,
   docs: 'Jina Reader renders the page (free, rate-limited); an AI provider extracts the roles (Gemini/Groq free tiers are enough)',
   run: async (ctx) => {
-    const cursor = await getJSON<number>('cp:cursor', 0);
-    const batch = Array.from({ length: PER_RUN }, (_, i) => CAREER_PAGES[(cursor + i) % CAREER_PAGES.length]);
-    await setJSON('cp:cursor', (cursor + PER_RUN) % CAREER_PAGES.length);
-    // careers pages YOU added (Watch companies): up to 4 per run, rotating, read before the Excel ones
-    const mine = ctx.settings.extraCareerPages || [];
-    if (mine.length) {
-      const c2 = await getJSON<number>('cp:cursor2', 0);
-      const take = Math.min(4, mine.length);
-      batch.unshift(...Array.from({ length: take }, (_, i) => mine[(c2 + i) % mine.length]));
-      await setJSON('cp:cursor2', (c2 + take) % mine.length);
-    }
-    const warnings: string[] = [];
-    const res = await pool(batch, 3, async ([name, url]) => {
-      const md = await readPage(url, 30000);
-      if (!md || md.length < 200) throw new Error(`${name}: empty page`);
-      return extract(name, url, md);
-    });
+    const map = await hgetall<CpMap>('cp:map');
+    for (const [n, [ats, slug]] of Object.entries(KNOWN)) if (!map[n] || map[n].kind !== 'ats') map[n] = { kind: 'ats', ats, slug, at: new Date().toISOString() };
+    const all: [string, string][] = [...(ctx.settings.extraCareerPages || []), ...CAREER_PAGES];
+    const fresh = (m?: CpMap) => m && Date.now() - Date.parse(m.at) < (m.kind === 'none' ? 7 : 14) * 864e5;
     const out: RawJob[] = [];
+    const warnings: string[] = [];
     const at = new Date().toISOString();
-    for (let i = 0; i < res.length; i++) {
-      const r = res[i];
-      if (r.status === 'fulfilled') {
-        const mine = r.value.filter((j) => classify(j).length && locationAllowed(locationTags(j), j.location));
-        out.push(...mine);
-        await hset('cp:status', batch[i][0], { at, ok: true, roles: r.value.length, mine: mine.length });
-      } else {
-        warnings.push(`${batch[i][0]}: ${(r.reason as Error).message.slice(0, 80)}`);
-        await hset('cp:status', batch[i][0], { at, ok: false, error: (r.reason as Error).message.slice(0, 120) });
-      }
+    const keep = (name: string, jobs: RawJob[]) => { const mine = jobs.map((j) => ({ ...j, company: name })).filter((j) => classify(j).length && locationAllowed(locationTags(j), j.location)); out.push(...mine); return mine.length; };
+    // 1) every company already mapped to an ATS → exact JSON, all of them, every run (fast)
+    const atsCos = all.filter(([n]) => fresh(map[n]) && map[n].kind === 'ats');
+    const r1 = await pool(atsCos, 6, async ([n]) => { const m = map[n] as Extract<CpMap, { kind: 'ats' }>; const p = await probe(m.ats, m.slug, n); return { n, jobs: p?.jobs || [] }; });
+    for (const r of r1) if (r.status === 'fulfilled') await hset('cp:status', r.value.n, { at, ok: true, via: 'ats', roles: r.value.jobs.length, mine: keep(r.value.n, r.value.jobs) });
+    // 2) map up to 2 unmapped / stale companies this run (rotating)
+    const todo = ctx.signal.aborted ? [] : all.filter(([n]) => !fresh(map[n])).slice(0, 2);
+    const r2 = await pool(todo, 2, async ([n, u]) => ({ n, m: await mapCompany(n, u) }));
+    for (const r of r2) {
+      if (r.status !== 'fulfilled') continue;
+      const { n, m } = r.value;
+      const { jobs, ...save } = m;
+      await hset('cp:map', n, save);
+      const mine = jobs ? keep(n, jobs) : 0;
+      await hset('cp:status', n, m.kind === 'none' ? { at, ok: false, error: m.why } : { at, ok: true, via: m.kind, roles: jobs?.length || 0, mine });
     }
+    // 3) mapped listing pages (no ATS): 4 per run, rotating, AI reader
+    const pages = all.filter(([n]) => fresh(map[n]) && map[n].kind === 'page');
+    const cursor = await getJSON<number>('cp:cursor', 0);
+    const batch = pages.length ? Array.from({ length: Math.min(4, pages.length) }, (_, i) => pages[(cursor + i) % pages.length]) : [];
+    await setJSON('cp:cursor', pages.length ? (cursor + batch.length) % pages.length : 0);
+    const r3 = await pool(batch, 2, async ([n]) => { const u = (map[n] as Extract<CpMap, { kind: 'page' }>).url; const md = await readPage(u, 30000); if (!md || md.length < 200) throw new Error(`${n}: empty page`); return { n, jobs: await extract(n, u, md) }; });
+    for (let i = 0; i < r3.length; i++) {
+      const r = r3[i];
+      if (r.status === 'fulfilled') await hset('cp:status', r.value.n, { at, ok: true, via: 'page', roles: r.value.jobs.length, mine: keep(r.value.n, r.value.jobs) });
+      else warnings.push(`${batch[i][0]}: ${(r.reason as Error).message.slice(0, 80)}`);
+    }
+    const none = all.filter(([n]) => map[n]?.kind === 'none').length;
+    if (none) warnings.push(`${none} companies have no readable job list (search widgets / login walls) — use 📥 Capture or paste their job-search link in Watch companies`);
     if (ctx.signal.aborted) warnings.push('time budget reached');
     return Object.assign(out, { warnings });
   },

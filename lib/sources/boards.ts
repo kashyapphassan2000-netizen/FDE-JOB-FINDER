@@ -247,6 +247,7 @@ export const BOARD_SOURCES: SourceDef[] = [
   },
   {
     id: 'workingnomads',
+    retired: 'Retired: 1 relevant of 58 fetched — near-zero yield for AI / FDE roles',
     name: 'Working Nomads',
     group: 'Job boards',
     keyless: true,
@@ -295,6 +296,7 @@ export const BOARD_SOURCES: SourceDef[] = [
   },
   {
     id: 'jobspresso',
+    retired: 'Retired: Cloudflare blocks even the RSS feed (HTTP 403). We do not bypass bot protection; its remote AI roles also appear on Himalayas / WWR / RemoteOK',
     name: 'Jobspresso (RSS)',
     group: 'Job boards',
     keyless: true,
