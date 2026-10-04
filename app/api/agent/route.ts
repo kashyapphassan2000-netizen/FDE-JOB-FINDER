@@ -1,7 +1,7 @@
 import { guard, bad } from '@/lib/guard';
 import { MISSIONS, runAgent, type AgentRun, type Find } from '@/lib/agent';
-import { getJSON, hdel, hgetall, hset } from '@/lib/store';
-import { availableEngines, searchUsage } from '@/lib/search';
+import { delKey, getJSON, hdel, hgetall, hset, setJSON } from '@/lib/store';
+import { availableEngines, clearSearchCache, searchUsage } from '@/lib/search';
 import { boardSearchLinks, xSearchLinks } from '@/lib/xposts';
 import { aiConfigured } from '@/lib/llm';
 import { loadVault } from '@/lib/secrets';
@@ -46,4 +46,29 @@ export async function PATCH(req: Request) {
   if (status === 'delete') await hdel('agent:finds', id);
   else await hset('agent:finds', id, { ...all[id], status });
   return Response.json({ ok: true });
+}
+
+// DELETE {what:"run", id} | {what:"runs"} | {what:"finds", mission?, status?} | {what:"cache"}
+export async function DELETE(req: Request) {
+  const g = await guard(req);
+  if (g) return g;
+  const b = (await req.json().catch(() => ({}))) as { what?: string; id?: string; mission?: string; status?: string };
+  if (b.what === 'run' || b.what === 'runs') {
+    const runs = await getJSON<AgentRun[]>('agent:runs', []);
+    const keep = b.what === 'runs' ? [] : runs.filter((r) => r.id !== b.id);
+    await setJSON('agent:runs', keep);
+    return Response.json({ ok: true, removed: runs.length - keep.length });
+  }
+  if (b.what === 'finds') {
+    const all = await hgetall<Find>('agent:finds');
+    const victims = Object.values(all).filter((f) => (!b.mission || f.mission === b.mission) && (!b.status || f.status === b.status));
+    if (victims.length === Object.keys(all).length) await delKey('agent:finds');
+    else for (const f of victims) await hdel('agent:finds', f.id);
+    return Response.json({ ok: true, removed: victims.length });
+  }
+  if (b.what === 'cache') {
+    await clearSearchCache();
+    return Response.json({ ok: true });
+  }
+  return bad('unknown delete');
 }

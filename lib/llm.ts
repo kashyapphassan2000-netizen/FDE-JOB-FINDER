@@ -9,20 +9,23 @@ import { getJSON, hgetall, hset, setJSON } from './store';
  * Profiles are tried in order; if one hits a rate limit / error, the next one is used (free-tier stacking).
  */
 export type Wire = 'anthropic' | 'openai';
-export interface Preset { id: string; label: string; wire: Wire; baseUrl: string; keyUrl: string; free: string; prefer: RegExp[] }
+export interface Preset { id: string; label: string; wire: Wire; baseUrl: string; keyUrl: string; free: string; prefer: RegExp[]; defaultModel?: string; keyless?: boolean }
 
 export const PRESETS: Preset[] = [
   { id: 'gemini', label: 'Google Gemini', wire: 'openai', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', keyUrl: 'https://aistudio.google.com/apikey', free: 'Free tier on Flash models (limits shown in AI Studio)', prefer: [/flash-lite-latest/, /\d-flash-lite$/, /flash-latest/, /\d-flash$/] },
-  { id: 'groq', label: 'Groq', wire: 'openai', baseUrl: 'https://api.groq.com/openai/v1', keyUrl: 'https://console.groq.com/keys', free: 'Free: ~1,000 requests/day per model, 30/min', prefer: [/gpt-oss-120b/, /qwen/, /gpt-oss-20b/, /llama-3\.3-70b/, /llama-4/] },
-  { id: 'openrouter', label: 'OpenRouter (300+ models)', wire: 'openai', baseUrl: 'https://openrouter.ai/api/v1', keyUrl: 'https://openrouter.ai/keys', free: '":free" models: 50 req/day (1,000/day after a one-time $10 top-up)', prefer: [/:free$/] },
+  { id: 'groq', label: 'Groq', wire: 'openai', baseUrl: 'https://api.groq.com/openai/v1', keyUrl: 'https://console.groq.com/keys', free: 'Free, no card: ~1,000 req/day per big model, 14,400/day on llama-3.1-8b-instant; rotates models', prefer: [/gpt-oss-120b/, /qwen/, /gpt-oss-20b/, /llama-3\.3-70b/, /llama-4/, /llama-3\.1-8b-instant/] },
+  { id: 'openrouter', label: 'OpenRouter (300+ models)', wire: 'openai', baseUrl: 'https://openrouter.ai/api/v1', keyUrl: 'https://openrouter.ai/keys', free: 'Free, no card: ":free" models 50 req/day each (1,000/day after a one-time $10 top-up)', prefer: [/^openrouter\/free$/, /:free$/], defaultModel: 'openrouter/free' },
   { id: 'anthropic', label: 'Anthropic Claude', wire: 'anthropic', baseUrl: 'https://api.anthropic.com', keyUrl: 'https://console.anthropic.com/settings/keys', free: 'Paid (pay as you go)', prefer: [/haiku/, /sonnet/] },
   { id: 'openai', label: 'OpenAI', wire: 'openai', baseUrl: 'https://api.openai.com/v1', keyUrl: 'https://platform.openai.com/api-keys', free: 'Paid (pay as you go)', prefer: [/mini/, /^gpt-/] },
-  { id: 'cerebras', label: 'Cerebras', wire: 'openai', baseUrl: 'https://api.cerebras.ai/v1', keyUrl: 'https://cloud.cerebras.ai/', free: 'Trial credits; very fast', prefer: [/gpt-oss/, /qwen/, /llama/] },
-  { id: 'mistral', label: 'Mistral', wire: 'openai', baseUrl: 'https://api.mistral.ai/v1', keyUrl: 'https://console.mistral.ai/api-keys', free: 'Free plan monthly credits', prefer: [/small-latest/, /medium-latest/] },
+  { id: 'cerebras', label: 'Cerebras', wire: 'openai', baseUrl: 'https://api.cerebras.ai/v1', keyUrl: 'https://cloud.cerebras.ai/', free: 'Free, no card: ~1M tokens/day, very fast', prefer: [/gpt-oss/, /qwen/, /glm/, /llama/], defaultModel: 'gpt-oss-120b' },
+  { id: 'mistral', label: 'Mistral', wire: 'openai', baseUrl: 'https://api.mistral.ai/v1', keyUrl: 'https://console.mistral.ai/api-keys', free: 'Free mode, no card (≈1 req/s, very high monthly volume)', prefer: [/small-latest/, /medium-latest/, /ministral/], defaultModel: 'mistral-small-latest' },
   { id: 'deepseek', label: 'DeepSeek', wire: 'openai', baseUrl: 'https://api.deepseek.com/v1', keyUrl: 'https://platform.deepseek.com/api_keys', free: 'Very cheap paid', prefer: [/chat/] },
   { id: 'together', label: 'Together AI', wire: 'openai', baseUrl: 'https://api.together.xyz/v1', keyUrl: 'https://api.together.ai/settings/api-keys', free: 'Paid; some free models', prefer: [/Free/, /Llama-3\.3-70B/] },
   { id: 'xai', label: 'xAI Grok', wire: 'openai', baseUrl: 'https://api.x.ai/v1', keyUrl: 'https://console.x.ai/', free: 'Paid', prefer: [/mini/, /grok/] },
   { id: 'nvidia', label: 'NVIDIA NIM (build.nvidia.com)', wire: 'openai', baseUrl: 'https://integrate.api.nvidia.com/v1', keyUrl: 'https://build.nvidia.com/', free: 'Free endpoints for testing (~40 req/min)', prefer: [/llama-3\.3-70b/, /nemotron/] },
+  { id: 'github', label: 'GitHub Models', wire: 'openai', baseUrl: 'https://models.github.ai/inference', keyUrl: 'https://github.com/settings/personal-access-tokens', free: 'Free with any GitHub account (token with models:read): 150 req/day low-tier', prefer: [], defaultModel: 'openai/gpt-4.1-mini' },
+  { id: 'pollinations', label: 'Pollinations (no key needed)', wire: 'openai', baseUrl: 'https://text.pollinations.ai/openai', keyUrl: 'https://pollinations.ai/', free: 'Free, anonymous, slow (~1 request / 15 s) — last-resort fallback', prefer: [], defaultModel: 'openai', keyless: true },
+  { id: 'ovh', label: 'OVHcloud AI Endpoints (no key needed)', wire: 'openai', baseUrl: 'https://oai.endpoints.kepler.ai.cloud.ovh.net/v1', keyUrl: 'https://endpoints.ai.cloud.ovh.net/', free: 'Free anonymous tier, 2 req/min per model — last-resort fallback', prefer: [/gpt-oss-120b/i, /llama-3_3-70b/i, /qwen/i], defaultModel: 'gpt-oss-120b', keyless: true },
   { id: 'custom-openai', label: 'Any third party (OpenAI-compatible)', wire: 'openai', baseUrl: '', keyUrl: '', free: 'Whatever your provider gives', prefer: [] },
   { id: 'custom-anthropic', label: 'Any third party (Anthropic-compatible)', wire: 'anthropic', baseUrl: '', keyUrl: '', free: 'Whatever your provider gives', prefer: [] },
 ];
@@ -48,11 +51,16 @@ function envProfiles(): Profile[] {
     const p = PRESETS.find((x) => x.id === process.env.LLM_PROVIDER) || PRESETS.find((x) => x.id === 'custom-openai')!;
     out.push({ id: 'env-llm', preset: p.id, label: `${p.label} (env)`, wire: (process.env.LLM_WIRE as Wire) || p.wire, baseUrl: process.env.LLM_BASE_URL || p.baseUrl, model: process.env.LLM_MODEL || '', key: process.env.LLM_API_KEY, enabled: true });
   }
-  const simple: [string, string][] = [['GEMINI_API_KEY', 'gemini'], ['GROQ_API_KEY', 'groq'], ['OPENROUTER_API_KEY', 'openrouter'], ['ANTHROPIC_API_KEY', 'anthropic'], ['OPENAI_API_KEY', 'openai']];
+  const simple: [string, string][] = [['GEMINI_API_KEY', 'gemini'], ['GROQ_API_KEY', 'groq'], ['CEREBRAS_API_KEY', 'cerebras'], ['MISTRAL_API_KEY', 'mistral'], ['OPENROUTER_API_KEY', 'openrouter'], ['GITHUB_MODELS_TOKEN', 'github'], ['NVIDIA_API_KEY', 'nvidia'], ['ANTHROPIC_API_KEY', 'anthropic'], ['OPENAI_API_KEY', 'openai']];
   for (const [envName, pid] of simple) {
     if (!process.env[envName]) continue;
     const p = PRESETS.find((x) => x.id === pid)!;
     out.push({ id: `env-${pid}`, preset: pid, label: `${p.label} (env)`, wire: p.wire, baseUrl: p.baseUrl, model: process.env[`${envName.replace('_API_KEY', '')}_MODEL`] || '', key: process.env[envName]!, enabled: true });
+  }
+  // keyless last-resort providers so the AI never fully stops (set NO_KEYLESS_AI=1 to disable)
+  if (!process.env.NO_KEYLESS_AI) for (const pid of ['pollinations', 'ovh']) {
+    const p = PRESETS.find((x) => x.id === pid)!;
+    out.push({ id: `free-${pid}`, preset: pid, label: p.label, wire: p.wire, baseUrl: p.baseUrl, model: '', key: 'keyless', enabled: true });
   }
   return out;
 }
@@ -71,7 +79,7 @@ export async function publicProfiles(): Promise<PublicProfile[]> {
   const env = envProfiles();
   return [
     ...stored.map(({ key, ...p }) => ({ ...p, keyHint: key ? `…${key.slice(-4)}` : '(no key — check AUTH_SECRET)' })),
-    ...env.map(({ key, ...p }) => ({ ...p, keyHint: `env …${key.slice(-4)}`, fromEnv: true })),
+    ...env.map(({ key, ...p }) => ({ ...p, keyHint: key === 'keyless' ? 'no key needed' : `env …${key.slice(-4)}`, fromEnv: true })),
   ];
 }
 
@@ -138,7 +146,7 @@ async function post(url: string, headers: Record<string, string>, body: unknown,
 export async function listModels(p: Pick<Profile, 'wire' | 'baseUrl' | 'key'>): Promise<string[]> {
   const base = trimSlash(p.baseUrl);
   const url = p.wire === 'anthropic' ? `${base}/v1/models?limit=100` : `${base}/models`;
-  const headers: Record<string, string> = p.wire === 'anthropic' ? { 'x-api-key': p.key, 'anthropic-version': '2023-06-01' } : { Authorization: `Bearer ${p.key}` };
+  const headers: Record<string, string> = p.wire === 'anthropic' ? { 'x-api-key': p.key, 'anthropic-version': '2023-06-01' } : p.key === 'keyless' ? {} : { Authorization: `Bearer ${p.key}` };
   const r = await fetch(url, { headers });
   if (!r.ok) throw new Error(`${r.status}: ${(await r.text()).slice(0, 200)}`);
   const d = await r.json();
@@ -168,6 +176,8 @@ async function modelCandidates(p: Profile): Promise<string[]> {
   for (const rx of prefer) for (const m of models) if (rx.test(m) && !ranked.includes(m) && !/image|tts|audio|live|embed|guard|whisper|orpheus|vision/i.test(m)) ranked.push(m);
   const out = Array.from(new Set([p.model, ...ranked.slice(0, 4)].filter(Boolean)));
   if (!out.length && models[0]) out.push(models[0]);
+  if (!out.length && preset?.defaultModel) out.push(preset.defaultModel);
+  else if (preset?.defaultModel && !out.includes(preset.defaultModel) && !models.length) out.push(preset.defaultModel);
   if (!out.length) throw new Error('No model available — set one in AI & Keys');
   return out;
 }
@@ -206,7 +216,7 @@ async function callModel(p: Profile, model: string, system: string, user: string
     const d = await post(`${base}/v1/messages`, { 'x-api-key': p.key, 'anthropic-version': '2023-06-01' }, { model, max_tokens: maxTokens, system, messages: [{ role: 'user', content: user }] }, timeoutMs);
     return { text: (d.content || []).filter((c: any) => c.type === 'text').map((c: any) => c.text).join(''), model };
   }
-  const headers: Record<string, string> = { Authorization: `Bearer ${p.key}` };
+  const headers: Record<string, string> = p.key === 'keyless' ? {} : { Authorization: `Bearer ${p.key}` };
   if (p.preset === 'openrouter') Object.assign(headers, { 'HTTP-Referer': 'https://fde-job-finder.vercel.app', 'X-Title': 'FDE Job Finder' });
   const messages = [{ role: 'system', content: system }, { role: 'user', content: user }];
   const reasoningStyle = p.preset === 'openai' && /^(o\d|gpt-5)/.test(model);

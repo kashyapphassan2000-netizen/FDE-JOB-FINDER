@@ -5,6 +5,7 @@ import AgentTab from '@/components/AgentTab';
 import DiscoverTab from '@/components/DiscoverTab';
 import OutreachTab from '@/components/OutreachTab';
 import OpportunitiesTab from '@/components/OpportunitiesTab';
+import TrendsTab from '@/components/TrendsTab';
 import AiKeysTab from '@/components/AiKeysTab';
 import TrackerTab from '@/components/TrackerTab';
 import ExcelTab from '@/components/ExcelTab';
@@ -15,13 +16,18 @@ import SettingsTab from '@/components/SettingsTab';
 import { ago, api, type JobsPayload } from '@/components/api';
 
 const NAV = [
-  { group: 'Find', items: [['Jobs', '💼'], ['AI Agent', '🤖'], ['Hidden jobs & startups', '💎'], ['Outreach', '✉️'], ['Opportunities', '🏆']] },
+  { group: 'Find', items: [['Jobs', '💼'], ['AI Agent', '🤖'], ['Trends', '📈'], ['Hidden jobs & startups', '💎'], ['Outreach', '✉️'], ['Opportunities', '🏆']] },
+  { group: 'Agent searches', items: [['X / Twitter', '𝕏'], ['LinkedIn posts', '🔗'], ['Hidden Bengaluru', '📍'], ['Remote India', '🏠'], ['US / EU remote', '🌍'], ['Semi & Embedded AI', '🔧'], ['New startups', '🚀'], ['Communities', '👥']] },
   { group: 'Track', items: [['Tracker', '📌'], ['CV', '📄']] },
-  { group: 'Library', items: [['Excel sheets', '📊'], ['Platforms map', '🗺️']] },
+  { group: 'Library', items: [['Excel sheets', '📊'], ['Excel coverage map', '🗺️']] },
   { group: 'Setup', items: [['Sources & APIs', '🔌'], ['AI & Keys', '🔑'], ['Settings', '⚙️']] },
 ] as const;
 type Tab = (typeof NAV)[number]['items'][number][0];
 const ALL: Tab[] = NAV.flatMap((g) => g.items.map((i) => i[0] as Tab));
+const MISSION_TABS: Record<string, string> = {
+  'X / Twitter': 'x-posts', 'LinkedIn posts': 'li-posts', 'Hidden Bengaluru': 'blr-hidden', 'Remote India': 'remote-india',
+  'US / EU remote': 'global-remote', 'Semi & Embedded AI': 'domains', 'New startups': 'new-startups', Communities: 'communities',
+};
 
 export default function Home() {
   const [tab, setTab] = useState<Tab>('Jobs');
@@ -62,11 +68,12 @@ export default function Home() {
     try { localStorage.setItem('fj_tab', t); } catch {}
   }
 
-  async function refreshNow(force = false) {
+  async function refreshNow(force = false, reset = false) {
+    if (reset && !window.confirm('Delete the current job list and fetch everything fresh? Your Tracker (saved/applied) is kept.')) return;
     setBusy(true);
     setToast('Refreshing all sources… (up to ~90s)');
     try {
-      const r = await api<{ added: number; total: number; ran: string[]; failed: string[]; ms: number }>('/api/refresh', { method: 'POST', body: JSON.stringify({ force }) });
+      const r = await api<{ added: number; total: number; ran: string[]; failed: string[]; ms: number }>('/api/refresh', { method: 'POST', body: JSON.stringify({ force, reset }) });
       setToast(`Done in ${(r.ms / 1000).toFixed(1)}s · ${r.added} new · ${r.total} total · ${r.ran.length} sources ran${r.failed.length ? ` · ${r.failed.length} failed (see Sources & APIs)` : ''}`);
       await load();
     } catch (e) {
@@ -115,6 +122,7 @@ export default function Home() {
             <span className="muted small hide-sm">{data?.meta?.lastRefresh ? `Updated ${ago(data.meta.lastRefresh)}` : 'Never refreshed'}</span>
             <button className="primary" disabled={busy} onClick={() => refreshNow(false)}>{busy ? 'Refreshing…' : '⟳ Refresh'}</button>
             <button className="hide-sm" disabled={busy} onClick={() => refreshNow(true)} title="Ignore quota cooldowns and call every configured API now">Force all</button>
+            {tab === 'Jobs' && <button className="hide-sm danger" disabled={busy} onClick={() => refreshNow(true, true)} title="Delete stored jobs and refetch everything">🗑 Clear & refetch</button>}
           </div>
         </header>
         {data?.storeMode === 'memory' && (
@@ -128,7 +136,9 @@ export default function Home() {
         {tab === 'AI & Keys' && <AiKeysTab toast={setToast} />}
         {tab === 'Tracker' && <TrackerTab data={data} reload={load} toast={setToast} />}
         {tab === 'Excel sheets' && <ExcelTab toast={setToast} />}
-        {tab === 'Platforms map' && <PlatformsTab toast={setToast} />}
+        {tab === 'Excel coverage map' && <PlatformsTab toast={setToast} />}
+        {tab === 'Trends' && <TrendsTab toast={setToast} />}
+        {MISSION_TABS[tab] && <AgentTab key={tab} missionId={MISSION_TABS[tab]} toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}
         {tab === 'Sources & APIs' && <SourcesTab toast={setToast} reload={load} />}
         {tab === 'CV' && <CvTab toast={setToast} />}
         {tab === 'Settings' && <SettingsTab toast={setToast} />}

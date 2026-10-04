@@ -76,6 +76,12 @@ export async function hset(key: string, field: string, value: unknown): Promise<
   }
 }
 
+/** Delete a whole key (hash or value). */
+export async function delKey(key: string): Promise<void> {
+  if (redis) await redis.del(P + key);
+  else { mem.delete(P + key); memHash.delete(P + key); }
+}
+
 /** Atomic counter inside a hash (safe under parallel calls). */
 export async function hincr(key: string, field: string, by = 1): Promise<number> {
   if (redis) return Number(await redis.hincrby(P + key, field, by));

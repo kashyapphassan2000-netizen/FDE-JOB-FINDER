@@ -20,6 +20,7 @@ export const DEFAULT_SETTINGS: Settings = {
   subreddits: ['MLjobs', 'DataScienceJobs', 'developersIndia', 'mlops', 'MachineLearning', 'forhire'],
   alertMinScore: 60,
   excludeTitleWords: ['intern', 'internship', 'account executive', 'sales development', 'recruiter', 'paralegal', 'nurse'],
+  xAccounts: [],
   digestCount: 10,
   digestMaxAgeHours: 24,
 };
@@ -38,6 +39,7 @@ export async function saveSettings(patch: Partial<Settings>): Promise<Settings> 
   next.telegramChannels = (next.telegramChannels || []).map((k) => String(k).replace(/^@|https?:\/\/t\.me\/(s\/)?/g, '').trim()).filter(Boolean).slice(0, 15);
   next.subreddits = (next.subreddits || []).map((k) => String(k).replace(/^r\//, '').trim()).filter(Boolean).slice(0, 15);
   next.alertMinScore = Math.max(0, Math.min(150, Number(next.alertMinScore) || 60));
+  next.xAccounts = (next.xAccounts || []).map((k) => String(k).replace(/^@|https?:\/\/(x|twitter)\.com\//g, '').trim()).filter(Boolean).slice(0, 100);
   next.digestCount = Math.max(1, Math.min(30, Math.round(Number(next.digestCount) || 10)));
   next.digestMaxAgeHours = Math.max(1, Math.min(168, Math.round(Number(next.digestMaxAgeHours) || 24)));
   await setJSON('settings', next);

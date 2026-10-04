@@ -30,9 +30,25 @@ const since = (r: Recency) => new Date(Date.now() - ({ day: 1.2, week: 8, month:
 
 export const ENGINES: Engine[] = [
   {
+    id: 'google_cse', freeMonthly: 3000, label: 'Google Programmable Search (100/day free)', needs: 'GOOGLE_CSE_KEY',
+    run: async (q, n, recent) => {
+      const cx = secret('GOOGLE_CSE_CX');
+      if (!cx) throw new Error('set GOOGLE_CSE_CX too');
+      const d = await j(`https://www.googleapis.com/customsearch/v1?key=${secret('GOOGLE_CSE_KEY')}&cx=${cx}&q=${encodeURIComponent(q)}&num=${Math.min(n, 10)}${recent !== 'any' ? `&dateRestrict=${recent[0]}1` : ''}`, { method: 'GET' });
+      return (d.items || []).map((r: any) => ({ title: r.title, url: r.link, snippet: r.snippet || '', engine: 'google_cse' }));
+    },
+  },
+  {
+    id: 'searchapi', freeMonthly: 100, label: 'SearchApi.io (Google)', needs: 'SEARCHAPI_KEY',
+    run: async (q, n, recent) => {
+      const d = await j(`https://www.searchapi.io/api/v1/search?engine=google&q=${encodeURIComponent(q)}&num=${n}${recent !== 'any' ? `&time_period=last_${recent}` : ''}&api_key=${secret('SEARCHAPI_KEY')}`, { method: 'GET' });
+      return (d.organic_results || []).map((r: any) => ({ title: r.title, url: r.link, snippet: r.snippet || '', date: r.date || null, engine: 'searchapi' }));
+    },
+  },
+  {
     id: 'searxng', freeMonthly: 999999, label: 'SearXNG (self-hosted, unlimited)', needs: 'SEARXNG_URL',
     run: async (q, n, recent) => {
-      const d = await j(`${secret('SEARXNG_URL').replace(/\/$/, '')}/search?q=${encodeURIComponent(q)}&format=json${recent !== 'any' ? `&time_range=${recent}` : ''}`, { method: 'GET' });
+      const d = await j(`${secret('SEARXNG_URL').replace(/\/$/, '')}/search?q=${encodeURIComponent(q)}&format=json${recent !== 'any' ? `&time_range=${recent}` : ''}`, { method: 'GET', headers: secret('SEARXNG_TOKEN') ? { Authorization: `Bearer ${secret('SEARXNG_TOKEN')}` } : {} }, 30000);
       return (d.results || []).slice(0, n).map((r: any) => ({ title: r.title, url: r.url, snippet: r.content || '', date: r.publishedDate || null, engine: 'searxng' }));
     },
   },
@@ -119,8 +135,26 @@ export async function searchUsage() {
 }
 
 /** Round-robin across configured engines; on failure fall through to the next one. */
+const cacheKey = (q: string, rec: Recency, all: boolean) => `sq:${all ? 'a' : 'o'}:${rec}:${q.toLowerCase().replace(/\s+/g, ' ').trim()}`.slice(0, 300);
+const CACHE_MS = { day: 2 * 36e5, week: 6 * 36e5, month: 12 * 36e5, any: 72 * 36e5 };
+
+/** Same query within a few hours = answer from cache (saves free quota; posts still refresh several times a day). */
+export async function clearSearchCache() {
+  await setJSON('sq:index', []);
+}
+
 export async function webSearch(q: string, n = 10, recent: Recency | boolean = 'month'): Promise<{ results: WebResult[]; engine: string | null; errors: string[] }> {
   const rec: Recency = recent === true ? 'month' : recent === false ? 'any' : recent;
+  const ck = cacheKey(q, rec, false);
+  const hit = await getJSON<{ at: number; results: WebResult[]; engine: string } | null>(ck, null);
+  const idx = await getJSON<string[]>('sq:index', []);
+  if (hit && idx.includes(ck) && Date.now() - hit.at < CACHE_MS[rec]) return { results: hit.results, engine: `${hit.engine} (cached)`, errors: [] };
+  const r = await webSearchLive(q, n, rec);
+  if (r.results.length && r.engine) await Promise.all([setJSON(ck, { at: Date.now(), results: r.results, engine: r.engine }), setJSON('sq:index', [ck, ...idx.filter((x) => x !== ck)].slice(0, 400))]);
+  return r;
+}
+
+async function webSearchLive(q: string, n: number, rec: Recency): Promise<{ results: WebResult[]; engine: string | null; errors: string[] }> {
   const engines = availableEngines();
   const errors: string[] = [];
   if (!engines.length) return { results: [], engine: null, errors: ['No web-search key set (add Tavily / Firecrawl / Exa / Serper / SearXNG in AI & Keys)'] };
@@ -141,9 +175,19 @@ export async function webSearch(q: string, n = 10, recent: Recency | boolean = '
 
 /** Deep mode: the same query on EVERY configured engine in parallel (each indexes different pages), merged. */
 export async function webSearchAll(q: string, n = 20, rec: Recency = 'month'): Promise<{ results: WebResult[]; engines: string[]; errors: string[] }> {
+  const ck = cacheKey(q, rec, true);
+  const hit = await getJSON<{ at: number; results: WebResult[]; engines: string[] } | null>(ck, null);
+  const idx = await getJSON<string[]>('sq:index', []);
+  if (hit && idx.includes(ck) && Date.now() - hit.at < CACHE_MS[rec]) return { results: hit.results, engines: [], errors: [] };
+  const r = await webSearchAllLive(q, n, rec);
+  if (r.results.length) await Promise.all([setJSON(ck, { at: Date.now(), results: r.results, engines: r.engines }), setJSON('sq:index', [ck, ...idx.filter((x) => x !== ck)].slice(0, 400))]);
+  return r;
+}
+
+async function webSearchAllLive(q: string, n: number, rec: Recency): Promise<{ results: WebResult[]; engines: string[]; errors: string[] }> {
   const engines = availableEngines();
   if (engines.length <= 1) {
-    const r = await webSearch(q, n, rec);
+    const r = await webSearchLive(q, n, rec);
     return { results: r.results, engines: r.engine ? [r.engine] : [], errors: r.errors };
   }
   const res = await Promise.allSettled(engines.map(async (e) => { const r = await e.run(q, n, rec); await count(e.id); return r; }));

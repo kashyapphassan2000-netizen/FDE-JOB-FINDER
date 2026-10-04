@@ -87,6 +87,7 @@ export interface Settings {
   subreddits: string[];
   alertMinScore: number;
   excludeTitleWords: string[];
+  xAccounts: string[]; // extra X accounts to watch
   digestCount: number; // jobs per daily email
   digestMaxAgeHours: number; // only jobs posted within this window
 }

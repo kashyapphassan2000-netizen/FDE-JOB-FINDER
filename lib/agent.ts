@@ -358,6 +358,11 @@ Request: ${opts.prompt}\nJSON: {"queries":["..."]}`, { maxTokens: 1500 });
       await hset('agent:finds', f.id, f);
       newOnes.push(f);
     }
+    const handles = newOnes.filter((f) => f.kind === 'post' && f.confidence !== 'maybe' && /\(@([A-Za-z0-9_]{1,15})\)/.test(f.author || '')).map((f) => (f.author || '').match(/\(@([A-Za-z0-9_]{1,15})\)/)![1]);
+    if (handles.length) {
+      const learned = await getJSON<string[]>('x:authors', []);
+      await setJSON('x:authors', Array.from(new Set([...handles, ...learned])).slice(0, 200)); // watched for free on every refresh
+    }
     run.findIds = [...ids];
     run.total = ids.size;
     run.finds = newOnes.length;

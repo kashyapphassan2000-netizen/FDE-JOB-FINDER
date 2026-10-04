@@ -6,6 +6,7 @@ import { baseScore, classify, jobFlags, locationAllowed, payBand, cvMatchScore, 
 import { getCv } from './cv';
 import { sendAlert } from './notify';
 import { loadVault } from './secrets';
+import { saveTrendSnapshot } from './trends';
 
 const MAX_JOBS = 2500;
 const KEEP_DAYS = 14;
@@ -185,7 +186,7 @@ export async function refresh(opts: { only?: string[]; force?: boolean; trigger:
       skipped,
       failed,
     };
-    await Promise.all([setJSON('jobs', jobs), setJSON('health', health), setJSON('meta', meta)]);
+    await Promise.all([setJSON('jobs', jobs), setJSON('health', health), setJSON('meta', meta), saveTrendSnapshot(jobs).catch(() => null)]);
 
     // ---- alerts (skip the very first fill to avoid a flood) ----
     if (!firstRun) {
@@ -196,4 +197,30 @@ export async function refresh(opts: { only?: string[]; force?: boolean; trigger:
   } finally {
     await releaseLock(lockName);
   }
+}
+
+/** Adds jobs from outside the refresh cycle (browser capture) to your list; returns how many were new and kept. */
+export async function addExternalJobs(raws: RawJob[], source: string): Promise<number> {
+  if (!raws.length) return 0;
+  const [existing, cv, settings] = await Promise.all([getJobs(), getCv(), getSettings()]);
+  const byId = new Map(existing.map((j) => [j.id, j]));
+  const nowIso = new Date().toISOString();
+  let added = 0;
+  for (const r of raws.filter(valid)) {
+    if (isExcluded(r, settings)) continue;
+    const id = hashId(dedupeKey(r));
+    const cur = byId.get(id);
+    if (cur) {
+      cur.lastSeen = nowIso;
+      if (!cur.sources.includes(source)) cur.sources.push(source);
+      continue;
+    }
+    const job = rescore({ ...r, title: r.title.trim().slice(0, 200), company: (r.company || '').trim().slice(0, 120), location: (r.location || '').trim().slice(0, 160), description: (r.description || '').slice(0, 400), id, sources: [source], categories: [], locTags: [], domain: 'OTHER', seniority: 'mid', hidden: false, score: 0, cvMatch: 0, firstSeen: nowIso, lastSeen: nowIso }, cv.skills);
+    if (!job.categories.length || !locationAllowed(job.locTags, job.location)) continue;
+    byId.set(id, job);
+    added++;
+  }
+  const jobs = [...byId.values()].sort((a, b) => b.score - a.score).slice(0, MAX_JOBS);
+  await setJSON('jobs', jobs);
+  return added;
 }

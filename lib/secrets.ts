@@ -26,6 +26,10 @@ export const VAULT_KEYS: { name: string; label: string; group: string; url: stri
   { name: 'SERPER_API_KEY', label: 'Serper.dev Google (2,500 free once)', group: 'Web search (AI agent)', url: 'https://serper.dev/api-key' },
   { name: 'BRAVE_API_KEY', label: 'Brave Search API', group: 'Web search (AI agent)', url: 'https://api-dashboard.search.brave.com/' },
   { name: 'JINA_API_KEY', label: 'Jina (search + page reader)', group: 'Web search (AI agent)', url: 'https://jina.ai/api-dashboard/' },
+  { name: 'GOOGLE_CSE_KEY', label: 'Google Programmable Search API key (100 free/day)', group: 'Web search (AI agent)', url: 'https://developers.google.com/custom-search/v1/introduction' },
+  { name: 'GOOGLE_CSE_CX', label: 'Google Programmable Search engine ID (cx) — set to search the whole web', group: 'Web search (AI agent)', url: 'https://programmablesearchengine.google.com/controlpanel/all' },
+  { name: 'SEARCHAPI_KEY', label: 'SearchApi.io (100 free/month)', group: 'Web search (AI agent)', url: 'https://www.searchapi.io/' },
+  { name: 'SEARXNG_TOKEN', label: 'Hugging Face token for your PRIVATE SearXNG Space (optional)', group: 'Web search (AI agent)', url: 'https://huggingface.co/settings/tokens' },
   { name: 'SEARXNG_URL', label: 'Your SearXNG instance URL (self-hosted = unlimited)', group: 'Web search (AI agent)', url: 'https://docs.searxng.org/' },
   // outreach (find people's work emails)
   { name: 'HUNTER_API_KEY', label: 'Hunter.io (finds work emails, 25 free searches/month)', group: 'Outreach', url: 'https://hunter.io/api-keys' },
