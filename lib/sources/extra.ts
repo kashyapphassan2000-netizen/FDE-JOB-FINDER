@@ -17,6 +17,24 @@ const inr = (n?: number) => (n ? `₹${(n / 1e5).toFixed(n >= 1e6 ? 0 : 1)}L` : 
 
 export const EXTRA_SOURCES: SourceDef[] = [
   {
+    id: 'jpmc',
+    name: 'JPMorgan Chase careers (Oracle HCM)',
+    group: 'Big Tech careers',
+    keyless: true,
+    envKeys: [],
+    defaultIntervalMin: 180,
+    covers: 'JPMorgan GCC India — Excel: Frontier_Labs_India (GCCs hiring AI in Bengaluru)',
+    docs: 'Public Oracle Recruiting Cloud REST API behind careers.jpmorgan.com',
+    run: (ctx) =>
+      multi(['machine learning', 'artificial intelligence', 'LLM', 'generative AI', 'data scientist'], async (q) => {
+        const d = await getJson<any>(`https://jpmc.fa.oraclecloud.com/hcmRestApi/resources/latest/recruitingCEJobRequisitions?onlyData=true&expand=requisitionList&finder=findReqs;siteNumber=CX_1001,keyword=${encodeURIComponent(q)},limit=100,sortBy=POSTING_DATES_DESC`, { signal: ctx.signal });
+        return (d?.items?.[0]?.requisitionList || []).map((r: any) => ({
+          title: r.Title, company: 'JPMorgan Chase', location: [r.PrimaryLocation, ...(r.secondaryLocations || []).map((l: any) => l.Name)].filter(Boolean).join(' | '),
+          url: `https://jpmc.fa.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001/job/${r.Id}`, postedAt: toIso(r.PostedDate), description: stripHtml(r.ShortDescriptionStr || '', 400),
+        }));
+      }),
+  },
+  {
     id: 'unstop',
     name: 'Unstop jobs',
     group: 'Job boards',

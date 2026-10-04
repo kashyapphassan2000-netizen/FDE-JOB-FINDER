@@ -6,6 +6,8 @@ import DiscoverTab from '@/components/DiscoverTab';
 import OutreachTab from '@/components/OutreachTab';
 import OpportunitiesTab from '@/components/OpportunitiesTab';
 import TrendsTab from '@/components/TrendsTab';
+import SearchTab from '@/components/SearchTab';
+import IntelTab from '@/components/IntelTab';
 import AiKeysTab from '@/components/AiKeysTab';
 import TrackerTab from '@/components/TrackerTab';
 import ExcelTab from '@/components/ExcelTab';
@@ -16,7 +18,7 @@ import SettingsTab from '@/components/SettingsTab';
 import { ago, api, type JobsPayload } from '@/components/api';
 
 const NAV = [
-  { group: 'Find', items: [['Jobs', '💼'], ['AI Agent', '🤖'], ['Trends', '📈'], ['Hidden jobs & startups', '💎'], ['Outreach', '✉️'], ['Opportunities', '🏆']] },
+  { group: 'Find', items: [['Search any role', '🔍'], ['Jobs', '💼'], ['AI Agent', '🤖'], ['Trends', '📈'], ['Hiring radar', '📡'], ['Layoffs', '📉'], ['Hidden jobs & startups', '💎'], ['Outreach', '✉️'], ['Opportunities', '🏆']] },
   { group: 'Agent searches', items: [['X / Twitter', '𝕏'], ['LinkedIn posts', '🔗'], ['Hidden Bengaluru', '📍'], ['Remote India', '🏠'], ['US / EU remote', '🌍'], ['Semi & Embedded AI', '🔧'], ['New startups', '🚀'], ['Communities', '👥']] },
   { group: 'Track', items: [['Tracker', '📌'], ['CV', '📄']] },
   { group: 'Library', items: [['Excel sheets', '📊'], ['Excel coverage map', '🗺️']] },
@@ -36,6 +38,8 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [menu, setMenu] = useState(false);
   const [seed, setSeed] = useState<{ company: string; role: string; n: number } | null>(null);
+  const [sq, setSq] = useState('');
+  const [sqInput, setSqInput] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -117,7 +121,10 @@ export default function Home() {
       <main className="main">
         <header className="topbar">
           <button className="burger" onClick={() => setMenu(true)} aria-label="Menu">☰</button>
-          <h1>{tab}</h1>
+          <h1 className="hide-sm">{tab}</h1>
+          <form className="topsearch" onSubmit={(e) => { e.preventDefault(); if (sqInput.trim()) { setSq(sqInput.trim()); go('Search any role'); } }}>
+            <input placeholder="🔍 Search any role everywhere — e.g. MLOps engineer" value={sqInput} onChange={(e) => setSqInput(e.target.value)} />
+          </form>
           <div className="row top-actions">
             <span className="muted small hide-sm">{data?.meta?.lastRefresh ? `Updated ${ago(data.meta.lastRefresh)}` : 'Never refreshed'}</span>
             <button className="primary" disabled={busy} onClick={() => refreshNow(false)}>{busy ? 'Refreshing…' : '⟳ Refresh'}</button>
@@ -138,6 +145,8 @@ export default function Home() {
         {tab === 'Excel sheets' && <ExcelTab toast={setToast} />}
         {tab === 'Excel coverage map' && <PlatformsTab toast={setToast} />}
         {tab === 'Trends' && <TrendsTab toast={setToast} />}
+        {(tab === 'Hiring radar' || tab === 'Layoffs') && <IntelTab key={tab} mode={tab === 'Layoffs' ? 'layoffs' : 'hiring'} toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}
+        {tab === 'Search any role' && <SearchTab q={sq} toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}
         {MISSION_TABS[tab] && <AgentTab key={tab} missionId={MISSION_TABS[tab]} toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}
         {tab === 'Sources & APIs' && <SourcesTab toast={setToast} reload={load} />}
         {tab === 'CV' && <CvTab toast={setToast} />}

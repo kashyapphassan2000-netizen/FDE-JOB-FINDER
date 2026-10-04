@@ -14,17 +14,17 @@ import { getJSON, hset, setJSON } from '../store';
 export const CAREER_PAGES: [string, string][] = [
   // NEW_DIRECT_CAREERS_BANGALORE
   ['Intuit', 'https://jobs.intuit.com/search-jobs/India'], ['Atlassian', 'https://www.atlassian.com/company/careers/all-jobs?location=India'],
-  ['Bloomberg', 'https://bloomberg.avature.net/careers/SearchJobs/?listFilterMode=1&jobOffset=0&817=%5B11007%5D'], ['Razorpay', 'https://razorpay.com/jobs/jobs-all/'],
+  ['Bloomberg', 'https://bloomberg.avature.net/careers/SearchJobs/?listFilterMode=1&jobOffset=0&817=%5B11007%5D'],
   ['PhonePe', 'https://www.phonepe.com/careers/job-openings/'], ['Zepto', 'https://www.zeptonow.com/careers'], ['Myntra', 'https://careers.myntra.com/job-listing/'],
-  ['Ola Electric', 'https://olaelectric.com/careers'], ['BrowserStack', 'https://www.browserstack.com/careers'], ['Darwinbox', 'https://darwinbox.com/careers'],
+  ['Ola Electric', 'https://olaelectric.com/careers'], ['Darwinbox', 'https://darwinbox.com/careers'],
   ['Postman', 'https://www.postman.com/company/careers/open-positions/'], ['Zerodha', 'https://careers.zerodha.com/'], ['Flipkart', 'https://www.flipkartcareers.com/#!/joblist'],
-  ['Ather Energy', 'https://careers.atherenergy.com/jobs'], ['Samsung R&D Bangalore', 'https://research.samsung.com/careers'],
+  ['Ather Energy', 'https://careers.atherenergy.com/jobs'],
   // Frontier_Labs_India / Hidden_Channels / GCCs without a public API
   ['Krutrim', 'https://www.olakrutrim.com/careers'], ['AI4Bharat', 'https://ai4bharat.iitm.ac.in/careers'], ['Yellow.ai', 'https://yellow.ai/careers/'],
   ['Gnani.ai', 'https://gnani.ai/careers/'], ['Qure.ai', 'https://www.qure.ai/careers'], ['Skit.ai', 'https://skit.ai/careers'],
   ['Dolby', 'https://jobs.dolby.com/careers?location=Bangalore'], ['Uber', 'https://www.uber.com/us/en/careers/list/?location=IND-Karnataka-Bangalore'],
   ['Zoho', 'https://careers.zohocorp.com/jobs/Careers'], ['NatWest Group', 'https://jobs.natwestgroup.com/search/?locationsearch=India'],
-  ['Walmart Global Tech', 'https://careers.walmart.com/results?q=machine%20learning&page=1&sort=rank&jobState=KA'], ['JPMorgan', 'https://careers.jpmorgan.com/in/en/students/programs'],
+  ['Walmart Global Tech', 'https://careers.walmart.com/results?q=machine%20learning&page=1&sort=rank&jobState=KA'],
   ['Goldman Sachs', 'https://higher.gs.com/results?LOCATION=Bengaluru&page=1&sort=RELEVANCE'], ['Juspay', 'https://juspay.io/careers'],
   // AI infra / remote employers (CONSOLIDATED_AI_INFRA_COMPANIES, REMOTE_GENUINE_EMPLOYERS_INDIA)
   ['Weights & Biases', 'https://wandb.ai/site/careers'], ['Replicate', 'https://replicate.com/about#careers'], ['Groq', 'https://groq.com/careers'],
@@ -67,7 +67,7 @@ export const CAREER_PAGE_SOURCE: SourceDef = {
   keyless: true,
   envKeys: [],
   defaultIntervalMin: 45,
-  covers: `${CAREER_PAGES.length} companies from the Excel with custom careers sites (Razorpay, PhonePe, Flipkart, Atlassian, Postman, Krutrim, W&B, Groq, micro1, Crossover…); ${PER_RUN} pages per run, rotating`,
+  covers: `${CAREER_PAGES.length} companies from the Excel with custom careers sites (PhonePe, Flipkart, Atlassian, Postman, Krutrim, W&B, Groq, micro1, Crossover…); ${PER_RUN} pages per run, rotating`,
   docs: 'Jina Reader renders the page (free, rate-limited); an AI provider extracts the roles (Gemini/Groq free tiers are enough)',
   run: async (ctx) => {
     const cursor = await getJSON<number>('cp:cursor', 0);

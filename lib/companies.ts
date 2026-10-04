@@ -82,6 +82,8 @@ export const DEFAULT_COMPANIES: CompanyEntry[] = [
   wd('gevernova', 'wd5', 'Vernova_ExternalSite', 'GE Vernova'), ab('surge-ai', 'Surge AI', 'fde'), sr('Swiggy', 'Swiggy', 'india'),
   ab('lemon-io', 'Lemon.io'), gh('sigmoid', 'Sigmoid', 'india'), ab('bolna', 'Bolna AI', 'india'), gh('lightningai', 'Lightning AI', 'infra'),
   gh('rubrik', 'Rubrik'),
+  // career pages whose real ATS was found behind the page (verified Oct 2026)
+  gh('razorpaysoftwareprivatelimited', 'Razorpay', 'india'), wd('browserstack', 'wd3', 'External', 'BrowserStack', 'india'),
 ];
 
 export const COMPANY_TAG = new Map<string, string>(DEFAULT_COMPANIES.filter((c) => c.tag).map((c) => [c.name.toLowerCase(), c.tag!]));

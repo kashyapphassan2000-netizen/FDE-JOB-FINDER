@@ -22,7 +22,7 @@ type P = { id: string; name: string; url: string; host: string; mapping: string;
 // connectors added after the first map was built (host → connector ids)
 const EXTRA: [RegExp, string[]][] = [
   [/(^|\.)internshala\.com$/, ['internshala']], [/(^|\.)nodesk\.co$/, ['nodesk']], [/80000hours\.org$/, ['eightyk']], [/(^|\.)unstop\.com$/, ['unstop', 'opps']],
-  [/mercor\.com$/, ['mercor']], [/^(x|twitter)\.com$/, ['x_watch', 'agent:x-posts']], [/(^|\.)devpost\.com$/, ['opps']], [/(^|\.)t\.me$/, ['telegram']],
+  [/mercor\.com$/, ['mercor']], [/jpmc\.fa\.oraclecloud\.com$|jpmorgan/, ['jpmc']], [/razorpay\.com$/, ['greenhouse:razorpaysoftwareprivatelimited']], [/browserstack\.com$/, ['workday:browserstack|wd3|External']], [/^(x|twitter)\.com$/, ['x_watch', 'agent:x-posts']], [/(^|\.)devpost\.com$/, ['opps']], [/(^|\.)t\.me$/, ['telegram']],
   [/(^|\.)reddit\.com$/, ['reddit']], [/news\.ycombinator\.com|hn\.hiring-search\.com/, ['hn']],
   [/yourstory\.com$|inc42\.com$|economictimes|techcrunch\.com$|news\.crunchbase\.com$/, ['discover']], [/ycombinator\.com$|workatastartup\.com$/, ['yc_jobs', 'discover']],
 ];
@@ -42,6 +42,7 @@ export function coverage(health: Record<string, SourceHealth>, extraCompanies: {
     if (c.startsWith('cp:')) {
       const st = cp[c.slice(3)];
       if (!st) return 'off';
+      if (st.ok && !st.roles) return 'off'; // page read but 0 roles seen: no openings, or jobs load in a widget the reader can't see — NOT proven
       return st.ok && Date.now() - Date.parse(st.at) < 7 * 864e5 ? 'ok' : 'failing';
     }
     if (c.startsWith('agent:')) return 'off';
@@ -78,7 +79,7 @@ export function coverage(health: Record<string, SourceHealth>, extraCompanies: {
       if (ok.length) { eff = 'live_ok'; detail = ok.some((c) => c.startsWith('cp:')) ? `AI reads its careers page automatically (last read ${cp[ok.find((c) => c.startsWith('cp:'))!.slice(3)]?.at.slice(0, 10)}, ${cp[ok.find((c) => c.startsWith('cp:'))!.slice(3)]?.roles ?? 0} roles seen). Pages that only render after login can come back empty — capture to be sure.` : `Fetched automatically via ${ok.join(', ')}.`; return { id: p.id, eff, detail, connectors: conns }; }
       if (failing.length) { eff = 'live_failing'; detail = `Connected (${failing.join(', ')}) but the last run failed — see Sources & APIs.`; return { id: p.id, eff, detail, connectors: conns }; }
       detail = p.kind === 'company'
-        ? 'No public job board API: reached by AI-agent searches + LinkedIn search (partial). For full coverage open its careers page and click 📥 Capture, or add it in Settings → Companies.'
+        ? `No public job-board API${cpName && cp[cpName] ? ` (its careers page was read ${cp[cpName].at.slice(0, 10)} but showed ${cp[cpName].roles ?? 0} roles — jobs probably load in a widget, so this is NOT proven coverage)` : ''}: reached only by AI-agent searches (partial). For full coverage open its careers page and click 📥 Capture.`
         : 'Blocks servers or needs your login: open the link while logged in and click 📥 Capture — every job on the page is imported.';
       if (needKey.length) detail += ` Automatic option: add ${needKey.join(' / ')} (paid/limited).`;
     } else if (ok.length) { eff = 'live_ok'; detail = `Fetched automatically via ${ok.join(', ')}.`; }

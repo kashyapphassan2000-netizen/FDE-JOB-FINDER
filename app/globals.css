@@ -303,3 +303,6 @@ tr.done td { opacity: .55; }
 details summary { cursor: pointer; margin-top: 10px; color: var(--muted); }
 .capture { border-color: color-mix(in srgb, var(--brand) 40%, var(--line)); }
 .bookmarklet { cursor: grab; }
+.topsearch { flex: 2; min-width: 220px; }
+.topsearch input { width: 100%; padding: 9px 14px; border-radius: 12px; }
+@media (max-width: 900px) { .topbar { flex-wrap: wrap; } .topsearch { order: 3; flex-basis: 100%; } }

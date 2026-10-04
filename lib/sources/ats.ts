@@ -84,9 +84,9 @@ export async function fetchWorkable(c: CompanyEntry, signal?: AbortSignal): Prom
 
 // ---------- SmartRecruiters: https://developers.smartrecruiters.com/docs/posting-api ----------
 const SR_QUERIES = ['forward deployed', 'machine learning', 'artificial intelligence', 'AI engineer', 'embedded'];
-export async function fetchSmartRecruiters(c: CompanyEntry, signal?: AbortSignal): Promise<RawJob[]> {
+export async function fetchSmartRecruiters(c: CompanyEntry, signal?: AbortSignal, queries = SR_QUERIES): Promise<RawJob[]> {
   const out: RawJob[] = [];
-  for (const q of SR_QUERIES) {
+  for (const q of queries) {
     const d = await getJson<{ content: any[] }>(`https://api.smartrecruiters.com/v1/companies/${c.slug}/postings?q=${encodeURIComponent(q)}&limit=100`, { signal });
     for (const j of d.content || []) {
       out.push({
@@ -104,11 +104,11 @@ export async function fetchSmartRecruiters(c: CompanyEntry, signal?: AbortSignal
 
 // ---------- Workday (public CXS endpoint used by every *.myworkdayjobs.com site) ----------
 const WD_QUERIES = ['forward deployed', 'machine learning', 'artificial intelligence', 'embedded AI', 'deep learning'];
-export async function fetchWorkday(c: CompanyEntry, signal?: AbortSignal): Promise<RawJob[]> {
+export async function fetchWorkday(c: CompanyEntry, signal?: AbortSignal, queries = WD_QUERIES): Promise<RawJob[]> {
   const [tenant, wdn, site] = c.slug.split('|');
   const base = `https://${tenant}.${wdn}.myworkdayjobs.com`;
   const out: RawJob[] = [];
-  for (const q of WD_QUERIES) {
+  for (const q of queries) {
     const res = await http(`${base}/wday/cxs/${tenant}/${site}/jobs`, {
       method: 'POST',
       signal,
@@ -130,7 +130,7 @@ export async function fetchWorkday(c: CompanyEntry, signal?: AbortSignal): Promi
   return out;
 }
 
-export const FETCHERS: Record<CompanyEntry['ats'], (c: CompanyEntry, s?: AbortSignal) => Promise<RawJob[]>> = {
+export const FETCHERS: Record<CompanyEntry['ats'], (c: CompanyEntry, s?: AbortSignal, queries?: string[]) => Promise<RawJob[]>> = {
   greenhouse: fetchGreenhouse,
   lever: fetchLever,
   ashby: fetchAshby,
