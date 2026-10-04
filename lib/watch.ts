@@ -11,6 +11,7 @@ import { readPage, webSearch } from './search';
 import { resolveDomain } from './outreach';
 import { pool } from './http';
 import { esc, sendMail } from './mailer';
+import { sendWhatsApp } from './notify';
 import { loadVault, secret } from './secrets';
 import { ownerEmails } from './access';
 
@@ -273,6 +274,7 @@ export async function runWatch(budgetMs = 240000): Promise<{ checked: number; ne
         await sendMail(to, `🔔 ${fresh.length} new AI/FDE role${fresh.length > 1 ? 's' : ''}: ${[...by.keys()].slice(0, 3).join(', ')}${by.size > 3 ? '…' : ''}`, html);
         emailed = true;
         for (const h of fresh) h.emailed = true;
+        await sendWhatsApp(`🔔 *${fresh.length} new AI/FDE role${fresh.length > 1 ? 's' : ''} at companies you watch*\n\n${fresh.slice(0, 8).map((h, i) => `${i + 1}. *${h.title}* — ${h.company}\n📍 ${h.location}\n${h.url}`).join('\n\n')}`).catch((e) => log.push(`WhatsApp: ${(e as Error).message.slice(0, 100)}`));
       } catch (e) { log.push(`email failed: ${(e as Error).message.slice(0, 160)}`); }
     } else log.push('no email address to notify — set DIGEST_TO in AI & Keys');
     const prev = await getJSON<WatchHit[]>('watch:hits', []);

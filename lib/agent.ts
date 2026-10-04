@@ -199,12 +199,20 @@ function heuristic(r: Hit): Partial<Find> | null {
 }
 
 function applyHowFrom(text: string): string {
-  const email = text.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i)?.[0];
-  if (email) return `email ${email}`;
-  if (/\bdm\b|dms open|message me/i.test(text)) return 'DM the author';
-  const link = text.match(/https?:\/\/[^\s)]+/)?.[0];
-  if (link && !/x\.com|twitter\.com|t\.co\//.test(link)) return `apply: ${link}`;
-  return '';
+  // keep EVERY way to apply that the post states: all emails, apply / careers / form links, DM, comment instructions
+  const out: string[] = [];
+  const emails = Array.from(new Set(text.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi) || [])).slice(0, 4);
+  if (emails.length) out.push(`email ${emails.join(', ')}`);
+  const links = Array.from(new Set((text.match(/https?:\/\/[^\s)\]>"',]+/g) || [])
+    .map((l) => { const m = l.match(/linkedin\.com\/redir\/redirect\?url=([^&]+)/); return m ? decodeURIComponent(m[1]) : l.replace(/[?&]trk=[^&]*$/, ''); })
+    .filter((l) => !/(x|twitter)\.com\/[^/]+\/status|t\.co\/|licdn\.com|twimg\.com/.test(l) && !(/linkedin\.com/.test(l) && !/linkedin\.com\/jobs\/view/.test(l)))
+  )).slice(0, 5);
+  if (links.length) out.push(`apply: ${links.join(' , ')}`);
+  if (/\bdm\b|dms (are )?open|message me|inbox me|ping me/i.test(text)) out.push('DM the author');
+  if (/comment ["“']?interested|drop (your )?(cv|resume)|comment below/i.test(text)) out.push('comment "interested" / drop CV as the post asks');
+  const wa = text.match(/(?:whatsapp|call|contact)[^0-9+]{0,12}(\+?\d[\d\s-]{8,14}\d)/i)?.[1];
+  if (wa) out.push(`phone ${wa.replace(/\s+/g, '')}`);
+  return out.join(' · ');
 }
 
 function fallbackPlan(prompt: string): string[] {
@@ -233,10 +241,10 @@ export async function runAgent(opts: { missionId?: string; prompt?: string; budg
     const raw: RawJob = { title: f.title || r.title, company: f.company || '', location: loc, url: r.url, description: r.snippet };
     return {
       id: hashId(r.url), kind: f.kind || 'job', title: (f.title || r.title).slice(0, 220), company: (f.company || '').slice(0, 100), location: loc.slice(0, 120),
-      url: r.url, snippet: r.snippet.slice(0, 1500), why: (f.why || '').slice(0, 300), role: f.role?.length ? f.role : classify(raw),
+      url: r.url, snippet: r.snippet.slice(0, isPostUrl(r.url) ? 3000 : 1500), why: (f.why || '').slice(0, 300), role: f.role?.length ? f.role : classify(raw),
       domain: f.domain || domainOf(raw), locTags: f.locTags || locationTags({ ...raw, location: loc }),
       mission: run.mission, engine: r.engine, foundAt: now, status: 'new', ats: f.ats, author: f.author || r.author, postedAt: dateFromUrl(r.url) || f.postedAt || dateFromText(`${r.title} ${r.snippet}`) || (isSocialPost(r.url) ? null : r.date) || null,
-      applyHow: f.applyHow || applyHowFrom(r.snippet), confidence: f.confidence || 'high',
+      applyHow: Array.from(new Set([(f.applyHow || '').replace(/https?:\/\/(www\.)?linkedin\.com\/(legal|company|top-content|signup|login)[^\s,]*[,\s]*/g, '').trim(), applyHowFrom(r.snippet)].filter(Boolean) as string[])).join(' · ').slice(0, 700), confidence: f.confidence || 'high',
     };
   };
 
@@ -263,6 +271,28 @@ export async function runAgent(opts: { missionId?: string; prompt?: string; budg
       }
     });
     return out;
+  };
+
+  // LinkedIn posts: open each public post and keep the FULL text (role, location, experience, emails, apply links) — not the snippet
+  const readLinkedIn = async (results: Hit[]) => {
+    const lis = results.filter((r) => /linkedin\.com\/(posts|feed\/update)\//i.test(r.url) && !r.stale).slice(0, depth === 'deep' ? 30 : 12);
+    if (!lis.length || left() < 70000) return;
+    let read = 0;
+    await pool(lis, 4, async (r) => {
+      try {
+        const md = await readPage(r.url, 9000);
+        const body = md
+          .replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[([^\]]*)\]\((https?:[^)]*)\)/g, '$1 $2')
+          .split('\n').map((l) => l.trim()).filter((l) => l && !/^(sign in|join now|agree & join|skip to main|report this post|like|comment|repost|send|see more|show more|cookie|user agreement|privacy policy|©|linkedin corporation)/i.test(l) && !/^#+\s*(more relevant posts|explore topics|sign in to view)/i.test(l))
+          .join('\n');
+        const start = Math.max(0, body.toLowerCase().indexOf((r.snippet || '').slice(0, 30).toLowerCase()));
+        const text = body.slice(start > 0 ? start : 0, (start > 0 ? start : 0) + 3000).trim();
+        if (text.length > (r.snippet || '').length + 80) { r.snippet = text; read++; }
+        const who = (md.match(/^Title:\s*(.+?)\s+on LinkedIn/im) || r.title.match(/^(.+?)\s+on LinkedIn/i))?.[1];
+        if (who && !r.author) r.author = who.trim().slice(0, 80);
+      } catch {}
+    });
+    if (read) log(`LinkedIn: read ${read}/${lis.length} posts in full`);
   };
 
   // X posts: read every one in full, drop old ones
@@ -325,12 +355,12 @@ export async function runAgent(opts: { missionId?: string; prompt?: string; budg
     for (let i = 0; i < rest.length; i += 18) batches.push(rest.slice(i, i + 18)); // small batches fit free-tier token limits
     let kept = 0;
     const res = await pool(batches, 2, async (batch) => {
-      const items = batch.map((r, i) => ({ i, title: r.title, url: r.url, date: r.date || '', text: r.snippet.slice(0, isPostUrl(r.url) ? 650 : 300) }));
+      const items = batch.map((r, i) => ({ i, title: r.title, url: r.url, date: r.date || '', text: r.snippet.slice(0, isPostUrl(r.url) ? 1400 : 300) }));
       const { data, meta } = await chatJson<{ items: { i: number; relevant: 'yes' | 'maybe' | 'no'; kind: Find['kind']; title: string; company: string; location: string; role: string[]; domain: Domain; why: string; apply_how: string }[] }>(SYSTEM,
         `Classify these web results. Keep real FDE or AI/ML job postings, real hiring posts by companies/founders/employees (X, LinkedIn, Reddit, HN), and company careers pages likely listing such roles. Use "maybe" when it could be relevant but details are missing — do not drop possible opportunities.
-For posts: title = the role being hired for, company = hiring company, location = what the post says, apply_how = how to apply (email address, "DM", form/link) if stated.
+For posts: title = the role being hired for (several roles → join with " / "), company = hiring company, location = what the post says (city / remote scope), apply_how = EVERY way to apply the post states (all email addresses, form / careers links, "DM", "comment interested", phone) plus experience asked and salary if stated — never drop a detail.
 Results:\n${JSON.stringify(items)}\nJSON: {"items":[{"i":0,"relevant":"yes|maybe|no","kind":"job|post|careers_page","title":"clean role title","company":"","location":"city/country/remote scope or not stated","role":["FDE"|"AIML"],"domain":"AI_LAB|AI_INFRA|SEMI|EMBEDDED|IT|FINTECH|HEALTH|DEFENSE|CONSULTING|OTHER","why":"max 20 words","apply_how":""}]}`,
-        { maxTokens: 3000, timeoutMs: Math.min(100000, left() - 15000) });
+        { maxTokens: 3500, timeoutMs: Math.min(100000, left() - 15000) });
       run.ai = `${meta.provider} · ${meta.model}`;
       for (const it of data?.items || []) {
         const r = batch[it.i];
@@ -389,6 +419,7 @@ ${scope ? `SCOPE (strict): ${scope}\n` : ''}Request: ${opts.prompt}\nJSON: {"que
 
     // 3. READ X posts in full
     await readX(results);
+    await readLinkedIn(results);
     const fresh = results.filter((r) => !r.stale);
 
     // 4. VERIFY ATS boards (only tabs whose job includes company boards)
@@ -410,6 +441,7 @@ ${scope ? `SCOPE (strict): ${scope}\n` : ''}Request: ${opts.prompt}\nJSON: {"que
             const more = onlyMine(await searchAll(fq, rec === 'day' ? 'week' : rec));
             log(`follow-up: ${more.length} new results from ${fq.length} queries`);
             await readX(more);
+            await readLinkedIn(more);
             const moreFresh = more.filter((r) => !r.stale);
             if (!rule || rule.boards) await verifyBoards(moreFresh);
             await classifyAll(moreFresh.filter((r) => isJobLink(r.url)));

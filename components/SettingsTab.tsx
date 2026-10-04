@@ -44,8 +44,9 @@ export default function SettingsTab({ toast }: { toast: (s: string) => void }) {
   }
   async function testAlert() {
     try {
-      await api('/api/notify/test', { method: 'POST' });
-      toast('Test alert sent – check your email (and Telegram if set)');
+      const r = await api<{ sent: number; error?: string; channels?: { email: boolean; whatsapp: boolean; telegram: boolean } }>('/api/notify/test', { method: 'POST' });
+      const on = r.channels ? Object.entries(r.channels).filter(([, v]) => v).map(([k]) => k).join(', ') : '';
+      toast(r.error ? `Problem: ${r.error}` : `Test alert sent via ${on || 'your channels'} — check your phone and inbox`);
     } catch (e) {
       toast((e as Error).message);
     }
@@ -85,6 +86,18 @@ export default function SettingsTab({ toast }: { toast: (s: string) => void }) {
           })}>Save</button>
           <button onClick={testAlert}>Send test alert</button>
         </div>
+      </div>
+
+      <div className="panel">
+        <h3 style={{ marginTop: 0 }}>💬 WhatsApp alerts (free, 3 minutes)</h3>
+        <ol className="small" style={{ margin: '0 0 8px', paddingLeft: 18, lineHeight: 1.7 }}>
+          <li>Save <b>+34 694 25 79 94</b> in your phone as “CallMeBot” (check the number on <a href="https://www.callmebot.com/blog/free-api-whatsapp-messages/" target="_blank" rel="noreferrer">callmebot.com</a> — it changes sometimes).</li>
+          <li>From your WhatsApp send it exactly: <code>I allow callmebot to send me messages</code></li>
+          <li>You get a reply with your <b>apikey</b> (usually within 2 minutes).</li>
+          <li>Open <b>Setup → AI &amp; Keys → Alerts</b>: set <b>WHATSAPP_PHONE</b> (country code + number, e.g. 919876543210) and <b>CALLMEBOT_APIKEY</b>.</li>
+          <li>Click <b>Send test alert</b> above — the test job arrives on WhatsApp and email.</li>
+        </ol>
+        <p className="small muted">From then on every new FDE / AI job that matches your priorities (all sources, watched companies, agent posts) reaches you on WhatsApp too. CallMeBot is a free personal service with a few-second delay and rate limits; for a business number use Twilio (TWILIO_SID / TWILIO_TOKEN / TWILIO_WHATSAPP_FROM).</p>
       </div>
 
       <div className="panel">

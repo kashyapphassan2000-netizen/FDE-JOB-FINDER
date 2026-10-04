@@ -5,6 +5,8 @@ import { acquireLock, getJSON, hgetall, releaseLock, setJSON } from './store';
 import { baseScore, classify, experienceOf, jobFlags, locationAllowed, payBand, cvMatchScore, dedupeKey, domainOf, freshnessHours, hashId, isExcluded, isHiddenGem, locationTags, seniorityOf } from './classify';
 import { getCv } from './cv';
 import { sendAlert } from './notify';
+import { getProfile } from './profile';
+import { scoreJob } from './relevance';
 import { loadVault } from './secrets';
 import { saveTrendSnapshot } from './trends';
 import { recordDirectory, recordGlobal } from './directory';
@@ -198,8 +200,18 @@ export async function refresh(opts: { only?: string[]; force?: boolean; trigger:
 
     // ---- alerts (skip the very first fill to avoid a flood) ----
     if (!firstRun) {
-      const hot = jobs.filter((j) => added.some((a) => a.id === j.id) && j.score >= settings.alertMinScore);
-      if (hot.length) await sendAlert(hot, 'New FDE / AI jobs');
+      // every NEW job from any source that matches YOUR priorities (roles + locations + exclusions) — or a strong score — once only
+      const prof = await getProfile();
+      const sentBefore = new Set(await getJSON<string[]>('alerts:sent', []));
+      const addedIds = new Set(added.map((a) => a.id));
+      const hot = jobs
+        .filter((j) => addedIds.has(j.id) && !sentBefore.has(j.id))
+        .filter((j) => scoreJob({ title: j.title, company: j.company, location: j.location, description: j.description, postedAt: j.postedAt }, prof).keep || j.score >= settings.alertMinScore)
+        .sort((a, b) => Date.parse(b.postedAt || b.firstSeen) - Date.parse(a.postedAt || a.firstSeen));
+      if (hot.length) {
+        await sendAlert(hot, `${hot.length} new FDE / AI job${hot.length > 1 ? 's' : ''} for you`);
+        await setJSON('alerts:sent', [...hot.map((j) => j.id), ...sentBefore].slice(0, 5000));
+      }
     }
     return { ...meta, health };
   } finally {

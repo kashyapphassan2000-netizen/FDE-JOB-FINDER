@@ -7,8 +7,33 @@ export function notifyConfigured() {
   return {
     telegram: Boolean(secret('TELEGRAM_BOT_TOKEN') && secret('TELEGRAM_CHAT_ID')),
     webhook: Boolean(secret('ALERT_WEBHOOK_URL')),
-    email: Boolean(secret('RESEND_API_KEY') && secret('DIGEST_TO')) && process.env.EMAIL_ALERTS !== 'off',
+    email: Boolean((secret('RESEND_API_KEY') || (secret('GMAIL_USER') && secret('GMAIL_APP_PASSWORD'))) && secret('DIGEST_TO')) && process.env.EMAIL_ALERTS !== 'off',
+    whatsapp: Boolean(secret('WHATSAPP_PHONE') && (secret('CALLMEBOT_APIKEY') || (secret('TWILIO_SID') && secret('TWILIO_TOKEN') && secret('TWILIO_WHATSAPP_FROM')))),
   };
+}
+
+/** WhatsApp: CallMeBot (free, personal — one-time opt-in) or Twilio WhatsApp (sandbox / business number). */
+export async function sendWhatsApp(text: string): Promise<void> {
+  const phone = secret('WHATSAPP_PHONE').replace(/[^0-9]/g, '');
+  if (!phone) throw new Error('Set WHATSAPP_PHONE (with country code, e.g. 919876543210)');
+  const msg = text.slice(0, 1500);
+  if (secret('CALLMEBOT_APIKEY')) {
+    const r = await fetch(`https://api.callmebot.com/whatsapp.php?phone=${phone}&text=${encodeURIComponent(msg)}&apikey=${encodeURIComponent(secret('CALLMEBOT_APIKEY'))}`, { signal: AbortSignal.timeout(20000) });
+    const body = await r.text();
+    if (!r.ok || /error|not (been )?(authorized|activated)|invalid/i.test(body.slice(0, 400))) throw new Error(`CallMeBot: ${body.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160)}`);
+    return;
+  }
+  if (secret('TWILIO_SID')) {
+    const sid = secret('TWILIO_SID');
+    const r = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+      method: 'POST',
+      headers: { Authorization: `Basic ${Buffer.from(`${sid}:${secret('TWILIO_TOKEN')}`).toString('base64')}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ From: `whatsapp:${secret('TWILIO_WHATSAPP_FROM')}`, To: `whatsapp:+${phone}`, Body: msg }),
+    });
+    if (!r.ok) throw new Error(`Twilio ${r.status}: ${(await r.text()).slice(0, 160)}`);
+    return;
+  }
+  throw new Error('Set CALLMEBOT_APIKEY (free) or Twilio keys in AI & Keys');
 }
 
 const esc = (s: string) => (s || '').replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' })[c]!);
@@ -17,7 +42,11 @@ export async function sendAlert(jobs: Job[], header = 'New matching jobs'): Prom
   if (!jobs.length) return { sent: 0 };
   const top = jobs.slice(0, 15);
   const errors: string[] = [];
-  const { telegram, webhook, email } = notifyConfigured();
+  const { telegram, webhook, email, whatsapp } = notifyConfigured();
+  if (whatsapp) {
+    const wa = `🔔 *${header}* (${jobs.length})\n\n${jobs.slice(0, 8).map((j, i) => `${i + 1}. *${j.title}* — ${j.company}\n📍 ${j.location || 'not stated'}${j.postedAt ? ` · ${new Date(j.postedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : ''}\n${j.url}`).join('\n\n')}${jobs.length > 8 ? `\n\n+${jobs.length - 8} more in your app` : ''}\n\nApply in the first 24–72 h.`;
+    try { await sendWhatsApp(wa); } catch (e) { errors.push(`WhatsApp: ${(e as Error).message}`); }
+  }
   if (telegram) {
     const lines = top.map(
       (j) => `• <b>${esc(j.title)}</b> — ${esc(j.company)}\n  ${esc(j.location || '')} · ${j.categories.join('/')} · score ${j.score}\n  <a href="${esc(j.url)}">open</a>`,
@@ -52,21 +81,12 @@ export async function sendAlert(jobs: Job[], header = 'New matching jobs'): Prom
     if (n <= 40) {
       const rows = top.map((j) => `<tr><td style="padding:10px 0;border-bottom:1px solid #e5e7eb"><a href="${esc(j.url)}" style="font-weight:600;color:#4f46e5;text-decoration:none">${esc(j.title)}</a><div style="color:#4b5563;font-size:13px">${esc(j.company)} · ${esc(j.location || 'location not stated')}${j.salary ? ` · ${esc(j.salary)}` : ''}</div>${j.description && /📣/.test(j.title) ? `<div style="font-size:12.5px;color:#374151;margin-top:4px;white-space:pre-wrap">${esc(j.description.slice(0, 400))}</div>` : ''}</td></tr>`).join('');
       try {
-        const r = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${secret('RESEND_API_KEY')}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            from: secret('DIGEST_FROM') || 'FDE Job Finder <onboarding@resend.dev>',
-            to: secret('DIGEST_TO').split(/[,;\s]+/).filter(Boolean),
-            subject: `🔔 ${header} (${jobs.length})`,
-            html: `<div style="font-family:system-ui,sans-serif;max-width:640px;margin:auto"><h3 style="margin-bottom:4px">${esc(header)} (${jobs.length})</h3><div style="color:#6b7280;font-size:12.5px">Apply early: most interviews go to the first 24–72 h of applicants.</div><table style="width:100%;border-collapse:collapse">${rows}</table></div>`,
-          }),
-        });
-        if (!r.ok) errors.push(`Email ${r.status}: ${(await r.text()).slice(0, 120)}`);
+        const { sendMail } = await import('./mailer');
+        await sendMail(secret('DIGEST_TO').split(/[,;\s]+/).filter(Boolean)[0], `🔔 ${header} (${jobs.length})`, `<div style="font-family:system-ui,sans-serif;max-width:640px;margin:auto"><h3 style="margin-bottom:4px">${esc(header)} (${jobs.length})</h3><div style="color:#6b7280;font-size:12.5px">Apply early: most interviews go to the first 24–72 h of applicants.</div><table style="width:100%;border-collapse:collapse">${rows}</table></div>`);
       } catch (e) {
         errors.push(`Email: ${(e as Error).message}`);
       }
     }
   }
-  return { sent: telegram || webhook || email ? top.length : 0, error: errors.join('; ') || undefined };
+  return { sent: telegram || webhook || email || whatsapp ? top.length : 0, error: errors.join('; ') || undefined };
 }

@@ -42,6 +42,11 @@ export const VAULT_KEYS: { name: string; label: string; group: string; url: stri
   { name: 'WATCH_NOTIFY_TO', label: 'Email for Watch-companies alerts (optional — defaults to DIGEST_TO)', group: 'Email digest', url: 'https://resend.com/docs' },
   { name: 'DIGEST_FROM', label: 'From address (optional; needs a verified domain in Resend)', group: 'Email digest', url: 'https://resend.com/domains' },
   // alerts
+  { name: 'WHATSAPP_PHONE', label: 'Your WhatsApp number with country code (e.g. 919876543210)', group: 'Alerts', url: 'https://www.callmebot.com/blog/free-api-whatsapp-messages/' },
+  { name: 'CALLMEBOT_APIKEY', label: 'CallMeBot API key for WhatsApp (free — send the opt-in message first)', group: 'Alerts', url: 'https://www.callmebot.com/blog/free-api-whatsapp-messages/' },
+  { name: 'TWILIO_SID', label: 'Twilio Account SID (optional WhatsApp alternative)', group: 'Alerts', url: 'https://console.twilio.com/' },
+  { name: 'TWILIO_TOKEN', label: 'Twilio Auth Token (optional)', group: 'Alerts', url: 'https://console.twilio.com/' },
+  { name: 'TWILIO_WHATSAPP_FROM', label: 'Twilio WhatsApp sender, e.g. +14155238886 (optional)', group: 'Alerts', url: 'https://console.twilio.com/' },
   { name: 'TELEGRAM_BOT_TOKEN', label: 'Telegram bot token', group: 'Alerts', url: 'https://t.me/BotFather' },
   { name: 'TELEGRAM_CHAT_ID', label: 'Telegram chat id', group: 'Alerts', url: 'https://core.telegram.org/bots/api#getupdates' },
   { name: 'ALERT_WEBHOOK_URL', label: 'Discord/Slack webhook', group: 'Alerts', url: 'https://support.discord.com/hc/en-us/articles/228383668' },

@@ -26,7 +26,8 @@ export default function PlatformsTab({ toast }: { toast: (s: string) => void }) 
   const [kw, setKw] = useState('forward deployed engineer');
   const [todo, setTodo] = useState(false);
 
-  useEffect(() => { api<Payload>('/api/platforms').then(setD).catch((e) => toast(e.message)); }, [toast]);
+  const [nc, setNc] = useState<{ email: boolean; whatsapp: boolean; telegram: boolean } | null>(null);
+  useEffect(() => { api<Payload>('/api/platforms').then(setD).catch((e) => toast(e.message)); api<{ email: boolean; whatsapp: boolean; telegram: boolean }>('/api/notify/test').then(setNc).catch(() => {}); }, [toast]);
 
   const kinds = useMemo(() => Array.from(new Set((d?.platforms || []).map((p) => p.kind))).sort(), [d]);
   const counts = useMemo(() => {
@@ -64,6 +65,12 @@ export default function PlatformsTab({ toast }: { toast: (s: string) => void }) 
 
   return (
     <>
+      <div className="notice ok small">
+        <b>👁 Watched 24×7:</b> the <b>{auto}</b> automatic sources are re-checked about every 2 hours (12× a day), the AI-agent channels 8× a day, your watched companies every 2 hours, and the Careers-search index of every company board 4× a day.
+        Every <b>new</b> FDE / AI-ML job that matches your priority roles & locations is sent to you — once, never twice — by{' '}
+        {nc ? (<>{nc.email ? <b>✉ email</b> : <span className="muted">email (not set)</span>}{' · '}{nc.whatsapp ? <b>💬 WhatsApp</b> : <span className="muted">WhatsApp (not connected — Settings → Alerts)</span>}{nc.telegram ? <> · <b>Telegram</b></> : null}</>) : '…'}.
+        {' '}Honest limit: the Capture-only sites need you to open them logged in and click 📥 Capture — no server can watch those for you.
+      </div>
       <div className="notice small">
         <b>Brutally honest map of all {total} platforms, companies and channels in your Excel.</b> Status is computed right now from what is actually connected and succeeding — nothing is marked live because it was planned.
         {' '}<b>{auto}</b> are fully automatic. The rest are either reachable only through <b>📥 Capture</b> in your own logged-in browser (no site can block that), only partially through the AI agent, or are to-dos that no software can do for you (signing up, joining communities, certifications).
