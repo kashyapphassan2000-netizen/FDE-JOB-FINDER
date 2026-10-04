@@ -66,9 +66,12 @@ const USA = /united states|\busa\b|\bu\.s\.|remote \(us|\bus\b|, (ca|ny|wa|tx|ma
 const REMOTE_OPEN = /worldwide|anywhere|global|apac|asia|india|international|emea.{0,10}apac|\bist\b|all countries|any country|work from anywhere/i;
 const REMOTE_CLOSED = /us only|usa only|u\.s\. only|remote \(us|remote - us|remote, us|united states only|north america|canada|americas|europe only|\beu only|uk only|latam|must (be|reside) in the us|us-based/i;
 
+const FOREIGN_REMOTE_TITLE = /\b(usa?|united states|u\.s\.|uk|canada|europe|eu|emea|latam|americas|north america|germany|australia)\s*[-–(,]?\s*remote\b|\bremote\s*[-–(,:]\s*(usa?|united states|u\.s\.|uk|canada|europe|eu|emea|latam|americas|north america|germany|australia)\b/i;
+
 export function locationTags(job: RawJob): string[] {
   const l = `${job.location || ''}`;
   const tags: string[] = [];
+  if (FOREIGN_REMOTE_TITLE.test(job.title || '')) tags.push('REMOTE_FOREIGN'); // e.g. "Senior AI Engineer - USA Remote"
   const remote = Boolean(job.remote) || REMOTE.test(l);
   if (BLR.test(l)) tags.push('BLR');
   if (INDIA.test(l)) tags.push('INDIA');
@@ -77,7 +80,7 @@ export function locationTags(job: RawJob): string[] {
     tags.push('REMOTE');
     if (tags.includes('INDIA') || (REMOTE_OPEN.test(l) && !REMOTE_CLOSED.test(l)) || (/^remote$/i.test(l.trim()) && !tags.includes('USA'))) tags.push('REMOTE_IN');
   }
-  if (!l.trim() || /^\s*\d+\s+locations?\s*$/i.test(l)) tags.push('UNSTATED'); // Workday "3 Locations" etc.
+  if (!l.trim() || /^\s*\d+\s+locations?\s*$/i.test(l)) { if (!tags.includes('REMOTE_FOREIGN')) tags.push('UNSTATED'); } // Workday "3 Locations" etc.
   else if (!tags.length) tags.push('GLOBAL');
   return tags;
 }
@@ -88,7 +91,9 @@ export function locationTags(job: RawJob): string[] {
  * Dropped: onsite anywhere else (Hyderabad, Pune, USA, Europe…) and remote roles locked to US/EU/UK etc.
  */
 export function locationAllowed(tags: string[], location = ''): boolean {
-  if (tags.includes('BLR') || tags.includes('REMOTE_IN') || tags.includes('UNSTATED')) return true;
+  if (tags.includes('BLR')) return true;
+  if (tags.includes('REMOTE_FOREIGN')) return false; // title says the remote role is locked to another country
+  if (tags.includes('REMOTE_IN') || tags.includes('UNSTATED')) return true;
   return /^\s*(india|in|ind|republic of india)\s*\.?$/i.test(location);
 }
 

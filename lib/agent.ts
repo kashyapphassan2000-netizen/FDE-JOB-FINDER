@@ -212,7 +212,8 @@ export async function runAgent(opts: { missionId?: string; prompt?: string; budg
       if (p.status !== 'fulfilled' || !p.value.d) continue;
       const { b, d } = p.value;
       const rel = d.jobs.filter((j) => classify(j).length && locationAllowed(locationTags(j), j.location));
-      const company = d.jobs[0]?.company && d.jobs[0].company !== b.slug ? d.jobs[0].company : b.slug;
+      const pretty = (x: string) => x.split('|')[0].replace(/[-_]+/g, ' ').replace(/\b(llc|inc|hq|careers|jobs)\b/gi, '').trim().replace(/\b\w/g, (c) => c.toUpperCase());
+      const company = d.jobs[0]?.company && d.jobs[0].company !== b.slug && !d.jobs[0].company.includes('|') ? d.jobs[0].company : pretty(b.slug);
       n++;
       finds.push(mk(b.r, { kind: 'company', title: `${company} — ${rel.length} FDE/AI roles for you (${d.total} open) on ${b.ats}`, company, why: 'Career board found in search results and verified live. "Watch" pulls its jobs on every refresh.', ats: { ats: b.ats, slug: b.slug, total: d.total, relevant: rel.length } }));
       for (const j of rel.slice(0, 10)) finds.push(mk({ title: j.title, url: j.url, snippet: j.description || '', engine: `ats:${b.ats}`, date: j.postedAt }, { kind: 'job', title: j.title, company, location: j.location, why: `Open on ${company}'s ${b.ats} board (verified live)` }));
@@ -363,7 +364,7 @@ Request: ${opts.prompt}\nJSON: {"queries":["..."]}`, { maxTokens: 1500 });
     log(`saved ${run.total} relevant (${run.finds} new, ${run.total - run.finds} seen before)`);
 
     if (opts.alert !== false && newOnes.length) {
-      const hot = newOnes.filter((f) => f.kind !== 'company' && f.confidence !== 'maybe').slice(0, 15);
+      const hot = newOnes.filter((f) => f.kind !== 'company' && (f.confidence !== 'maybe' || f.kind === 'post')).slice(0, 15); // posts go stale fastest → always alert
       if (hot.length) {
         await sendAlert(
           hot.map((f) => ({ id: f.id, title: `${f.kind === 'post' ? '📣 ' : ''}${f.title}`, company: f.company || f.author || '', location: f.location || 'not stated', url: f.url, sources: [`agent:${f.mission}`], categories: f.role, domain: f.domain, seniority: 'mid' as const, hidden: true, locTags: f.locTags, score: 99, cvMatch: 0, firstSeen: now, lastSeen: now, description: f.snippet })),

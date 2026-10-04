@@ -5,6 +5,7 @@ import { availableEngines, searchUsage } from '@/lib/search';
 import { boardSearchLinks, xSearchLinks } from '@/lib/xposts';
 import { aiConfigured } from '@/lib/llm';
 import { loadVault } from '@/lib/secrets';
+import { locationAllowed, locationTags } from '@/lib/classify';
 
 export const maxDuration = 300;
 
@@ -16,7 +17,10 @@ export async function GET(req: Request) {
   return Response.json({
     missions: MISSIONS,
     runs: runs.slice(0, 20),
-    finds: Object.values(finds).sort((a, b) => b.foundAt.localeCompare(a.foundAt)),
+    finds: Object.values(finds)
+      .map((f) => ({ ...f, locTags: locationTags({ title: f.title, company: f.company, location: f.location, url: f.url }) }))
+      .filter((f) => f.kind !== 'job' || !f.location || locationAllowed(f.locTags, f.location)) // your location rule, applied to older finds too
+      .sort((a, b) => b.foundAt.localeCompare(a.foundAt)),
     engines: availableEngines().map((e) => e.id),
     ai: await aiConfigured(),
     usage: await searchUsage(),
