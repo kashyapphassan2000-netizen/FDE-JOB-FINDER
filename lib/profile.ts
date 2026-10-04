@@ -5,6 +5,11 @@ export async function getProfile(): Promise<Profile> {
   return { ...DEFAULT_PROFILE, ...(await getJSON<Partial<Profile>>('profile', {})) };
 }
 
+/** Has this user mapped their own job role / locations yet? (new users start from the defaults) */
+export async function profileIsSet(): Promise<boolean> {
+  return (await getJSON<Partial<Profile> | null>('profile', null)) !== null;
+}
+
 export async function saveProfile(p: Partial<Profile>): Promise<Profile> {
   const cur = await getProfile();
   const clean = (xs: unknown, n: number) => (Array.isArray(xs) ? xs.map((x) => String(x).trim()).filter(Boolean).slice(0, n) : undefined);

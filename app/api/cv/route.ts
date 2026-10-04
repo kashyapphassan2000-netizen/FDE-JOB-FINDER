@@ -1,3 +1,4 @@
+import { bindTenant } from '@/lib/auth';
 import { guard, bad } from '@/lib/guard';
 import { blobConfigured, deleteCv, getCv, setActive, setSkills, uploadCv } from '@/lib/cv';
 
@@ -8,12 +9,14 @@ const pub = (s: Awaited<ReturnType<typeof getCv>>) => ({ versions: s.versions, a
 export async function GET(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
   return Response.json({ ...pub(await getCv()), blob: blobConfigured() });
 }
 
 export async function POST(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
   if (!blobConfigured()) return bad('Vercel Blob is not connected. Storage → Create → Blob (Private) → connect to this project, then redeploy.', 500);
   const form = await req.formData();
   const file = form.get('file');
@@ -28,6 +31,7 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
   const { active, skills } = (await req.json()) as { active?: string; skills?: string };
   try {
     if (active) return Response.json(pub(await setActive(active)));
@@ -41,6 +45,7 @@ export async function PATCH(req: Request) {
 export async function DELETE(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
   const { pathname } = (await req.json()) as { pathname: string };
   return Response.json(pub(await deleteCv(pathname)));
 }

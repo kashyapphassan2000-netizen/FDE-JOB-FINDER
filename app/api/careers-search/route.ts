@@ -1,3 +1,5 @@
+import { isMember } from '@/lib/tenant';
+import { bindTenant } from '@/lib/auth';
 import { guard, bad } from '@/lib/guard';
 import { careersSearch } from '@/lib/careersearch';
 import { acquireLock, releaseLock } from '@/lib/store';
@@ -9,7 +11,9 @@ export const maxDuration = 300;
 export async function POST(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
   const b = (await req.json().catch(() => ({}))) as { q?: string; profile?: Partial<Profile>; refresh?: boolean };
+  if (isMember()) b.refresh = false; // the shared index is rebuilt by the owner / cron (4×/day)
   const lock = b.refresh ? await acquireLock('cs:scan', 290) : true;
   if (!lock) return bad('A full scan is already running — try again in a minute', 409);
   try {

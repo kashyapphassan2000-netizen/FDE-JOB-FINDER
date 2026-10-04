@@ -1,3 +1,4 @@
+import { bindTenant } from '@/lib/auth';
 import { guard, bad } from '@/lib/guard';
 import { addWatch, bulkAdd, listWatch, removeWatch, runWatch, setLocations } from '@/lib/watch';
 import { acquireLock, releaseLock } from '@/lib/store';
@@ -8,6 +9,7 @@ export const maxDuration = 300;
 export async function GET(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
   await loadVault();
   return Response.json(await listWatch());
 }
@@ -16,6 +18,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
   await loadVault();
   const b = (await req.json().catch(() => ({}))) as { action?: string; input?: string; careersUrl?: string; text?: string; id?: string; locations?: string[] };
   const locs = (b.locations || []).map((x) => String(x).trim()).filter(Boolean).slice(0, 12);
@@ -36,6 +39,7 @@ export async function POST(req: Request) {
 export async function DELETE(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
   const b = (await req.json().catch(() => ({}))) as { id?: string };
   if (!b.id) return bad('id required');
   await removeWatch(b.id);

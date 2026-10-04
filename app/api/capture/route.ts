@@ -1,3 +1,4 @@
+import { bindTenant } from '@/lib/auth';
 import { guard, bad } from '@/lib/guard';
 import { processCapture, type CapturePayload } from '@/lib/capture';
 import { loadVault } from '@/lib/secrets';
@@ -8,6 +9,7 @@ export const maxDuration = 300;
 export async function POST(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
   await loadVault();
   const p = (await req.json().catch(() => null)) as CapturePayload | null;
   if (!p?.u || !p?.x) return bad('empty capture');

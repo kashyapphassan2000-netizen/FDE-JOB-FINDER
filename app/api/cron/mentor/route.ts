@@ -2,6 +2,8 @@ import { isCron, unauthorized } from '@/lib/auth';
 import { activeSpaces, dailyBrief, getWorld } from '@/lib/mentor';
 import { loadVault, secret } from '@/lib/secrets';
 import { sendMail, esc } from '@/lib/mailer';
+import { runAs } from '@/lib/tenant';
+import { roleOf } from '@/lib/access';
 
 export const maxDuration = 300;
 
@@ -16,8 +18,9 @@ export async function GET(req: Request) {
   const log: string[] = [];
   for (const ns of spaces) {
     if (Date.now() - t0 > 240000) { log.push('time budget used'); break; }
+    if (ns !== 'owner' && !(await roleOf(ns))) continue; // removed / expired users get nothing
     try {
-      const b = await dailyBrief(ns, true);
+      const b = await runAs(ns === 'owner' ? { ns: 'owner', email: 'owner', role: 'owner' } : { ns, email: ns, role: 'member' }, () => dailyBrief(ns, true));
       log.push(`${ns}: ${b.headline}`);
       const to = ns === 'owner' ? secret('DIGEST_TO') : ns;
       if (to) {

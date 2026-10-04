@@ -1,5 +1,6 @@
 import { Redis } from '@upstash/redis';
 import { gunzipSync, gzipSync } from 'node:zlib';
+import { scopedKey } from './tenant';
 
 /**
  * Persistence: Upstash Redis (free tier) via Vercel Marketplace.
@@ -58,10 +59,12 @@ function persist() {
 
 export const storeMode = redis ? 'redis' : FILE ? 'local-file' : 'memory';
 const P = 'fj:';
+/** full Redis key; personal keys resolve to the current user's own copy (lib/tenant.ts) */
+const K = (key: string) => P + scopedKey(key);
 
 export async function getJSON<T>(key: string, fallback: T): Promise<T> {
   try {
-    const raw = redis ? await redis.get<string>(P + key) : mem.get(P + key);
+    const raw = redis ? await redis.get<string>(K(key)) : mem.get(K(key));
     if (raw === null || raw === undefined) return fallback;
     const str = typeof raw === 'string' ? raw : JSON.stringify(raw);
     // large values are gzip-compressed to stay well inside Upstash free bandwidth (10 GB/mo)
@@ -76,15 +79,15 @@ export async function getJSON<T>(key: string, fallback: T): Promise<T> {
 export async function setJSON(key: string, value: unknown): Promise<void> {
   let s = JSON.stringify(value);
   if (s.length > 32_000) s = 'gz:' + gzipSync(Buffer.from(s, 'utf8'), { level: 6 }).toString('base64');
-  if (redis) await redis.set(P + key, s);
-  else { mem.set(P + key, s); persist(); }
+  if (redis) await redis.set(K(key), s);
+  else { mem.set(K(key), s); persist(); }
 }
 
 export async function hgetall<T>(key: string): Promise<Record<string, T>> {
   try {
     if (redis) {
       // with automaticDeserialization:false Upstash returns the raw flat reply [field, value, field, value…]
-      const r = ((await redis.hgetall(P + key)) || {}) as unknown;
+      const r = ((await redis.hgetall(K(key))) || {}) as unknown;
       const pairs: [string, unknown][] = Array.isArray(r) ? Array.from({ length: r.length >> 1 }, (_, i) => [String(r[2 * i]), r[2 * i + 1]]) : Object.entries(r as Record<string, unknown>);
       const out: Record<string, T> = {};
       for (const [k, v] of pairs) {
@@ -96,7 +99,7 @@ export async function hgetall<T>(key: string): Promise<Record<string, T>> {
       }
       return out;
     }
-    const h = memHash.get(P + key) || new Map();
+    const h = memHash.get(K(key)) || new Map();
     return Object.fromEntries([...h.entries()].map(([k, v]) => [k, JSON.parse(v) as T]));
   } catch (e) {
     console.error('store hgetall failed', key, e);
@@ -106,35 +109,40 @@ export async function hgetall<T>(key: string): Promise<Record<string, T>> {
 
 export async function hset(key: string, field: string, value: unknown): Promise<void> {
   const s = JSON.stringify(value);
-  if (redis) await redis.hset(P + key, { [field]: s });
+  if (redis) await redis.hset(K(key), { [field]: s });
   else {
-    const h = memHash.get(P + key) || new Map();
+    const h = memHash.get(K(key)) || new Map();
     h.set(field, s);
-    memHash.set(P + key, h);
+    memHash.set(K(key), h);
     persist();
   }
 }
 
 /** Delete a whole key (hash or value). */
 export async function delKey(key: string): Promise<void> {
-  if (redis) await redis.del(P + key);
-  else { mem.delete(P + key); memHash.delete(P + key); persist(); }
+  if (redis) await redis.del(K(key));
+  else { mem.delete(K(key)); memHash.delete(K(key)); persist(); }
 }
 
 /** Atomic counter inside a hash (safe under parallel calls). */
 export async function hincr(key: string, field: string, by = 1): Promise<number> {
-  if (redis) return Number(await redis.hincrby(P + key, field, by));
-  const h = memHash.get(P + key) || new Map();
+  if (redis) return Number(await redis.hincrby(K(key), field, by));
+  const h = memHash.get(K(key)) || new Map();
   const v = Number(h.get(field) || 0) + by;
   h.set(field, String(v));
-  memHash.set(P + key, h);
+  memHash.set(K(key), h);
   persist();
   return v;
 }
 
+/** Let a key expire on its own (rate-limit windows, one-time codes). No-op in local memory mode. */
+export async function expire(key: string, sec: number): Promise<void> {
+  if (redis) await redis.expire(K(key), sec);
+}
+
 export async function hdel(key: string, field: string): Promise<void> {
-  if (redis) await redis.hdel(P + key, field);
-  else { memHash.get(P + key)?.delete(field); persist(); }
+  if (redis) await redis.hdel(K(key), field);
+  else { memHash.get(K(key))?.delete(field); persist(); }
 }
 
 /** Simple distributed lock so cron + manual refresh never overlap. */

@@ -11,6 +11,9 @@ import { excelContext, getWorld } from './mentor';
 import { sendMail, esc } from './mailer';
 import { sendWhatsApp } from './notify';
 import { getCv } from './cv';
+import { runAs } from './tenant';
+import { canSpend, limitsFor, spend } from './limits';
+import { roleOf } from './access';
 
 /**
  * AGENT STUDIO — agents you design yourself, running 24×7, each fully isolated (own instructions, rules, tools, skills,
@@ -147,6 +150,11 @@ export async function saveAgent(owner: string, a: Partial<AgentDef>): Promise<Ag
     enabled: a.enabled ?? cur?.enabled ?? true, createdAt: cur?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), lastRun: cur?.lastRun, lastStatus: cur?.lastStatus,
   };
   if (!def.goal.trim()) throw new Error('Tell the agent what to do (instructions)');
+  if (owner !== 'owner') {
+    const lim = await limitsFor(owner);
+    if (!cur && (await listAgents(owner)).length >= lim.maxAgents) throw new Error(`Agent limit reached (${lim.maxAgents}). Delete one or ask the owner for more.`);
+    if (def.schedule !== 'manual' && EVERY[def.schedule] < lim.minScheduleHours) throw new Error(`Your plan allows scheduled runs at most every ${lim.minScheduleHours} h — pick a slower schedule.`);
+  }
   if (def.canCall.length && !def.tools.includes('ask_agent')) def.tools.push('ask_agent');
   await hset('studio:agents', def.id, def);
   return def;
@@ -514,7 +522,9 @@ export async function runDueAgents(budgetMs = 270000) {
   for (const a of all) {
     const left = budgetMs - (Date.now() - t0);
     if (left < 70000) { log.push('time budget used — the rest run next hour'); break; }
-    const r = await runAgentDef(a, 'schedule', undefined, Math.min(left - 10000, 200000));
+    if (a.owner !== 'owner' && !(await roleOf(a.owner))) { log.push(`${a.name}: skipped — ${a.owner} no longer has access`); continue; }
+    if (a.owner !== 'owner' && !(await canSpend(a.owner))) { log.push(`${a.name}: skipped — ${a.owner} reached today's limit`); continue; }
+    const r = await runAs(a.owner === 'owner' ? { ns: 'owner', email: 'owner', role: 'owner' } : { ns: a.owner, email: a.owner, role: 'member' }, async () => { if (a.owner !== 'owner') await spend(a.owner); return runAgentDef(a, 'schedule', undefined, Math.min(left - 10000, 200000)); });
     log.push(`${a.name}: ${r.error ? `failed ${r.error}` : `${r.report?.title} → ${r.delivered.join(', ')}`}`);
   }
   return { due: all.length, log };

@@ -1,3 +1,5 @@
+import { bindTenant } from '@/lib/auth';
+import { spendGuard } from '@/lib/limits';
 import { currentUser, unauthorized } from '@/lib/auth';
 import { bad } from '@/lib/guard';
 import { applyGraphOps, dailyBrief, forget, getGraph, mentorChat, mentorState, nsOf, saveGraph, saveMProfile, touchSpace, type Graph, type GraphOps } from '@/lib/mentor';
@@ -8,6 +10,7 @@ export const maxDuration = 300;
 export async function GET(req: Request) {
   const u = await currentUser(req);
   if (!u) return unauthorized();
+  bindTenant(req);
   const ns = nsOf(u.email);
   return Response.json({ ...(await mentorState(ns)), you: u.email });
 }
@@ -16,10 +19,12 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const u = await currentUser(req);
   if (!u) return unauthorized();
+  bindTenant(req);
   const ns = nsOf(u.email);
   const b = (await req.json().catch(() => ({}))) as Record<string, unknown> & { action?: string };
   try {
     await touchSpace(ns);
+    if (b.action === 'chat' || (b.action === 'brief' && b.force)) { const lim = await spendGuard(); if (lim) return lim; }
     if (b.action === 'chat') { const text = String(b.text || '').trim().slice(0, 4000); if (!text) return bad('Say something'); return Response.json(await mentorChat(ns, text)); }
     if (b.action === 'profile') return Response.json({ profile: await saveMProfile(ns, b as never) });
     if (b.action === 'brief') return Response.json({ brief: await dailyBrief(ns, Boolean(b.force)) });

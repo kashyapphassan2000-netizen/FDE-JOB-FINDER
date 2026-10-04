@@ -1,6 +1,7 @@
 // Auth: owner password OR per-person email access (sign-in link / one-time invite).
 // Session cookie = base64url(email).role.version.expiry.hmac — signature checked everywhere (Web Crypto, works in the proxy);
 // route handlers ALSO check the live access list (revoke / lockdown take effect immediately).
+import { enterTenant, OWNER, tenantFor, type Tenant } from './tenant';
 export const SESSION_COOKIE = 'fj_session';
 export const MAX_AGE_SEC = 60 * 60 * 24 * 30; // 30 days
 export type Role = 'owner' | 'member';
@@ -53,12 +54,27 @@ export function readCookie(req: Request): string | null {
   return m ? decodeURIComponent(m[1]) : null;
 }
 
+const verified = new WeakMap<Request, Tenant>();
+/**
+ * Call right after the auth check, in the route's own body: the rest of this request runs as that user
+ * (their own CV, tracker, priorities, graph …). Without it personal data is empty (fail-closed), never the owner's.
+ */
+export function bindTenant(req: Request) {
+  const t = verified.get(req);
+  if (t) enterTenant(t);
+}
+
 /** For route handlers: valid signature AND still allowed by the live access list. */
 export async function currentUser(req: Request): Promise<Session | null> {
   const s = await verifySession(readCookie(req));
   if (!s) return null;
-  const { stillAllowed } = await import('./access');
-  return (await stillAllowed(s)) ? s : null;
+  const { stillAllowed, ownerEmails } = await import('./access');
+  if (!(await stillAllowed(s))) return null;
+  // the rest of this request runs as this user: personal data resolves to their own copy (lib/tenant.ts)
+  const t = tenantFor(s.email, ownerEmails());
+  verified.set(req, t);
+  enterTenant(t);
+  return s;
 }
 
 export async function isAuthed(req: Request): Promise<boolean> {
@@ -72,7 +88,9 @@ export function authConfigured(): boolean {
 export function isCron(req: Request): boolean {
   const s = process.env.CRON_SECRET;
   if (!s) return false;
-  return safeEqual(req.headers.get('authorization') || '', `Bearer ${s}`);
+  const ok = safeEqual(req.headers.get('authorization') || '', `Bearer ${s}`);
+  if (ok) enterTenant(OWNER); // scheduled jobs work on the owner's data (sync → applies to this request only)
+  return ok;
 }
 
 export function unauthorized() {

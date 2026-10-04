@@ -1,3 +1,4 @@
+import { bindTenant } from '@/lib/auth';
 import { loadVault } from '@/lib/secrets';
 import { guard } from '@/lib/guard';
 import { SOURCES, intervalFor, sourceConfigured } from '@/lib/sources';
@@ -10,6 +11,7 @@ import { authConfigured } from '@/lib/auth';
 export async function GET(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
   await loadVault();
   const health = await getHealth();
   const sources = SOURCES.map((s) => ({

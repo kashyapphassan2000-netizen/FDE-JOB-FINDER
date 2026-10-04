@@ -1,3 +1,5 @@
+import { bindTenant } from '@/lib/auth';
+import { spendGuard } from '@/lib/limits';
 import { guard, bad } from '@/lib/guard';
 import { deleteLead, draftEmail, findContacts, listLeads, updateContact } from '@/lib/outreach';
 import { getJSON } from '@/lib/store';
@@ -9,6 +11,7 @@ export const maxDuration = 120;
 export async function GET(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
   const [leads, disc] = await Promise.all([listLeads(), getJSON<Record<string, DiscoveredCompany> | DiscoveredCompany[]>('disc:companies', [])]);
   const companies = (Array.isArray(disc) ? disc : Object.values(disc))
     .filter((c) => c.status !== 'dismissed' && c.website)
@@ -22,6 +25,9 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
+  const lim = await spendGuard(1); // per-user daily AI budget (owner unlimited)
+  if (lim) return lim;
   const b = (await req.json().catch(() => ({}))) as any;
   try {
     if (b.action === 'find') {

@@ -1,9 +1,11 @@
+import { bindTenant } from '@/lib/auth';
 import { isAuthed } from '@/lib/auth';
 import { getCv, streamCv } from '@/lib/cv';
 
 export async function GET(req: Request) {
   // auth checked right next to the private blob read (Vercel's recommended pattern)
   if (!(await isAuthed(req))) return new Response('Unauthorized', { status: 401 });
+  bindTenant(req);
   const url = new URL(req.url);
   const cv = await getCv();
   const pathname = url.searchParams.get('p') || cv.active;

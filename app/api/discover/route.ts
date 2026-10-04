@@ -1,3 +1,4 @@
+import { bindTenant } from '@/lib/auth';
 import { guard, bad } from '@/lib/guard';
 import { getDiscovered, runDiscover, setDiscoveredStatus } from '@/lib/discover';
 import { acquireLock, getJSON, releaseLock } from '@/lib/store';
@@ -8,6 +9,7 @@ export const maxDuration = 300;
 export async function GET(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
   return Response.json({ companies: await getDiscovered(), meta: await getJSON('disc:meta', null) });
 }
 
@@ -15,6 +17,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
   const { action, key } = (await req.json()) as { action: string; key?: string };
   try {
     if (action === 'run') {

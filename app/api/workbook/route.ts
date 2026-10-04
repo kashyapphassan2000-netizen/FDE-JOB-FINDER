@@ -1,3 +1,4 @@
+import { bindTenant } from '@/lib/auth';
 import workbook from '@/data/workbook.json';
 import { guard, bad } from '@/lib/guard';
 import { hgetall, hset } from '@/lib/store';
@@ -7,12 +8,14 @@ type RowTrack = { status: 'todo' | 'doing' | 'done' | 'skip'; notes?: string; up
 export async function GET(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
   return Response.json({ workbook, track: await hgetall<RowTrack>('xl') });
 }
 
 export async function POST(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
   const { key, status, notes } = (await req.json()) as { key: string; status: RowTrack['status']; notes?: string };
   if (!key || !/^[^:]{1,60}:\d{1,5}$/.test(key)) return bad('bad key');
   if (!['todo', 'doing', 'done', 'skip'].includes(status)) return bad('bad status');

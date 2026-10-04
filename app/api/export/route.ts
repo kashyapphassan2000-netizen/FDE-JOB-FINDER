@@ -1,3 +1,4 @@
+import { bindTenant } from '@/lib/auth';
 import { guard } from '@/lib/guard';
 import { hgetall } from '@/lib/store';
 import type { TrackEntry } from '@/lib/types';
@@ -7,6 +8,7 @@ const csv = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
 export async function GET(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
   const t = await hgetall<TrackEntry>('track');
   const rows = [['status', 'title', 'company', 'location', 'categories', 'sources', 'posted', 'updated', 'notes', 'url']];
   for (const e of Object.values(t).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))) {

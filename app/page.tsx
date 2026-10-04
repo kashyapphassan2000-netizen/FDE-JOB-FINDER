@@ -41,6 +41,7 @@ const NAV = [
 ] as const;
 type Tab = (typeof NAV)[number]['items'][number][0];
 const ALL: Tab[] = NAV.flatMap((g) => g.items.map((i) => i[0] as Tab));
+const MEMBER_HIDDEN = ['Sources & APIs', 'AI & Keys', 'Settings', 'Job alerts for others'] as const;
 const MISSION_TABS: Record<string, string> = {
   'X / Twitter': 'x-posts', 'LinkedIn posts': 'li-posts', 'Hidden Bengaluru': 'blr-hidden', 'Remote India': 'remote-india',
   'US / EU remote': 'global-remote', 'Semi & Embedded AI': 'domains', 'New startups': 'new-startups', Communities: 'communities',
@@ -58,6 +59,10 @@ export default function Home() {
   const [refSeed, setRefSeed] = useState<{ company: string; role: string; n: number } | null>(null);
   const [sq, setSq] = useState('');
   const [sqInput, setSqInput] = useState('');
+  const [me, setMe] = useState<{ email: string; role: 'owner' | 'member'; until: string | null; profileSet: boolean; used: number; limit: number | null } | null>(null);
+  const isOwner = me?.role === 'owner';
+  // users (non-owners) never see settings, keys, access or the "alerts for other people" page
+  const nav = NAV.map((g) => ({ ...g, items: g.items.filter(([t]) => isOwner || !(MEMBER_HIDDEN as readonly string[]).includes(t)) })).filter((g) => g.items.length);
 
   const load = useCallback(async () => {
     try {
@@ -73,7 +78,8 @@ export default function Home() {
       if (t && ALL.includes(t)) setTab(t);
     } catch {}
     load();
-    const iv = setInterval(load, 5 * 60 * 1000);
+    api<NonNullable<typeof me>>('/api/auth/me').then(setMe).catch(() => null);
+    const iv = setInterval(() => { load(); api<NonNullable<typeof me>>('/api/auth/me').then(setMe).catch(() => null); }, 5 * 60 * 1000);
     return () => clearInterval(iv);
   }, [load]);
 
@@ -120,7 +126,7 @@ export default function Home() {
           <div className="brand-mark">F</div>
           <div><b>FDE Job Finder</b><small>Bengaluru office · remote</small></div>
         </div>
-        {NAV.map((g) => (
+        {nav.map((g) => (
           <div key={g.group} className="nav-group">
             <div className="nav-label">{g.group}</div>
             {g.items.map(([t, icon]) => (
@@ -145,12 +151,16 @@ export default function Home() {
           </form>
           <div className="row top-actions">
             <span className="muted small hide-sm">{data?.meta?.lastRefresh ? `Updated ${ago(data.meta.lastRefresh)}` : 'Never refreshed'}</span>
-            <button className="primary" disabled={busy} onClick={() => refreshNow(false)}>{busy ? 'Refreshing…' : '⟳ Refresh'}</button>
-            <button className="hide-sm" disabled={busy} onClick={() => refreshNow(true)} title="Ignore quota cooldowns and call every configured API now">Force all</button>
+            {me && !isOwner && <span className="badge b-dom small" title={`Signed in as ${me.email}`}>⚡ {me.used}/{me.limit} AI today{me.until ? ` · ⏱ ${Math.max(0, Math.round((Date.parse(me.until) - Date.now()) / 6e4))} min left` : ''}</span>}
+            {isOwner && <button className="primary" disabled={busy} onClick={() => refreshNow(false)}>{busy ? 'Refreshing…' : '⟳ Refresh'}</button>}
+            {isOwner && <button className="hide-sm" disabled={busy} onClick={() => refreshNow(true)} title="Ignore quota cooldowns and call every configured API now">Force all</button>}
             <ExportAllButton toast={setToast} />
-            {tab === 'Jobs' && <button className="hide-sm danger" disabled={busy} onClick={() => refreshNow(true, true)} title="Delete stored jobs and refetch everything">🗑 Clear & refetch</button>}
+            {tab === 'Jobs' && isOwner && <button className="hide-sm danger" disabled={busy} onClick={() => refreshNow(true, true)} title="Delete stored jobs and refetch everything">🗑 Clear & refetch</button>}
           </div>
         </header>
+        {me && !isOwner && !me.profileSet && tab !== 'Careers search' && (
+          <div className="notice warn">👋 Welcome {me.email}. This is <b>your own private space</b> — your CV, tracker, knowledge graph, agents and job matches are yours only. First, <b>map your job role &amp; locations</b> so every page ranks jobs for you: <button className="small-btn primary" onClick={() => go('Careers search')}>Set my job role →</button></div>
+        )}
         {data?.storeMode === 'memory' && (
           <div className="notice warn">Storage is in <b>memory mode</b> – data is lost on redeploy. Connect Upstash Redis (PDF step 4).</div>
         )}
@@ -164,11 +174,11 @@ export default function Home() {
         {tab === 'Watch companies' && <WatchTab toast={setToast} />}
         {tab === 'Job analyzer & prep' && <AnalyzerTab toast={setToast} seed={anaSeed} onReferrals={(company, role) => { setRefSeed({ company, role, n: Date.now() }); go('Recruiters & referrals'); }} />}
         {tab === 'Recruiters & referrals' && <ReferralsTab toast={setToast} seed={refSeed} />}
-        {tab === 'Job alerts for others' && <AlertsTab toast={setToast} />}
+        {isOwner && tab === 'Job alerts for others' && <AlertsTab toast={setToast} />}
         {tab === 'Global companies hiring' && <DirectoryTab toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}
         {tab === 'Outreach' && <OutreachTab toast={setToast} seed={seed} />}
         {tab === 'Opportunities' && <OpportunitiesTab toast={setToast} />}
-        {tab === 'AI & Keys' && <AiKeysTab toast={setToast} />}
+        {isOwner && tab === 'AI & Keys' && <AiKeysTab toast={setToast} />}
         {tab === 'Tracker' && <TrackerTab data={data} reload={load} toast={setToast} />}
         {tab === 'Excel sheets' && <ExcelTab toast={setToast} />}
         {tab === 'Excel coverage map' && <PlatformsTab toast={setToast} />}
@@ -177,9 +187,9 @@ export default function Home() {
         {(tab === 'Hiring radar' || tab === 'Layoffs') && <IntelTab key={tab} mode={tab === 'Layoffs' ? 'layoffs' : 'hiring'} toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}
         {tab === 'Search any role' && <SearchTab q={sq} toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}
         {MISSION_TABS[tab] && <AgentTab key={tab} missionId={MISSION_TABS[tab]} toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}
-        {tab === 'Sources & APIs' && <SourcesTab toast={setToast} reload={load} />}
+        {isOwner && tab === 'Sources & APIs' && <SourcesTab toast={setToast} reload={load} />}
         {tab === 'CV' && <CvTab toast={setToast} />}
-        {tab === 'Settings' && <SettingsTab toast={setToast} />}
+        {isOwner && tab === 'Settings' && <SettingsTab toast={setToast} />}
       </main>
       {toast && <div className="toast" onClick={() => setToast('')}>{toast}</div>}
     </div>

@@ -1,3 +1,4 @@
+import { tenant } from './tenant';
 import workbook from '@/data/workbook.json';
 import { aiConfigured, chatJson } from './llm';
 import { getJSON, setJSON } from './store';
@@ -7,7 +8,7 @@ import { loadVault } from './secrets';
 import { ownerEmails } from './access';
 import type { MarketReport } from './trends';
 import { getIntel } from './intel';
-import { getProfile } from './profile';
+import { getProfile, profileIsSet } from './profile';
 
 /**
  * LIFE MENTOR + KNOWLEDGE GRAPH (one private space per person).
@@ -55,7 +56,7 @@ export async function saveMProfile(ns: string, patch: Partial<MProfile>) {
 }
 async function cvFor(ns: string, p: MProfile): Promise<string> {
   if (p.cvText.trim()) return p.cvText;
-  if (ns === 'owner') { const cv = await getCv(); return cv.text || (cv.skills.length ? `Skills: ${cv.skills.join(', ')}` : ''); }
+  if (ns === tenant().ns) { const cv = await getCv(); return cv.text || (cv.skills.length ? `Skills: ${cv.skills.join(', ')}` : ''); }
   return '';
 }
 
@@ -75,7 +76,7 @@ async function seedGraph(ns: string): Promise<Graph> {
     nodes.push({ id: a, label: v.label, area: a, notes: '', importance: 7, updatedAt: now });
     links.push({ s: 'me', t: a });
   }
-  if (ns === 'owner') {
+  if (ns === tenant().ns && (ns === 'owner' || (await profileIsSet()) || (await getCv()).text)) {
     const [cv, prof] = await Promise.all([getCv(), getProfile()]);
     for (const s of cv.skills.slice(0, 14)) { const id = `skill-${slug(s)}`; nodes.push({ id, label: s, area: 'skills', notes: 'From your CV', importance: 3, updatedAt: now }); links.push({ s: 'skills', t: id }); }
     for (const r of prof.roles.slice(0, 4)) { const id = `goal-${slug(r)}`; nodes.push({ id, label: r, area: 'career', notes: 'A target role from your priorities', importance: 5, updatedAt: now }); links.push({ s: 'career', t: id }); }
@@ -229,7 +230,7 @@ JSON: {"headline":"one line","happened":["3-5 things that happened that matter t
 
 export async function mentorState(ns: string) {
   const [profile, graph, chat, memory, briefs, world] = await Promise.all([getMProfile(ns), getGraph(ns), getJSON<Msg[]>(K(ns, 'chat'), []), getJSON<{ fact: string; area: string; at: string }[]>(K(ns, 'memory'), []), getJSON<Brief[]>(K(ns, 'briefs'), []), getJSON<World | null>('mentor:world', null)]);
-  return { profile, graph, chat: chat.slice(-40), memory, briefs: briefs.slice(0, 14), worldAt: world?.at || null, hasOwnerCv: ns === 'owner' ? Boolean((await getCv()).text) : false };
+  return { profile, graph, chat: chat.slice(-40), memory, briefs: briefs.slice(0, 14), worldAt: world?.at || null, hasOwnerCv: ns === tenant().ns ? Boolean((await getCv()).text) : false };
 }
 export async function forget(ns: string, what: 'chat' | 'memory' | 'graph' | 'all') {
   if (what === 'chat' || what === 'all') await setJSON(K(ns, 'chat'), []);

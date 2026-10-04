@@ -1,3 +1,4 @@
+import { bindTenant } from '@/lib/auth';
 import platforms from '@/data/platforms.json';
 import { guard, bad } from '@/lib/guard';
 import { getJSON, hgetall, hset } from '@/lib/store';
@@ -12,6 +13,7 @@ type Check = { lastChecked?: string; status?: string; notes?: string };
 export async function GET(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
   await loadVault();
   const [checks, health, settings, disc, cp] = await Promise.all([hgetall<Check>('pchk'), getHealth(), getSettings(), getJSON<{ at: string } | null>('disc:meta', null), hgetall<CpStatus[string]>('cp:status')]);
   const live = Object.fromEntries(SOURCES.map((s) => [s.id, sourceConfigured(s)]));
@@ -22,6 +24,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
   const { id, status, notes } = (await req.json()) as { id: string; status?: string; notes?: string };
   if (!(platforms as { id: string }[]).some((p) => p.id === id)) return bad('unknown platform');
   const cur = (await hgetall<Check>('pchk'))[id] || {};

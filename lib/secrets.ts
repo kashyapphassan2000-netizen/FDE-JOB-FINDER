@@ -36,6 +36,8 @@ export const VAULT_KEYS: { name: string; label: string; group: string; url: stri
   // sign-in emails to people you give access (any address; Gmail app password: myaccount.google.com/apppasswords)
   { name: 'BREVO_API_KEY', label: 'Brevo API key — free 300 emails/day to anyone (alternative to Gmail)', group: 'Access', url: 'https://app.brevo.com/settings/keys/api' },
   { name: 'BREVO_SENDER', label: 'Brevo verified sender email (your Gmail is fine — verify it in Brevo → Senders)', group: 'Access', url: 'https://app.brevo.com/senders' },
+  { name: 'GOOGLE_CLIENT_ID', label: 'Google sign-in: OAuth Client ID (Web application)', group: 'Access', url: 'https://console.cloud.google.com/apis/credentials' },
+  { name: 'GOOGLE_CLIENT_SECRET', label: 'Google sign-in: OAuth Client secret', group: 'Access', url: 'https://console.cloud.google.com/apis/credentials' },
   { name: 'GMAIL_USER', label: 'Gmail address that sends sign-in links', group: 'Access', url: 'https://myaccount.google.com/apppasswords' },
   { name: 'GMAIL_APP_PASSWORD', label: 'Gmail app password (16 letters)', group: 'Access', url: 'https://myaccount.google.com/apppasswords' },
   // daily email digest

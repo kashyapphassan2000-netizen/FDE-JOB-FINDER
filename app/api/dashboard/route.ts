@@ -1,3 +1,4 @@
+import { bindTenant } from '@/lib/auth';
 import { guard } from '@/lib/guard';
 import { getJobs, getMeta } from '@/lib/refresh';
 import { getIntel } from '@/lib/intel';
@@ -13,6 +14,7 @@ export const maxDuration = 60;
 export async function GET(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
   const [jobs, meta, finds, track, leads, intel, trends, report] = await Promise.all([
     getJobs(), getMeta(), hgetall<Find>('agent:finds'), hgetall<TrackEntry>('track'), hgetall<Lead>('outreach:leads'), getIntel(), computeTrends(), getJSON<MarketReport | null>('trends:report', null),
   ]);

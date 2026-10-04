@@ -1,3 +1,4 @@
+import { bindTenant } from '@/lib/auth';
 import { guard, bad } from '@/lib/guard';
 import { hdel, hgetall, hset } from '@/lib/store';
 import type { Job, TrackEntry, TrackStatus } from '@/lib/types';
@@ -7,12 +8,14 @@ const STATUSES: TrackStatus[] = ['saved', 'applied', 'referral', 'interview', 'o
 export async function GET(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
   return Response.json(await hgetall<TrackEntry>('track'));
 }
 
 export async function POST(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
   const { job, status, notes } = (await req.json()) as { job: Job; status: TrackStatus | 'none'; notes?: string };
   if (!job?.id) return bad('job required');
   if (status === 'none') {

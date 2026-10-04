@@ -2,10 +2,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ago, api } from './api';
 
-type Member = { email: string; role: 'owner' | 'member'; addedAt: string; addedBy: string; lastSeen?: string; expiresAt?: string | null };
+type Member = { email: string; role: 'owner' | 'member'; addedAt: string; addedBy: string; lastSeen?: string; expiresAt?: string | null; usedToday?: number; agents?: number; limits?: { actionsPerDay?: number; maxAgents?: number } };
+type Limits = { maxMembers: number; maxTimed: number; actionsPerDay: number; maxAgents: number; minScheduleHours: number };
 const DURATIONS: [number, string][] = [[1, '1 hour'], [2, '2 hours'], [6, '6 hours'], [12, '12 hours'], [24, '24 hours'], [72, '3 days'], [168, '7 days'], [720, '30 days'], [0, 'Permanent']];
 const left = (iso?: string | null) => { if (!iso) return null; const ms = Date.parse(iso) - Date.now(); if (ms <= 0) return 'expired'; const h = ms / 36e5; return h < 1 ? `${Math.max(1, Math.round(ms / 6e4))} min left` : h < 48 ? `${Math.round(h)} h left` : `${Math.round(h / 24)} days left`; };
-type Payload = { members: Member[]; lockdown: boolean; owners: string[]; you: string; ownersConfigured: boolean };
+type Payload = { members: Member[]; limits: Limits; lockdown: boolean; owners: string[]; you: string; ownersConfigured: boolean };
 
 export default function AccessPanel({ toast }: { toast: (s: string) => void }) {
   const [d, setD] = useState<Payload | null>(null);
@@ -48,7 +49,7 @@ export default function AccessPanel({ toast }: { toast: (s: string) => void }) {
       </div>
       <div className="tablewrap" style={{ marginTop: 10 }}>
         <table>
-          <thead><tr><th>Email</th><th>Role</th><th>Access</th><th>Last active</th><th>Action</th></tr></thead>
+          <thead><tr><th>Email</th><th>Role</th><th>Access</th><th>AI today</th><th>Last active</th><th>Action</th></tr></thead>
           <tbody>
             {d.members.map((m) => (
               <tr key={m.email}>
@@ -57,6 +58,9 @@ export default function AccessPanel({ toast }: { toast: (s: string) => void }) {
                 <td className="small">{m.role === 'owner' ? 'always' : m.expiresAt ? <span className={`badge ${left(m.expiresAt) === 'expired' ? 'b-err' : 'b-warn'}`} title={new Date(m.expiresAt).toLocaleString('en-IN')}>⏱ {left(m.expiresAt)}</span> : <span className="badge b-ok">permanent</span>}
                   {m.role !== 'owner' && <select className="small" style={{ marginLeft: 6, padding: '2px 6px' }} value="" onChange={(e) => e.target.value && act({ action: 'expiry', email: m.email, hours: Number(e.target.value) > 0 ? Number(e.target.value) : null }, Number(e.target.value) > 0 ? `Access for ${m.email}: ${DURATIONS.find(([h]) => h === Number(e.target.value))?.[1]} from now` : `${m.email} now has permanent access`)}><option value="">{m.expiresAt ? 'Extend…' : 'Limit…'}</option>{DURATIONS.map(([h, l]) => <option key={h} value={h || -1}>{h ? `${l} from now` : 'Make permanent'}</option>)}</select>}
                 </td>
+                <td className="small">{m.role === 'owner' ? 'unlimited' : <>
+                  <b>{m.usedToday || 0}</b>/{m.limits?.actionsPerDay ?? d.limits.actionsPerDay} · {m.agents || 0}/{m.limits?.maxAgents ?? d.limits.maxAgents} agents
+                  <button className="small-btn" style={{ marginLeft: 4 }} title="Give this person a different daily limit / agent count" onClick={() => { const a = window.prompt(`AI actions per day for ${m.email} (empty = default ${d.limits.actionsPerDay})`, String(m.limits?.actionsPerDay ?? '')); if (a === null) return; const g = window.prompt(`Max custom agents (empty = default ${d.limits.maxAgents})`, String(m.limits?.maxAgents ?? '')); if (g === null) return; act({ action: 'member-limits', email: m.email, memberLimits: { actionsPerDay: a === '' ? null : Number(a), maxAgents: g === '' ? null : Number(g) } }, 'Limits updated'); }}>✎</button></>}</td>
                 <td className="small">{m.lastSeen ? ago(m.lastSeen) : '—'}</td>
                 <td><div className="row">
                   <button className="small-btn" disabled={d.lockdown && m.role !== 'owner'} title={d.lockdown && m.role !== 'owner' ? 'Turn lockdown off first' : 'Copy a one-time sign-in link to send them'} onClick={() => act({ action: 'invite', email: m.email }, 'Invite link copied')}>🔗 Invite link</button>
@@ -66,6 +70,15 @@ export default function AccessPanel({ toast }: { toast: (s: string) => void }) {
             ))}
           </tbody>
         </table>
+      </div>
+      <div className="st-box" style={{ marginTop: 12 }}>
+        <b>⚖ Limits</b> <span className="small muted">— keeps your free AI / search quota safe. You (owner) are never limited.</span>
+        <div className="row" style={{ marginTop: 6, flexWrap: 'wrap' }}>
+          {([['maxMembers', 'Max people with access'], ['maxTimed', 'Max time-limited guests'], ['actionsPerDay', 'AI actions / person / day'], ['maxAgents', 'Custom agents / person'], ['minScheduleHours', 'Their agents run at most every (h)']] as [keyof Limits, string][]).map(([k, l]) => (
+            <label key={k} className="small">{l}<br /><input type="number" min={0} style={{ width: 110 }} defaultValue={d.limits[k]} onBlur={(e) => Number(e.target.value) !== d.limits[k] && act({ action: 'limits', limits: { [k]: Number(e.target.value) } }, `${l}: ${e.target.value}`)} /></label>
+          ))}
+        </div>
+        <div className="small muted" style={{ marginTop: 6 }}>Seats used: <b>{d.members.filter((m) => m.role !== 'owner' && (!m.expiresAt || Date.parse(m.expiresAt) > Date.now())).length}/{d.limits.maxMembers}</b> · time-limited: <b>{d.members.filter((m) => m.role !== 'owner' && m.expiresAt && Date.parse(m.expiresAt) > Date.now()).length}/{d.limits.maxTimed}</b>. One AI action = one analysis / referral report / mentor message / agent search / agent run. Resets midnight IST.</div>
       </div>
       {invite && <div className="notice ok small" style={{ wordBreak: 'break-all' }}><b>Invite link copied</b> — send it to them on WhatsApp / email. It works once, for 7 days, and signs them in for 30 days: {invite}</div>}
       <div className="small muted" style={{ marginTop: 8 }}><b>How to give someone access:</b> 1) type their email, pick how long (1 hour … permanent) → Give access · 2) click 🔗 Invite link on their row · 3) send them the link. (If Gmail is set up in AI &amp; Keys they can also use “Email link” on the login page themselves.)</div>

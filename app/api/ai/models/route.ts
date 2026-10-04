@@ -1,3 +1,4 @@
+import { bindTenant } from '@/lib/auth';
 import { guard, bad } from '@/lib/guard';
 import { PRESETS, allProfiles, listModels, type Wire } from '@/lib/llm';
 
@@ -5,6 +6,7 @@ import { PRESETS, allProfiles, listModels, type Wire } from '@/lib/llm';
 export async function POST(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
   const b = (await req.json()) as { id?: string; preset?: string; baseUrl?: string; wire?: Wire; apiKey?: string };
   try {
     let p;

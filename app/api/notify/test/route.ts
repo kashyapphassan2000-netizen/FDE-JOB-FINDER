@@ -1,3 +1,4 @@
+import { bindTenant } from '@/lib/auth';
 import { loadVault } from '@/lib/secrets';
 import { guard, bad } from '@/lib/guard';
 import { notifyConfigured, sendAlert } from '@/lib/notify';
@@ -6,6 +7,7 @@ import type { Job } from '@/lib/types';
 export async function GET(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
   await loadVault();
   return Response.json(notifyConfigured());
 }
@@ -13,6 +15,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
   await loadVault();
   const c = notifyConfigured();
   if (!c.telegram && !c.webhook && !c.email && !c.whatsapp) return bad('Set DIGEST_TO + an email sender, or WHATSAPP_PHONE + CALLMEBOT_APIKEY (WhatsApp), or Telegram in AI & Keys first.');

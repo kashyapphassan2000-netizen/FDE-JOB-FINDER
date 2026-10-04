@@ -1,3 +1,4 @@
+import { bindTenant } from '@/lib/auth';
 import { guard, bad } from '@/lib/guard';
 import { refresh } from '@/lib/refresh';
 import { setJSON } from '@/lib/store';
@@ -8,6 +9,7 @@ export const maxDuration = 300;
 export async function POST(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
   const body = (await req.json().catch(() => ({}))) as { only?: string[]; force?: boolean; reset?: boolean };
   if (body.reset) {
     // "Clear & refetch": drop the stored list + source cooldowns, then fetch everything fresh (tracker is kept)

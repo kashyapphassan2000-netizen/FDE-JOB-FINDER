@@ -1,3 +1,5 @@
+import { bindTenant } from '@/lib/auth';
+import { spendGuard } from '@/lib/limits';
 import { guard, bad } from '@/lib/guard';
 import { fitsMission, RULES, isFreshFind, withRealDate, MISSIONS, runAgent, type AgentRun, type Find } from '@/lib/agent';
 import { delKey, getJSON, hdel, hgetall, hset, setJSON } from '@/lib/store';
@@ -12,6 +14,7 @@ export const maxDuration = 300;
 export async function GET(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
   await loadVault();
   const [finds, runs] = await Promise.all([hgetall<Find>('agent:finds'), getJSON<AgentRun[]>('agent:runs', [])]);
   return Response.json({
@@ -35,6 +38,9 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
+  const lim = await spendGuard(2); // per-user daily AI budget (owner unlimited)
+  if (lim) return lim;
   const { missionId, prompt, depth } = (await req.json()) as { missionId?: string; prompt?: string; depth?: 'quick' | 'deep' };
   if (!missionId && !prompt?.trim()) return bad('mission or prompt required');
   return Response.json(await runAgent({ missionId, prompt: prompt?.slice(0, 500), budgetMs: 275000, depth: depth || 'deep' }));
@@ -43,6 +49,7 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
   const { id, status } = (await req.json()) as { id: string; status: Find['status'] | 'delete' };
   const all = await hgetall<Find>('agent:finds');
   if (!all[id]) return bad('unknown find');
@@ -55,6 +62,7 @@ export async function PATCH(req: Request) {
 export async function DELETE(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
   const b = (await req.json().catch(() => ({}))) as { what?: string; id?: string; mission?: string; status?: string };
   if (b.what === 'run' || b.what === 'runs') {
     const runs = await getJSON<AgentRun[]>('agent:runs', []);

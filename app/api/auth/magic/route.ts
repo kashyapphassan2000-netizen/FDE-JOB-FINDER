@@ -2,17 +2,18 @@ import { NextResponse } from 'next/server';
 import { SESSION_COOKIE, createSession } from '@/lib/auth';
 import { accessUntil, consumeLinkToken, getVersion, makeLinkToken, roleOf, sendSignInEmail } from '@/lib/access';
 import { loadVault } from '@/lib/secrets';
+import { allow, clientIp } from '@/lib/ratelimit';
 
 // POST {email} → if that email has access, email it a single-use sign-in link (same reply either way)
 export async function POST(req: Request) {
   await loadVault();
   const { email } = (await req.json().catch(() => ({}))) as { email?: string };
   const e = (email || '').trim().toLowerCase();
+  if (!(await allow('magic-ip', clientIp(req), 10, 3600)) || !(await allow('magic', e, 3, 900))) return NextResponse.json({ error: 'Too many requests — wait 15 minutes.' }, { status: 429 });
   await new Promise((r) => setTimeout(r, 400));
   if (e && (await roleOf(e))) {
     const link = `${new URL(req.url).origin}/api/auth/magic?t=${await makeLinkToken(e, 20)}`;
-    const via = await sendSignInEmail(e, link).catch(() => 'none' as const);
-    if (via === 'none') return NextResponse.json({ ok: true, note: 'Email sending is not set up for this address yet — ask the owner for an invite link.' });
+    await sendSignInEmail(e, link).catch(() => 'none' as const); // same reply either way: nobody can probe who has access
   }
   return NextResponse.json({ ok: true, note: 'If this email has access, a sign-in link is on its way (check spam).' });
 }

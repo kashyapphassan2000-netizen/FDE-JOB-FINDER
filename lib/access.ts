@@ -10,7 +10,7 @@ import { secret } from './secrets';
  * - The password (owner login) can be changed from the app; it is stored scrypt-hashed and overrides APP_PASSWORD.
  * - Changing the password or turning lockdown on bumps the session version → everyone else is signed out at once.
  */
-export interface Member { email: string; role: Role; addedAt: string; addedBy: string; lastSeen?: string; expiresAt?: string | null }
+export interface Member { email: string; role: Role; addedAt: string; addedBy: string; lastSeen?: string; expiresAt?: string | null; limits?: { actionsPerDay?: number; maxAgents?: number }; sv?: number }
 
 /** Time-limited access: when does this member's access end (ms), or null = permanent. */
 export async function accessUntil(email: string): Promise<number | null> {
@@ -81,7 +81,17 @@ export async function addMember(email: string, role: Role, by: string, hours?: n
   if (!isEmail(e)) throw new Error('Enter a valid email');
   if (role === 'owner' && !ownerEmails().includes(e)) throw new Error('Only the emails in OWNER_EMAILS can be owners (security rule)');
   const h = Number(hours) > 0 ? Math.min(24 * 365, Number(hours)) : null;
-  await hset('auth:members', e, { email: e, role: ownerEmails().includes(e) ? 'owner' : 'member', addedAt: new Date().toISOString(), addedBy: by, expiresAt: h && !ownerEmails().includes(e) ? new Date(Date.now() + h * 36e5).toISOString() : null });
+  if (!ownerEmails().includes(e)) {
+    // seat caps (owner sets them in Access → Limits)
+    const { getLimits } = await import('./limits');
+    const lim = await getLimits();
+    const all = await hgetall<Member>('auth:members');
+    const live = Object.values(all).filter((m) => m.email !== e && !ownerEmails().includes(m.email) && (!m.expiresAt || Date.parse(m.expiresAt) > Date.now()));
+    if (live.length >= lim.maxMembers) throw new Error(`Seat limit reached: ${live.length}/${lim.maxMembers} people have access. Remove someone or raise “Max people” in Access → Limits.`);
+    if (h && live.filter((m) => m.expiresAt).length >= lim.maxTimed) throw new Error(`Time-limited seat limit reached (${lim.maxTimed}). Remove an expired/old guest or raise “Max time-limited guests”.`);
+  }
+  const prevM = (await hgetall<Member>('auth:members'))[e];
+  await hset('auth:members', e, { ...(prevM?.limits ? { limits: prevM.limits } : {}), email: e, role: ownerEmails().includes(e) ? 'owner' : 'member', addedAt: new Date().toISOString(), addedBy: by, expiresAt: h && !ownerEmails().includes(e) ? new Date(Date.now() + h * 36e5).toISOString() : null });
 }
 
 /** Give more time (hours from now) or make permanent (null). Bumps nothing — the person stays signed in. */
@@ -91,6 +101,14 @@ export async function setMemberExpiry(email: string, hours: number | null) {
   if (!all[e]) throw new Error('Unknown member');
   const h = Number(hours) > 0 ? Math.min(24 * 365, Number(hours)) : null;
   await hset('auth:members', e, { ...all[e], expiresAt: h ? new Date(Date.now() + h * 36e5).toISOString() : null });
+}
+
+export async function setMemberLimits(email: string, limits: { actionsPerDay?: number | null; maxAgents?: number | null }) {
+  const e = norm(email);
+  const all = await hgetall<Member>('auth:members');
+  if (!all[e]) throw new Error('Unknown member');
+  const clean = (v: unknown, hi: number) => (v === null || v === undefined || v === '' ? undefined : Math.max(0, Math.min(hi, Math.round(Number(v)) || 0)));
+  await hset('auth:members', e, { ...all[e], limits: { actionsPerDay: clean(limits.actionsPerDay, 1000), maxAgents: clean(limits.maxAgents, 50) } });
 }
 
 export async function removeMember(email: string) {

@@ -1,3 +1,5 @@
+import { bindTenant } from '@/lib/auth';
+import { spendGuard } from '@/lib/limits';
 import { guard, bad } from '@/lib/guard';
 import { universalSearch } from '@/lib/universal';
 
@@ -7,6 +9,9 @@ export const maxDuration = 90;
 export async function GET(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
+  const lim = await spendGuard(1); // per-user daily AI budget (owner unlimited)
+  if (lim) return lim;
   const u = new URL(req.url);
   const q = (u.searchParams.get('q') || '').trim().slice(0, 120);
   if (!q) return bad('q required');

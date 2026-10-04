@@ -1,3 +1,5 @@
+import { bindTenant } from '@/lib/auth';
+import { spendGuard } from '@/lib/limits';
 import { guard, bad } from '@/lib/guard';
 import { analyzeJob, deleteAnalysis, getAnalysis, listAnalyses } from '@/lib/analyzer';
 
@@ -6,6 +8,7 @@ export const maxDuration = 300;
 export async function GET(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
   const id = new URL(req.url).searchParams.get('id');
   if (id) return Response.json({ analysis: await getAnalysis(id) });
   return Response.json({ list: await listAnalyses() });
@@ -15,6 +18,9 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
+  const lim = await spendGuard(1); // per-user daily AI budget (owner unlimited)
+  if (lim) return lim;
   const b = (await req.json().catch(() => ({}))) as { url?: string; text?: string; company?: string; role?: string };
   const url = b.url?.trim().slice(0, 600);
   if (url && !/^https?:\/\//i.test(url)) return bad('The link must start with http');
@@ -29,6 +35,7 @@ export async function POST(req: Request) {
 export async function DELETE(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
   const { id } = (await req.json().catch(() => ({}))) as { id?: string };
   if (!id) return bad('id required');
   await deleteAnalysis(id);

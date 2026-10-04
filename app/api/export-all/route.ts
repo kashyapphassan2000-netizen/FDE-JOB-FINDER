@@ -1,3 +1,4 @@
+import { bindTenant } from '@/lib/auth';
 import { guard } from '@/lib/guard';
 import { getJobs } from '@/lib/refresh';
 import { getIntel } from '@/lib/intel';
@@ -20,6 +21,7 @@ const d10 = (s?: string | null) => (s ? s.slice(0, 10) : '');
 export async function GET(req: Request) {
   const g = await guard(req);
   if (g) return g;
+  bindTenant(req);
   const [jobs, findsH, intel, trends, report, opps, disc, track, leads] = await Promise.all([
     getJobs(), hgetall<Find>('agent:finds'), getIntel(), computeTrends(), getJSON<MarketReport | null>('trends:report', null),
     getJSON<{ at: string; items: Opp[] } | null>('opps', null), getDiscovered(), hgetall<TrackEntry>('track'), hgetall<Lead>('outreach:leads'),
