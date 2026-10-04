@@ -1,3 +1,5 @@
+import { tenantFor } from '@/lib/tenant';
+import { ownerEmails } from '@/lib/access';
 import { track } from '@/lib/obs';
 import { NextResponse } from 'next/server';
 import { hmac, safeEqual } from '@/lib/auth';
@@ -28,6 +30,6 @@ export async function GET(req: Request) {
   const res = NextResponse.redirect(new URL('/', url.origin));
   res.cookies.set('fj_oauth', '', { path: '/api/auth/google', maxAge: 0 });
   if (!(await attachSession(res, p.email.toLowerCase()))) { await track('login', 'google', 'fail', `${p.email} has no access`); return fail('noaccess'); }
-  await track('login', 'google', 'ok', p.email);
+  await track('login', 'google', 'ok', p.email, undefined, undefined, tenantFor(p.email, ownerEmails()).ns);
   return res;
 }

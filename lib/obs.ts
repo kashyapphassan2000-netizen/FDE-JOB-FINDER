@@ -13,11 +13,11 @@ const KEY = 'obs:ev';
 const MAX = 1500;
 let writes = 0;
 
-export async function track(area: Area, name: string, status: ObsEvent['status'], detail = '', ms?: number, ref?: string): Promise<void> {
+export async function track(area: Area, name: string, status: ObsEvent['status'], detail = '', ms?: number, ref?: string, nsOverride?: string): Promise<void> {
   try {
     const at = new Date().toISOString();
     const id = `${Date.now().toString(36)}${randomBytes(3).toString('hex')}`;
-    await hset(KEY, id, { id, at, ns: tenant().ns, area, name: name.slice(0, 120), status, detail: detail.slice(0, 600), ms, ref } satisfies ObsEvent);
+    await hset(KEY, id, { id, at, ns: nsOverride || tenant().ns, area, name: name.slice(0, 120), status, detail: detail.slice(0, 600), ms, ref } satisfies ObsEvent);
     if (++writes % 40 === 0) await prune();
   } catch {}
 }

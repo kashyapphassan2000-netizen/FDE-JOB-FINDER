@@ -1,3 +1,6 @@
+import { tenantFor } from '@/lib/tenant';
+import { ownerEmails } from '@/lib/access';
+const nsFor = (e: string) => tenantFor(e, ownerEmails()).ns;
 import { track } from '@/lib/obs';
 import { NextResponse } from 'next/server';
 import { loadVault } from '@/lib/secrets';
@@ -27,7 +30,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Wrong or expired code. Check the latest email, or request a new code.' }, { status: 401 });
   }
   const res = NextResponse.json({ ok: true });
-  await track('login', 'email code', 'ok', email);
+  await track('login', 'email code', 'ok', email, undefined, undefined, nsFor(email));
   if (!(await attachSession(res, email))) return NextResponse.json({ error: 'Your access has ended — ask the owner.' }, { status: 403 });
   return res;
 }
