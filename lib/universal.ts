@@ -1,3 +1,4 @@
+import { dateFromUrl, isSocialPost } from './postdate';
 import type { RawJob } from './types';
 import { DEFAULT_COMPANIES } from './companies';
 import { FETCHERS } from './sources/ats';
@@ -86,7 +87,7 @@ export async function universalSearch(q: string, opts: { ignoreLocation?: boolea
     // 1. what you already have
     const [jobs, finds] = await Promise.all([getJobs(), hgetall<Find>('agent:finds')]);
     add('Your job list', jobs);
-    add('Agent finds', Object.values(finds).filter((f) => f.kind !== 'company').map((f) => ({ title: f.title, company: f.company || f.author || '', location: f.location, url: f.url, postedAt: f.postedAt, description: f.snippet })));
+    add('Agent finds', Object.values(finds).filter((f) => f.kind !== 'company').map((f) => ({ title: f.title, company: f.company || f.author || '', location: f.location, url: f.url, postedAt: dateFromUrl(f.url) || f.postedAt, description: f.snippet })));
     // 2-4 in parallel: live boards, all company ATS boards, web/X/LinkedIn posts
     const companies = [...DEFAULT_COMPANIES, ...settings.extraCompanies].filter((c) => !settings.disabledCompanies.includes(`${c.ats}:${c.slug}`));
     const engines = availableEngines().length;
@@ -107,10 +108,10 @@ export async function universalSearch(q: string, opts: { ignoreLocation?: boolea
           const id = tweetIdFromUrl(x.url);
           const t = id ? await fetchTweet(id) : null;
           const text = t ? t.text : x.snippet;
-          posts.push({ title: x.title.slice(0, 160), company: t ? `${t.author} (@${t.handle})` : new URL(x.url).hostname.replace(/^www\./, ''), location: '', url: x.url, postedAt: t?.createdAt || x.date || null, description: text });
+          posts.push({ title: x.title.slice(0, 160), company: t ? `${t.author} (@${t.handle})` : new URL(x.url).hostname.replace(/^www\./, ''), location: '', url: x.url, postedAt: dateFromUrl(x.url) || t?.createdAt || (isSocialPost(x.url) ? null : x.date) || null, description: text });
         });
         // web hits are kept when the role words appear in the title OR the post text
-        for (const p of posts) if (matches(`${p.title} ${p.description}`, ws)) add(/x\.com|twitter/.test(p.url) ? 'X posts' : /linkedin\.com\/posts/.test(p.url) ? 'LinkedIn posts' : 'Web / ATS pages', [p], false);
+        for (const p of posts) if (!(p.postedAt && Date.now() - Date.parse(p.postedAt) > 30 * 864e5) && matches(`${p.title} ${p.description}`, ws)) add(/x\.com|twitter/.test(p.url) ? 'X posts' : /linkedin\.com\/posts/.test(p.url) ? 'LinkedIn posts' : 'Web / ATS pages', [p], false);
       }),
     ]);
   } finally {
@@ -122,6 +123,7 @@ export async function universalSearch(q: string, opts: { ignoreLocation?: boolea
     const k = h.url.split('?')[0];
     if (seen.has(k)) return false;
     seen.add(k);
+    if (h.postedAt && Date.now() - Date.parse(h.postedAt) > 60 * 864e5) return false; // fresh only: nothing posted more than 60 days ago
     if (opts.ignoreLocation || !h.location) return true;
     return locationAllowed(locationTags({ title: h.title, company: h.company, location: h.location, url: h.url }), h.location);
   }).sort((a, b) => Date.parse(b.postedAt || '1970') - Date.parse(a.postedAt || '1970'));

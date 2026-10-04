@@ -4,7 +4,7 @@ import { getIntel } from '@/lib/intel';
 import { computeTrends, type MarketReport } from '@/lib/trends';
 import { getJSON, hgetall } from '@/lib/store';
 import type { TrackEntry } from '@/lib/types';
-import { isFreshFind, type Find } from '@/lib/agent';
+import { findTime, isFreshFind, withRealDate, type Find } from '@/lib/agent';
 import type { Lead } from '@/lib/outreach';
 
 export const maxDuration = 60;
@@ -16,7 +16,7 @@ export async function GET(req: Request) {
   const [jobs, meta, finds, track, leads, intel, trends, report] = await Promise.all([
     getJobs(), getMeta(), hgetall<Find>('agent:finds'), hgetall<TrackEntry>('track'), hgetall<Lead>('outreach:leads'), getIntel(), computeTrends(), getJSON<MarketReport | null>('trends:report', null),
   ]);
-  const posts = Object.values(finds).filter((f) => f.kind === 'post' && f.status !== 'dismissed' && isFreshFind(f)).sort((a, b) => Date.parse(b.postedAt || b.foundAt) - Date.parse(a.postedAt || a.foundAt)).slice(0, 40);
+  const posts = Object.values(finds).filter((f) => f.kind === 'post' && f.status !== 'dismissed' && isFreshFind(f)).map(withRealDate).sort((a, b) => (findTime(b) || 0) - (findTime(a) || 0)).slice(0, 40);
   const funnel: Record<string, number> = {};
   for (const t of Object.values(track)) funnel[t.status] = (funnel[t.status] || 0) + 1;
   const contacts = Object.values(leads).flatMap((l) => l.contacts);

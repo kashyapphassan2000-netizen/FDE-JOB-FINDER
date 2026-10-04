@@ -5,7 +5,7 @@ import { computeTrends, type MarketReport } from '@/lib/trends';
 import { getDiscovered } from '@/lib/discover';
 import { getDirectory } from '@/lib/directory';
 import { getJSON, hgetall } from '@/lib/store';
-import { isFreshFind, MISSIONS, type Find } from '@/lib/agent';
+import { findTime, isFreshFind, withRealDate, MISSIONS, type Find } from '@/lib/agent';
 import { locationAllowed, locationTags, regionRank } from '@/lib/classify';
 import type { Opp } from '@/lib/opportunities';
 import type { TrackEntry } from '@/lib/types';
@@ -29,11 +29,11 @@ export async function GET(req: Request) {
   S.push({ title: `Jobs (${jobs.length}) — Bengaluru first, then remote (India OK), newest first`, headers: ['Role', 'Company', 'Location', 'Posted', 'Exp (yrs)', 'Pay', 'Link'],
     rows: sortedJobs.slice(0, 600).map((j) => [j.title, j.company, j.location, d10(j.postedAt || j.firstSeen), j.exp ? `${j.exp.min}-${j.exp.max}${j.exp.estimated ? '?' : ''}` : '', j.salary || j.payBand || '', j.url]) });
 
-  const finds = Object.values(findsH).filter((f) => f.status !== 'dismissed' && isFreshFind(f))
+  const finds = Object.values(findsH).filter((f) => f.status !== 'dismissed' && isFreshFind(f)).map(withRealDate)
     .map((f) => ({ ...f, locTags: locationTags({ title: f.title, company: f.company, location: f.location, url: f.url }) }))
     .filter((f) => f.kind !== 'job' || !f.location || locationAllowed(f.locTags, f.location));
   for (const m of MISSIONS) {
-    const list = finds.filter((f) => f.mission === m.id).sort((a, b) => Date.parse(b.postedAt || b.foundAt) - Date.parse(a.postedAt || a.foundAt));
+    const list = finds.filter((f) => f.mission === m.id || f.missions?.includes(m.id)).sort((a, b) => (findTime(b) || 0) - (findTime(a) || 0));
     if (!list.length) continue;
     S.push({ title: `Agent — ${m.title} (${list.length})`, headers: ['Type', 'Title', 'Company / author', 'Location', 'Date', 'How to apply', 'Link'],
       rows: list.slice(0, 200).map((f) => [f.kind, f.title, f.author || f.company, f.location, d10(f.postedAt || f.foundAt), f.applyHow || f.why || '', f.url]) });

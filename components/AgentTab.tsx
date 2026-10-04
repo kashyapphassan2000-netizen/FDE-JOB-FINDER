@@ -226,7 +226,7 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
             { header: 'Role / post', get: (f: Find) => f.title, width: 170, link: (f: Find) => f.url },
             { header: 'Company / author', get: (f: Find) => [f.company, f.author].filter(Boolean).join(' · '), width: 120 },
             { header: 'Location', get: (f: Find) => f.location || 'not stated', width: 80 },
-            { header: 'Posted', get: (f: Find) => (f.postedAt || f.foundAt || '').slice(0, 10), width: 55 },
+            { header: 'Posted', get: (f: Find) => (f.postedAt ? f.postedAt.slice(0, 10) : `unknown (found ${f.foundAt.slice(0, 10)})`), width: 60 },
             { header: 'How to apply', get: (f: Find) => f.applyHow || '', width: 90 },
             { header: 'Post text / details', get: (f: Find) => f.snippet.slice(0, 380) },
             { header: 'Link', get: (f: Find) => f.url, width: 110, link: (f: Find) => f.url },
@@ -292,7 +292,7 @@ function FindCard({ f, onStat, onWatch, onFit, onOutreach }: { f: Find; onStat: 
         <span className={`kind k-${f.kind}`}>{KIND[f.kind][0]} {KIND[f.kind][1]}</span>
         {f.confidence === 'maybe' && <span className="badge b-warn" title="Could be relevant — details missing">maybe</span>}
         {f.status !== 'new' && <span className="badge b-ok">{f.status}</span>}
-        <span className="small muted" style={{ marginLeft: 'auto' }}>{f.postedAt ? `posted ${ago(f.postedAt)}` : `found ${ago(f.foundAt)}`} · {host}</span>
+        <span className="small muted" style={{ marginLeft: 'auto' }}>{f.postedAt ? `posted ${ago(f.postedAt)} ago · ${new Date(f.postedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : `post date unknown · found ${ago(f.foundAt)} ago`} · {host}</span>
       </div>
       <a className="find-title" href={f.url} target="_blank" rel="noreferrer noopener">{f.title}</a>
       <div className="job-sub">

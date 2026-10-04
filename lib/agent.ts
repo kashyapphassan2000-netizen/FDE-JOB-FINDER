@@ -1,3 +1,4 @@
+import { dateFromUrl, isSocialPost } from './postdate';
 import type { Category, CompanyEntry, Domain, RawJob } from './types';
 import { classify, domainOf, hashId, isExcluded, locationAllowed, locationTags } from './classify';
 import { atsFromUrl, probe } from './atsdetect';
@@ -6,7 +7,7 @@ import { aiConfigured, chatJson } from './llm';
 import { getCv } from './cv';
 import { getSettings } from './settings';
 import { DEFAULT_COMPANIES } from './companies';
-import { getJSON, hgetall, hset, setJSON } from './store';
+import { getJSON, hdel, hgetall, hset, setJSON } from './store';
 import { loadVault } from './secrets';
 import { pool } from './http';
 import { fetchTweet, tweetIdFromUrl } from './xposts';
@@ -110,8 +111,29 @@ export interface Find {
 export const FIND_FRESH_DAYS = 30;
 export function isFreshFind(f: Find): boolean {
   if (f.status === 'saved' || f.status === 'applied') return true;
-  const t = Date.parse(f.postedAt || '') || Date.parse(f.foundAt);
-  return !t || Date.now() - t < FIND_FRESH_DAYS * 864e5;
+  const t = findTime(f);
+  if (t === null) return false; // social post with no provable date → not shown as fresh
+  return Date.now() - t < FIND_FRESH_DAYS * 864e5;
+}
+
+/** Real post time: from the URL for X / LinkedIn, else the stored post date, else (non-social only) when we found it. */
+export function findTime(f: Pick<Find, 'url' | 'postedAt' | 'foundAt'>): number | null {
+  const real = dateFromUrl(f.url);
+  if (real) return Date.parse(real);
+  if (f.postedAt && Date.parse(f.postedAt)) return Date.parse(f.postedAt);
+  if (isSocialPost(f.url)) return null;
+  return Date.parse(f.foundAt) || null;
+}
+
+/** With the real post date filled in (what the UI and exports show). */
+export const withRealDate = <T extends Find>(f: T): T => ({ ...f, postedAt: dateFromUrl(f.url) || f.postedAt || null });
+
+/** Delete finds older than 30 days by their REAL date (saved / applied are kept). */
+export async function purgeOldFinds(): Promise<number> {
+  const all = await hgetall<Find>('agent:finds');
+  const victims = Object.values(all).filter((f) => f.status !== 'saved' && f.status !== 'applied' && !isFreshFind(f));
+  await pool(victims, 10, (f) => hdel('agent:finds', f.id));
+  return victims.length;
 }
 
 export interface AgentRun {
@@ -125,6 +147,8 @@ const watchedKeys = (extra: CompanyEntry[]) => new Set([...DEFAULT_COMPANIES, ..
 const isPostUrl = (u: string) => /linkedin\.com\/(posts|feed)|(x|twitter)\.com\/[^/]+\/status|reddit\.com\/r\/.+\/comments|news\.ycombinator\.com\/item/.test(u);
 const HIRING_RX = /hiring|we('|’)re hiring|we are hiring|join (us|our)|open role|looking for|dm me|send (your )?(cv|resume)|apply|opening/i;
 const MAX_POST_AGE_DAYS = 30;
+/** How old a dated post may be for a search window: last 24 h → 2 days (time zones), week → 8, month/any → 30. */
+const windowDays = (rec: Recency) => (rec === 'day' ? 2 : rec === 'week' ? 8 : MAX_POST_AGE_DAYS);
 const isJobLink = (u: string) => !atsFromUrl(u) || /\/(jobs?|j)\/|[0-9a-f-]{20,}/.test(u);
 
 function heuristic(r: Hit): Partial<Find> | null {
@@ -173,12 +197,13 @@ export async function runAgent(opts: { missionId?: string; prompt?: string; budg
       id: hashId(r.url), kind: f.kind || 'job', title: (f.title || r.title).slice(0, 220), company: (f.company || '').slice(0, 100), location: loc.slice(0, 120),
       url: r.url, snippet: r.snippet.slice(0, 1500), why: (f.why || '').slice(0, 300), role: f.role?.length ? f.role : classify(raw),
       domain: f.domain || domainOf(raw), locTags: f.locTags || locationTags({ ...raw, location: loc }),
-      mission: run.mission, engine: r.engine, foundAt: now, status: 'new', ats: f.ats, author: f.author || r.author, postedAt: f.postedAt ?? r.date ?? null,
+      mission: run.mission, engine: r.engine, foundAt: now, status: 'new', ats: f.ats, author: f.author || r.author, postedAt: dateFromUrl(r.url) || f.postedAt || (isSocialPost(r.url) ? null : r.date) || null,
       applyHow: f.applyHow || applyHowFrom(r.snippet), confidence: f.confidence || 'high',
     };
   };
 
   const seen = new Set<string>();
+  let oldDropped = 0;
   const searchAll = async (queries: string[], rec: Recency): Promise<Hit[]> => {
     const out: Hit[] = [];
     const res = await pool(queries, 4, (q) => (depth === 'deep' ? webSearchAll(q, 20, rec) : webSearch(q, 10, rec).then((r) => ({ ...r, engines: r.engine ? [r.engine] : [] }))));
@@ -190,6 +215,12 @@ export async function runAgent(opts: { missionId?: string; prompt?: string; budg
         const tid = tweetIdFromUrl(x.url);
         if (tid) x.url = x.url.replace(/^(https?:\/\/)(?:www\.|mobile\.)?(?:x|twitter)\.com\/([^/]+)\/status(?:es)?\/(\d+).*$/i, 'https://x.com/$2/status/$3'); // one canonical URL per tweet
         const k = tid ? `x:${tid}` : x.url.split('#')[0].replace(/\?.*$/, '');
+        // real publish time from the URL (X / LinkedIn); search-engine dates on social posts are crawl dates → ignored
+        const real = dateFromUrl(x.url);
+        if (real) x.date = real;
+        else if (isSocialPost(x.url)) x.date = undefined;
+        if (/(?:x|twitter)\.com\/[A-Za-z0-9_]+\/?(?:all|reposts|with_replies|media|likes)?\/?(?:\?.*)?$/i.test(x.url) && !tid) continue; // a profile page, not a post
+        if (real && Date.now() - Date.parse(real) > windowDays(rec) * 864e5) { (x as Hit).stale = true; oldDropped++; }
         if (!seen.has(k)) { seen.add(k); out.push(x); }
       }
     });
@@ -372,6 +403,7 @@ ${scope ? `SCOPE (strict): ${scope}\n` : ''}Request: ${opts.prompt}\nJSON: {"que
     const newOnes: Find[] = [];
     for (const f of finds) {
       if (ids.has(f.id)) continue;
+      if (f.postedAt && Date.now() - Date.parse(f.postedAt) > MAX_POST_AGE_DAYS * 864e5) continue; // old post / job → never saved
       if (f.kind !== 'company' && !f.role.length) continue;
       if (f.kind === 'job' && f.location && !locationAllowed(f.locTags, f.location)) continue;
       if (f.kind !== 'company' && isExcluded({ title: f.title, company: f.company, location: f.location, url: f.url }, settings)) continue;
@@ -389,7 +421,8 @@ ${scope ? `SCOPE (strict): ${scope}\n` : ''}Request: ${opts.prompt}\nJSON: {"que
     run.findIds = [...ids];
     run.total = ids.size;
     run.finds = newOnes.length;
-    log(`saved ${run.total} relevant (${run.finds} new, ${run.total - run.finds} seen before)`);
+    log(`saved ${run.total} relevant (${run.finds} new, ${run.total - run.finds} seen before)${oldDropped ? ` · ${oldDropped} old posts skipped (real post date from the link)` : ''}`);
+    await purgeOldFinds().catch(() => null);
 
     if (opts.alert !== false && newOnes.length) {
       const hot = newOnes.filter((f) => f.kind !== 'company' && (f.confidence !== 'maybe' || f.kind === 'post')).slice(0, 15); // posts go stale fastest → always alert
