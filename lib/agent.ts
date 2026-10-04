@@ -1,4 +1,4 @@
-import { dateFromUrl, isSocialPost } from './postdate';
+import { dateFromText, dateFromUrl, FRESH_HOURS, isSocialPost } from './postdate';
 import type { Category, CompanyEntry, Domain, RawJob } from './types';
 import { classify, domainOf, hashId, isExcluded, locationAllowed, locationTags } from './classify';
 import { atsFromUrl, probe } from './atsdetect';
@@ -109,24 +109,31 @@ export interface Find {
 
 /** Fresh only: posts/jobs older than 30 days (by post date, else by when we found them) are hidden unless you saved/applied. */
 export const FIND_FRESH_DAYS = 30;
+/** LinkedIn & X items (posts and LinkedIn job pages) follow the STRICT rule: proven post date within the last 24 h. */
+export const isLinkedInOrX = (url: string) => /\/\/(?:[a-z]+\.)?(?:x|twitter|linkedin)\.com\//i.test(url);
+
 export function isFreshFind(f: Find): boolean {
   if (f.status === 'saved' || f.status === 'applied') return true;
   const t = findTime(f);
-  if (t === null) return false; // social post with no provable date → not shown as fresh
-  return Date.now() - t < FIND_FRESH_DAYS * 864e5;
+  if (t === null) return false;
+  if (isLinkedInOrX(f.url)) return Date.now() - t <= FRESH_HOURS * 36e5; // STRICT 24 h, proven date only
+  return Date.now() - t < FIND_FRESH_DAYS * 864e5; // everything else: 30 days
 }
 
-/** Real post time: from the URL for X / LinkedIn, else the stored post date, else (non-social only) when we found it. */
-export function findTime(f: Pick<Find, 'url' | 'postedAt' | 'foundAt'>): number | null {
+/** Real post time: from the URL (X / LinkedIn posts), the stored post date, or the date written in the text ("3 days ago").
+ *  LinkedIn / X items with none of these have NO date (never fresh); other finds fall back to when we found them. */
+export function findTime(f: Pick<Find, 'url' | 'postedAt' | 'foundAt' | 'title' | 'snippet'>): number | null {
   const real = dateFromUrl(f.url);
   if (real) return Date.parse(real);
   if (f.postedAt && Date.parse(f.postedAt)) return Date.parse(f.postedAt);
-  if (isSocialPost(f.url)) return null;
+  const txt = dateFromText(`${f.title} ${f.snippet || ''}`, f.foundAt);
+  if (txt) return Date.parse(txt);
+  if (isLinkedInOrX(f.url)) return null;
   return Date.parse(f.foundAt) || null;
 }
 
 /** With the real post date filled in (what the UI and exports show). */
-export const withRealDate = <T extends Find>(f: T): T => ({ ...f, postedAt: dateFromUrl(f.url) || f.postedAt || null });
+export const withRealDate = <T extends Find>(f: T): T => { const t = findTime(f); return { ...f, postedAt: isLinkedInOrX(f.url) ? (t ? new Date(t).toISOString() : null) : f.postedAt || dateFromText(`${f.title} ${f.snippet || ''}`, f.foundAt) || null }; };
 
 /** Delete finds older than 30 days by their REAL date (saved / applied are kept). */
 export async function purgeOldFinds(): Promise<number> {
@@ -148,7 +155,7 @@ const isPostUrl = (u: string) => /linkedin\.com\/(posts|feed)|(x|twitter)\.com\/
 const HIRING_RX = /hiring|we('|’)re hiring|we are hiring|join (us|our)|open role|looking for|dm me|send (your )?(cv|resume)|apply|opening/i;
 const MAX_POST_AGE_DAYS = 30;
 /** How old a dated post may be for a search window: last 24 h → 2 days (time zones), week → 8, month/any → 30. */
-const windowDays = (rec: Recency) => (rec === 'day' ? 2 : rec === 'week' ? 8 : MAX_POST_AGE_DAYS);
+const windowDays = (_rec: Recency) => FRESH_HOURS / 24; // used only for X / LinkedIn posts (dated by their URL): STRICT 24 h
 const isJobLink = (u: string) => !atsFromUrl(u) || /\/(jobs?|j)\/|[0-9a-f-]{20,}/.test(u);
 
 function heuristic(r: Hit): Partial<Find> | null {
@@ -197,7 +204,7 @@ export async function runAgent(opts: { missionId?: string; prompt?: string; budg
       id: hashId(r.url), kind: f.kind || 'job', title: (f.title || r.title).slice(0, 220), company: (f.company || '').slice(0, 100), location: loc.slice(0, 120),
       url: r.url, snippet: r.snippet.slice(0, 1500), why: (f.why || '').slice(0, 300), role: f.role?.length ? f.role : classify(raw),
       domain: f.domain || domainOf(raw), locTags: f.locTags || locationTags({ ...raw, location: loc }),
-      mission: run.mission, engine: r.engine, foundAt: now, status: 'new', ats: f.ats, author: f.author || r.author, postedAt: dateFromUrl(r.url) || f.postedAt || (isSocialPost(r.url) ? null : r.date) || null,
+      mission: run.mission, engine: r.engine, foundAt: now, status: 'new', ats: f.ats, author: f.author || r.author, postedAt: dateFromUrl(r.url) || f.postedAt || dateFromText(`${r.title} ${r.snippet}`) || (isSocialPost(r.url) ? null : r.date) || null,
       applyHow: f.applyHow || applyHowFrom(r.snippet), confidence: f.confidence || 'high',
     };
   };
@@ -401,9 +408,10 @@ ${scope ? `SCOPE (strict): ${scope}\n` : ''}Request: ${opts.prompt}\nJSON: {"que
     const existing = await hgetall<Find>('agent:finds');
     const ids = new Set<string>();
     const newOnes: Find[] = [];
+    let skippedOld = 0;
     for (const f of finds) {
       if (ids.has(f.id)) continue;
-      if (f.postedAt && Date.now() - Date.parse(f.postedAt) > MAX_POST_AGE_DAYS * 864e5) continue; // old post / job → never saved
+      if (!isFreshFind(f)) { skippedOld++; continue; } // LinkedIn / X: proven date in the last 24 h only; others: not older than 30 days
       if (f.kind !== 'company' && !f.role.length) continue;
       if (f.kind === 'job' && f.location && !locationAllowed(f.locTags, f.location)) continue;
       if (f.kind !== 'company' && isExcluded({ title: f.title, company: f.company, location: f.location, url: f.url }, settings)) continue;
@@ -421,7 +429,7 @@ ${scope ? `SCOPE (strict): ${scope}\n` : ''}Request: ${opts.prompt}\nJSON: {"que
     run.findIds = [...ids];
     run.total = ids.size;
     run.finds = newOnes.length;
-    log(`saved ${run.total} relevant (${run.finds} new, ${run.total - run.finds} seen before)${oldDropped ? ` · ${oldDropped} old posts skipped (real post date from the link)` : ''}`);
+    log(`saved ${run.total} relevant (${run.finds} new, ${run.total - run.finds} seen before)${oldDropped + skippedOld ? ` · ${oldDropped + skippedOld} skipped as old (LinkedIn / X: older than ${FRESH_HOURS} h or no provable post date)` : ''}`);
     await purgeOldFinds().catch(() => null);
 
     if (opts.alert !== false && newOnes.length) {

@@ -40,9 +40,11 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
   const [openRun, setOpenRun] = useState<string | null>(null);
   const [showLinks, setShowLinks] = useState(false);
   // freshness window (hours; 0 = any). Default: last 24 h, latest first.
+  // LinkedIn & X: always STRICT 24 h (proven date). Other results: window you pick (default 24 h).
   const [age, setAgeState] = useState(24);
-  useEffect(() => { try { const v = Number(localStorage.getItem('fj_agent_age')); if (v >= 0 && localStorage.getItem('fj_agent_age') !== null) setAgeState(v); } catch {} }, []);
+  useEffect(() => { try { const v = localStorage.getItem('fj_agent_age'); if (v !== null && Number(v) >= 0) setAgeState(Number(v)); } catch {} }, []);
   const setAge = (v: number) => { setAgeState(v); try { localStorage.setItem('fj_agent_age', String(v)); } catch {} };
+  const liX = (u: string) => /\/\/(?:[a-z]+\.)?(?:x|twitter|linkedin)\.com\//i.test(u);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(() => api<Payload>('/api/agent').then((p) => { setD(p); setLastRun((r) => r || (missionId ? p.runs.find((x) => x.mission === missionId) : p.runs[0]) || null); }).catch((e) => toast(e.message)), [toast, missionId]);
@@ -102,7 +104,11 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
   const when = (f: Find) => Date.parse(f.postedAt || '') || Date.parse(f.foundAt);
   // on a tab page (X, LinkedIn, Hidden Bengaluru…) ONLY that tab's results are shown and exported
   const scoped = useMemo(() => (view === 'run' ? runFinds : d?.finds || []).filter((f) => !mission || inMission(f, mission)), [view, runFinds, d, mission]);
-  const freshFinds = useMemo(() => scoped.filter((f) => !age || Date.now() - when(f) < age * 36e5), [scoped, age]);
+  const freshFinds = useMemo(() => scoped.filter((f) => {
+    if (f.status === 'saved' || f.status === 'applied') return true;
+    if (liX(f.url)) return Boolean(f.postedAt) && Date.now() - Date.parse(f.postedAt!) <= 24 * 36e5; // STRICT
+    return !age || Date.now() - when(f) < age * 36e5;
+  }), [scoped, age]);
   const pool = freshFinds;
   const finds = useMemo(
     () => pool
@@ -216,9 +222,10 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
           <button className={!kind ? 'on' : ''} onClick={() => setKind('')}>All</button>
           {(['post', 'job', 'company', 'careers_page'] as const).map((k) => <button key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{KIND[k][0]} {KIND[k][1]}s · {counts[k] || 0}</button>)}
         </span>
-        <select value={age} onChange={(e) => setAge(Number(e.target.value))} title="Show only results posted within…">
-          {[24, 72, 168, 720, 0].map((h) => <option key={h} value={h}>Posted: {AGE_LABEL[h]}</option>)}
+        <select value={age} onChange={(e) => setAge(Number(e.target.value))} title="Window for results that are NOT from LinkedIn / X">
+          {[24, 72, 168, 720, 0].map((h) => <option key={h} value={h}>Other results: {AGE_LABEL[h]}</option>)}
         </select>
+        <span className="badge b-date" title="LinkedIn and X results are shown only when their posting date is proven (from the link or the post text) and within the last 24 hours">⏱ LinkedIn & X: last 24 h only</span>
         <ExportButton title={`${cur ? cur.title : mission ? d.missions.find((m) => m.id === mission)?.title || 'AI Agent' : 'AI Agent'} — ${view === 'run' ? 'latest run' : 'saved finds'} · ${AGE_LABEL[age]}`} filename={`${cur?.id || mission || 'agent'}-${AGE_LABEL[age]}`}
           subtitle={`${cur ? `Only this tab (${cur.title}). ` : ''}Posted ${AGE_LABEL[age]}, newest first. ${lastRun?.prompt ? `Request: ${lastRun.prompt}` : cur?.desc || ''}`}
           cols={[
@@ -253,7 +260,7 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
 
       <div className="finds">
         {finds.slice(0, 400).map((f) => <FindCard key={f.id} f={f} onStat={setStat} onWatch={watch} onFit={() => setFit({ id: f.id, title: f.title, company: f.company, location: f.location, url: f.url, description: f.snippet })} onOutreach={onOutreach} />)}
-        {olderHidden > 0 && <div className="small muted" style={{ margin: '4px 0 8px' }}>{olderHidden} older result{olderHidden > 1 ? 's' : ''} hidden (posted before the {AGE_LABEL[age]}) — change “Posted” above to see them.</div>}
+        {olderHidden > 0 && <div className="small muted" style={{ margin: '4px 0 8px' }}>{olderHidden} result{olderHidden > 1 ? 's' : ''} hidden (LinkedIn / X older than 24 h or with no provable date, or others outside “{AGE_LABEL[age]}”).</div>}
         {!finds.length && (view === 'all' || lastRun?.findIds) && <div className="empty">Nothing here{kind ? ' for this type' : ''}. {view === 'run' ? 'Try “All saved finds”, a Deep search, or a different mission.' : ''}</div>}
       </div>
 

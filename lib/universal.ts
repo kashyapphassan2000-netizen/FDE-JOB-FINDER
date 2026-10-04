@@ -1,4 +1,4 @@
-import { dateFromUrl, isSocialPost } from './postdate';
+import { dateFromText, dateFromUrl, FRESH_HOURS, isSocialPost } from './postdate';
 import type { RawJob } from './types';
 import { DEFAULT_COMPANIES } from './companies';
 import { FETCHERS } from './sources/ats';
@@ -123,7 +123,8 @@ export async function universalSearch(q: string, opts: { ignoreLocation?: boolea
     const k = h.url.split('?')[0];
     if (seen.has(k)) return false;
     seen.add(k);
-    if (h.postedAt && Date.now() - Date.parse(h.postedAt) > 60 * 864e5) return false; // fresh only: nothing posted more than 60 days ago
+    if (/\/\/(?:[a-z]+\.)?(?:x|twitter|linkedin)\.com\//i.test(h.url)) { const t = Date.parse(h.postedAt || '') || Date.parse(dateFromText(`${h.title} ${h.text || ''}`) || ''); if (!t || Date.now() - t > FRESH_HOURS * 36e5) return false; } // LinkedIn / X: STRICT 24 h, proven date
+    else if (h.postedAt && Date.now() - Date.parse(h.postedAt) > 60 * 864e5) return false;
     if (opts.ignoreLocation || !h.location) return true;
     return locationAllowed(locationTags({ title: h.title, company: h.company, location: h.location, url: h.url }), h.location);
   }).sort((a, b) => Date.parse(b.postedAt || '1970') - Date.parse(a.postedAt || '1970'));
