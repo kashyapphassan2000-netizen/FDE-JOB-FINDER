@@ -74,6 +74,7 @@ function payScore(j: Job): { score: number; label: string } {
   return { score: s, label: s >= 70 ? 'not listed · likely high (est.)' : s >= 50 ? 'not listed · likely good (est.)' : 'not listed' };
 }
 
+const WANTED_LOC = ['BLR', 'INDIA', 'USA', 'REMOTE_IN'];
 const MAINSTREAM = ['linkedin', 'jsearch', 'serpapi', 'apify_linkedin', 'adzuna', 'jooble'];
 
 function lowCompScore(j: Job, hours: number): { score: number; why: string[] } {
@@ -95,6 +96,7 @@ export async function digestCandidates(maxAgeH: number, exclude: Set<string>): P
   const out: DigestPick[] = [];
   for (const j of jobs) {
     if (exclude.has(j.id) || tracked[j.id] || !j.categories.length) continue;
+    if (!j.locTags.some((t) => WANTED_LOC.includes(t))) continue; // skip onsite jobs in countries you can't work in
     const hours = freshnessHours(j.postedAt, j.firstSeen);
     if (hours > maxAgeH) continue;
     const pay = payScore(j);
