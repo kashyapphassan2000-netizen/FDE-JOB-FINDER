@@ -28,6 +28,18 @@ import { sendAlert } from './notify';
  */
 export interface Mission { id: string; title: string; desc: string; queries: string[]; recency?: Recency }
 
+/** What each tab is allowed to search when you type a plain-English request inside it. */
+export const SCOPE: Record<string, string> = {
+  'x-posts': 'ONLY X/Twitter posts: every query must start with site:x.com and contain a hiring phrase (hiring, "we\'re hiring", "join us", "DM me", "looking for").',
+  'li-posts': 'ONLY LinkedIn posts: every query must start with site:linkedin.com/posts and contain a hiring phrase.',
+  'blr-hidden': 'ONLY Bengaluru roles at startups and lesser-known companies: company career boards (site:jobs.ashbyhq.com, site:jobs.lever.co, site:job-boards.greenhouse.io, site:apply.workable.com) and careers pages, always with Bengaluru OR Bangalore.',
+  'remote-india': 'ONLY remote roles open to people in India (remote India, APAC, worldwide, anywhere) — boards, careers pages and posts.',
+  'global-remote': 'ONLY US/EU/global companies hiring fully remote worldwide or from India (contractor/EOR welcome).',
+  domains: 'ONLY AI/ML/FDE roles at semiconductor, embedded, edge-AI, robotics and automotive companies (Bengaluru or remote).',
+  'new-startups': 'ONLY newly funded AI startups (seed / Series A/B, YC) that are hiring — funding news and their careers pages.',
+  communities: 'ONLY community channels: news.ycombinator.com, reddit.com, indiehackers.com, latent.space, producthunt.com, dev communities.',
+};
+
 const ROLE = '("forward deployed" OR "applied AI" OR "AI engineer" OR "ML engineer" OR "machine learning engineer" OR "LLM engineer" OR "GenAI engineer")';
 const HIRE = '(hiring OR "we\'re hiring" OR "join us" OR "we\'re looking" OR "DM me")';
 
@@ -52,17 +64,17 @@ export const MISSIONS: Mission[] = [
     ],
   },
   { id: 'blr-hidden', title: 'Hidden Bengaluru AI startups', desc: 'Startup career boards (Ashby/Lever/Greenhouse/Workable) with Bengaluru FDE & AI roles',
-    queries: [`site:jobs.ashbyhq.com (Bengaluru OR Bangalore) ${ROLE}`, `site:jobs.lever.co (Bengaluru OR Bangalore) ("AI" OR "machine learning" OR "forward deployed")`, `site:job-boards.greenhouse.io (Bengaluru OR Bangalore) ("AI engineer" OR "machine learning" OR "forward deployed")`, `site:apply.workable.com Bangalore ("AI engineer" OR "machine learning")`, `Bengaluru AI startup careers "founding" ("AI engineer" OR "forward deployed")`, `site:jobs.ashbyhq.com "Bengaluru" "LLM"`] },
+    queries: [`site:jobs.ashbyhq.com (Bengaluru OR Bangalore) ${ROLE}`, `site:jobs.lever.co (Bengaluru OR Bangalore) ("AI" OR "machine learning" OR "forward deployed")`, `site:job-boards.greenhouse.io (Bengaluru OR Bangalore) ("AI engineer" OR "machine learning" OR "forward deployed")`, `site:apply.workable.com Bangalore ("AI engineer" OR "machine learning")`, `Bengaluru AI startup careers "founding" ("AI engineer" OR "forward deployed")`, `site:jobs.ashbyhq.com "Bengaluru" "LLM"`, `site:jobs.lever.co Bengaluru ("GenAI" OR "LLM" OR "agentic")`, `site:job-boards.greenhouse.io Bengaluru ("applied AI" OR "solutions engineer" OR "deployment")`, `site:wellfound.com Bengaluru AI engineer startup`, `site:ycombinator.com/companies India AI hiring`, `Bengaluru seed startup "AI engineer" careers apply`] },
   { id: 'remote-india', title: 'Remote roles open to India', desc: 'Worldwide / APAC remote FDE & AI roles Indians can take',
-    queries: [`"forward deployed engineer" remote ("anywhere" OR "worldwide" OR "APAC" OR "India")`, `remote "AI engineer" ("work from anywhere" OR worldwide OR "remote - India") hiring`, `remote "machine learning engineer" "India" contract OR full-time AI startup`, `site:jobs.ashbyhq.com remote ("India" OR "APAC") ("AI" OR "forward deployed")`, `site:jobs.lever.co "remote - india" ("AI" OR "machine learning")`] },
+    queries: [`"forward deployed engineer" remote ("anywhere" OR "worldwide" OR "APAC" OR "India")`, `remote "AI engineer" ("work from anywhere" OR worldwide OR "remote - India") hiring`, `remote "machine learning engineer" "India" contract OR full-time AI startup`, `site:jobs.ashbyhq.com remote ("India" OR "APAC") ("AI" OR "forward deployed")`, `site:jobs.lever.co "remote - india" ("AI" OR "machine learning")`, `site:job-boards.greenhouse.io "Remote - India" ("AI" OR "ML" OR "LLM")`, `site:apply.workable.com "Remote" India "machine learning"`, `"remote" "India" "forward deployed" OR "solutions engineer" AI startup hiring`, `site:weworkremotely.com OR site:remotive.com AI engineer worldwide`, `"APAC" remote "AI engineer" OR "ML engineer" hiring`] },
   { id: 'global-remote', title: 'US / EU startups hiring remote worldwide', desc: 'Remote FDE & AI roles at foreign companies that hire from India (contract or full-time)',
-    queries: [`"forward deployed engineer" remote "worldwide" OR "anywhere in the world"`, `site:jobs.ashbyhq.com remote ("anywhere" OR "worldwide" OR "global") ("AI engineer" OR "forward deployed")`, `"AI engineer" remote "hire from India" OR "contractors in India" OR "EOR" startup`, `site:jobs.lever.co remote worldwide ("applied AI" OR "machine learning engineer")`] },
+    queries: [`"forward deployed engineer" remote "worldwide" OR "anywhere in the world"`, `site:jobs.ashbyhq.com remote ("anywhere" OR "worldwide" OR "global") ("AI engineer" OR "forward deployed")`, `"AI engineer" remote "hire from India" OR "contractors in India" OR "EOR" startup`, `site:jobs.lever.co remote worldwide ("applied AI" OR "machine learning engineer")`, `"we hire globally" OR "hire anywhere" AI engineer startup`, `site:job-boards.greenhouse.io "Remote" "Anywhere" ("LLM" OR "forward deployed")`, `"Deel" OR "Remote.com" EOR startup hiring "AI engineer" worldwide`, `site:workatastartup.com remote AI engineer`, `"fully remote" "forward deployed engineer" US startup`] },
   { id: 'domains', title: 'AI roles in semiconductor / embedded / robotics', desc: 'FDE & AI/ML roles at chip, edge-AI, robotics, automotive companies',
-    queries: [`(Bengaluru OR Bangalore) ("edge AI" OR "on-device AI" OR "embedded AI") engineer hiring`, `(Bengaluru OR Bangalore) semiconductor "machine learning engineer" OR "AI engineer"`, `"ML compiler" OR "AI compiler" engineer Bengaluru hiring`, `robotics startup Bengaluru "AI engineer" OR "perception engineer" OR "forward deployed"`] },
+    queries: [`(Bengaluru OR Bangalore) ("edge AI" OR "on-device AI" OR "embedded AI") engineer hiring`, `(Bengaluru OR Bangalore) semiconductor "machine learning engineer" OR "AI engineer"`, `"ML compiler" OR "AI compiler" engineer Bengaluru hiring`, `robotics startup Bengaluru "AI engineer" OR "perception engineer" OR "forward deployed"`, `(NVIDIA OR Qualcomm OR AMD OR Intel OR Samsung) Bengaluru "AI" engineer LLM hiring`, `"TinyML" OR "on-device LLM" engineer remote OR Bengaluru`, `automotive "AI engineer" OR "GenAI" Bengaluru (Bosch OR Mercedes OR Continental OR Harman)`, `"ML inference" OR "model optimization" engineer Bengaluru chip`] },
   { id: 'new-startups', title: 'Newly funded AI startups hiring', desc: 'Excel "Funding-alert pre-JD": startups that just raised — reach the founder before the JD exists', recency: 'week',
-    queries: [`AI startup raises seed OR "Series A" Bengaluru hiring engineers`, `"raised" "Series A" AI agents startup hiring "forward deployed"`, `YC AI startup India hiring "founding engineer"`, `site:inc42.com funding AI startup`, `site:yourstory.com funding AI startup raises`, `site:entrackr.com AI startup raises`] },
+    queries: [`AI startup raises seed OR "Series A" Bengaluru hiring engineers`, `"raised" "Series A" AI agents startup hiring "forward deployed"`, `YC AI startup India hiring "founding engineer"`, `site:inc42.com funding AI startup`, `site:yourstory.com funding AI startup raises`, `site:entrackr.com AI startup raises`, `site:techcrunch.com AI startup raises Series A`, `"just raised" AI startup "we're hiring" engineers`, `YC W26 OR S26 AI startup India founders hiring`, `seed round AI agents startup India 2026 hiring`, `site:economictimes.indiatimes.com AI startup funding hiring`] },
   { id: 'communities', title: 'Communities & newsletters', desc: 'Excel channels: HN Who is Hiring, r/developersIndia referrals, r/MachineLearning, Latent Space, Indie Hackers, Product Hunt AI launches', recency: 'month',
-    queries: [`site:news.ycombinator.com "who is hiring" remote AI engineer`, `site:reddit.com/r/developersIndia referral AI engineer`, `site:reddit.com/r/MachineLearning hiring remote`, `site:indiehackers.com hiring AI engineer`, `site:latent.space jobs AI engineer`, `site:producthunt.com AI launch hiring`] },
+    queries: [`site:news.ycombinator.com "who is hiring" remote AI engineer`, `site:reddit.com/r/developersIndia referral AI engineer`, `site:reddit.com/r/MachineLearning hiring remote`, `site:indiehackers.com hiring AI engineer`, `site:latent.space jobs AI engineer`, `site:producthunt.com AI launch hiring`, `site:reddit.com/r/forhire "AI engineer" OR "ML engineer"`, `site:reddit.com/r/MLjobs hiring remote`, `site:discord.com OR site:slack.com AI jobs channel India`, `site:dev.to OR site:hashnode.com hiring AI engineer`, `"who wants to be hired" OR "who is hiring" AI remote India`] },
 ];
 
 const SYSTEM = `You are a sharp job-hunting agent for Karthik (Bengaluru, India; moving into AI engineering).
@@ -265,7 +277,8 @@ Results:\n${JSON.stringify(items)}\nJSON: {"items":[{"i":0,"relevant":"yes|maybe
     let queries = mission?.queries || [];
     let rec: Recency = mission?.recency || 'month';
     if (opts.prompt) {
-      const wantsPosts = /twitter|\bx\b|tweet|post|linkedin/i.test(opts.prompt);
+      const scope = mission ? SCOPE[mission.id] : '';
+      const wantsPosts = !mission && /twitter|\bx\b|tweet|post|linkedin/i.test(opts.prompt);
       rec = /today|24 ?h|last day/i.test(opts.prompt) ? 'day' : /week|7 days|recent|latest|new/i.test(opts.prompt) || wantsPosts ? 'week' : 'month';
       if (hasAI) {
         try {
@@ -273,7 +286,7 @@ Results:\n${JSON.stringify(items)}\nJSON: {"items":[{"i":0,"relevant":"yes|maybe
             `Turn this request into ${depth === 'deep' ? 16 : 8} precise, DIFFERENT web-search queries (Google syntax: quotes, OR, site:) that together leave nothing out.
 Cover every angle that fits the request: X/Twitter posts (site:x.com with hiring phrases like hiring, "we're hiring", "join us", "DM me"), LinkedIn posts (site:linkedin.com/posts), company boards (site:jobs.ashbyhq.com, site:jobs.lever.co, site:job-boards.greenhouse.io, site:apply.workable.com), careers pages, startup/funding news, communities (news.ycombinator.com, reddit).
 Vary role wording (forward deployed / applied AI / AI engineer / ML engineer / LLM / GenAI / founding engineer) and location wording (Bengaluru, Bangalore, remote India, remote worldwide). Never put date words like "past week" in queries.
-Request: ${opts.prompt}\nJSON: {"queries":["..."]}`, { maxTokens: 1500 });
+${scope ? `SCOPE (strict): ${scope}\n` : ''}Request: ${opts.prompt}\nJSON: {"queries":["..."]}`, { maxTokens: 1500 });
           run.ai = `${meta.provider} · ${meta.model}`;
           if (data?.queries?.length) queries = data.queries.map((q) => q.replace(/"?(past|last) (week|month|7 days|24 hours)"?/gi, '').trim()).filter(Boolean).slice(0, depth === 'deep' ? 18 : 9);
           log(`planned ${queries.length} queries with ${run.ai}`);
@@ -281,7 +294,8 @@ Request: ${opts.prompt}\nJSON: {"queries":["..."]}`, { maxTokens: 1500 });
           log(`AI planning failed (${(e as Error).message.slice(0, 120)}) → keyword plan`);
         }
       }
-      if (!queries.length) queries = fallbackPlan(opts.prompt);
+      if (!queries.length || queries === mission?.queries) queries = mission ? mission.queries.map((q) => `${q} ${opts.prompt}`.slice(0, 250)) : fallbackPlan(opts.prompt);
+      else if (mission && depth === 'deep') queries = [...queries, ...mission.queries.slice(0, 6)]; // your request + the tab's standard sweep
       if (wantsPosts && !queries.some((q) => q.includes('site:x.com'))) queries.push(...MISSIONS[0].queries.slice(0, 4));
     } else if (depth === 'quick') queries = queries.slice(0, 6);
     run.queries = [...queries];

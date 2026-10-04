@@ -209,3 +209,19 @@ export function payBand(job: { company: string; categories?: string[]; locTags?:
   if (job.seniority === 'senior') return '₹30–80 LPA (senior AI)';
   return '₹16–55 LPA (mid AI, Bengaluru)';
 }
+
+/** Years of experience asked for: parsed from the text ("3-5 years", "5+ yrs", "minimum 4 years"), else estimated from seniority. */
+export function experienceOf(title: string, text: string, seniority: string): { min: number; max: number; estimated: boolean } {
+  const t = `${title} ${text}`.toLowerCase();
+  const range = t.match(/(\d{1,2})\s*(?:-|–|to)\s*(\d{1,2})\s*\+?\s*(?:years|yrs|yr)/);
+  if (range && +range[1] <= +range[2] && +range[2] <= 30) return { min: +range[1], max: +range[2], estimated: false };
+  const plus = t.match(/(\d{1,2})\s*\+\s*(?:years|yrs|yr)|(?:minimum|min\.?|at least)\s*(?:of\s*)?(\d{1,2})\s*(?:years|yrs)/);
+  const n = plus ? +(plus[1] || plus[2]) : NaN;
+  if (Number.isFinite(n) && n <= 25) return { min: n, max: n + 4, estimated: false };
+  if (/\b(intern|graduate|new grad|fresher|entry)\b/.test(t)) return { min: 0, max: 1, estimated: true };
+  if (/\b(principal|staff|director|head of|vp|distinguished)\b/.test(t)) return { min: 8, max: 15, estimated: true };
+  return seniority === 'senior' ? { min: 5, max: 10, estimated: true } : seniority === 'junior' ? { min: 0, max: 2, estimated: true } : { min: 2, max: 5, estimated: true };
+}
+
+/** Your priority: Bengaluru office first, then remote open to India, then the rest. */
+export const regionRank = (tags: string[]) => (tags.includes('BLR') ? 0 : tags.includes('REMOTE_IN') ? 1 : tags.includes('UNSTATED') ? 2 : 3);

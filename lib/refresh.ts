@@ -2,7 +2,7 @@ import type { Job, RawJob, SourceHealth } from './types';
 import { SOURCES, intervalFor, sourceConfigured } from './sources';
 import { getSettings } from './settings';
 import { acquireLock, getJSON, hgetall, releaseLock, setJSON } from './store';
-import { baseScore, classify, jobFlags, locationAllowed, payBand, cvMatchScore, dedupeKey, domainOf, freshnessHours, hashId, isExcluded, isHiddenGem, locationTags, seniorityOf } from './classify';
+import { baseScore, classify, experienceOf, jobFlags, locationAllowed, payBand, cvMatchScore, dedupeKey, domainOf, freshnessHours, hashId, isExcluded, isHiddenGem, locationTags, seniorityOf } from './classify';
 import { getCv } from './cv';
 import { sendAlert } from './notify';
 import { loadVault } from './secrets';
@@ -62,6 +62,7 @@ export function rescore(job: Job, cvSkills: string[]): Job {
     cvMatch,
     score: baseScore(categories, locTags, hours, hidden) + Math.round(cvMatch * 0.3) - (jobFlags(job).some((f) => f.startsWith('⚠')) ? 40 : 0),
     flags: jobFlags(job),
+    exp: experienceOf(job.title, job.description || '', seniorityOf(job.title)),
     payBand: payBand({ ...job, categories, locTags, domain: domainOf(job), seniority: seniorityOf(job.title) }),
   };
 }

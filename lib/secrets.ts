@@ -33,6 +33,9 @@ export const VAULT_KEYS: { name: string; label: string; group: string; url: stri
   { name: 'SEARXNG_URL', label: 'Your SearXNG instance URL (self-hosted = unlimited)', group: 'Web search (AI agent)', url: 'https://docs.searxng.org/' },
   // outreach (find people's work emails)
   { name: 'HUNTER_API_KEY', label: 'Hunter.io (finds work emails, 25 free searches/month)', group: 'Outreach', url: 'https://hunter.io/api-keys' },
+  // sign-in emails to people you give access (any address; Gmail app password: myaccount.google.com/apppasswords)
+  { name: 'GMAIL_USER', label: 'Gmail address that sends sign-in links', group: 'Access', url: 'https://myaccount.google.com/apppasswords' },
+  { name: 'GMAIL_APP_PASSWORD', label: 'Gmail app password (16 letters)', group: 'Access', url: 'https://myaccount.google.com/apppasswords' },
   // daily email digest
   { name: 'RESEND_API_KEY', label: 'Resend API key (daily job email, free 100/day)', group: 'Email digest', url: 'https://resend.com/api-keys' },
   { name: 'DIGEST_TO', label: 'Send the daily job email to (your email)', group: 'Email digest', url: 'https://resend.com/docs' },

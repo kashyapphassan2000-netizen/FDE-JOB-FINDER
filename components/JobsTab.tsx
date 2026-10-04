@@ -3,6 +3,10 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Category, Domain, Job, TrackStatus } from '@/lib/types';
 import { ago, setTrack, STATUS_LABEL, type JobsPayload } from './api';
 import FitDrawer from './FitDrawer';
+import ExportButton from './ExportButton';
+
+const rank = (tags: string[]) => (tags.includes('BLR') ? 0 : tags.includes('REMOTE_IN') ? 1 : tags.includes('UNSTATED') ? 2 : 3);
+const EXP = [['', 'Any experience'], ['0-2', '0–2 yrs'], ['2-5', '2–5 yrs'], ['3-6', '3–6 yrs'], ['5-8', '5–8 yrs'], ['8-30', '8+ yrs']] as const;
 
 const ROLES: [Category, string][] = [['FDE', 'FDE'], ['AIML', 'AI / ML']];
 export const DOMAINS: [Domain, string][] = [
@@ -21,7 +25,8 @@ export default function JobsTab({ data, reload, toast, onOutreach }: { data: Job
   const [win, setWin] = useState('24');
   const [src, setSrc] = useState('');
   const [sen, setSen] = useState('');
-  const [sort, setSort] = useState<'score' | 'new' | 'cv'>('new');
+  const [sort, setSort] = useState<'blr' | 'score' | 'new' | 'cv'>('blr');
+  const [exp, setExp] = useState('');
   const [hideTracked, setHideTracked] = useState(true);
   const [onlyNew, setOnlyNew] = useState(false);
   const [hiddenOnly, setHiddenOnly] = useState(false);
@@ -34,7 +39,7 @@ export default function JobsTab({ data, reload, toast, onOutreach }: { data: Job
 
   useEffect(() => {
     try {
-      const f = JSON.parse(localStorage.getItem('fj_filters3') || '{}');
+      const f = JSON.parse(localStorage.getItem('fj_filters4') || '{}');
       if (f.roles) setRoles(f.roles);
       if (f.domains) setDomains(f.domains);
       if (f.regions) setRegions(f.regions);
@@ -46,7 +51,7 @@ export default function JobsTab({ data, reload, toast, onOutreach }: { data: Job
     } catch {}
   }, []);
   useEffect(() => {
-    try { localStorage.setItem('fj_filters3', JSON.stringify({ roles, domains, regions, win, sort, sen })); } catch {}
+    try { localStorage.setItem('fj_filters4', JSON.stringify({ roles, domains, regions, win, sort, sen })); } catch {}
   }, [roles, domains, regions, win, sort, sen]);
 
   const jobs = data?.jobs || [];
@@ -67,13 +72,15 @@ export default function JobsTab({ data, reload, toast, onOutreach }: { data: Job
       if (salaryOnly && !j.salary) return false;
       if (maxH && Date.now() - Date.parse(j.postedAt || j.firstSeen) > maxH * 36e5) return false;
       if (onlyNew && lastVisit && Date.parse(j.firstSeen) < lastVisit) return false;
+      if (exp && j.exp) { const [a, b] = exp.split('-').map(Number); if (j.exp.max < a || j.exp.min > b) return false; }
       if (needle && !`${j.title} ${j.company} ${j.location} ${j.via || ''}`.toLowerCase().includes(needle)) return false;
       return true;
     });
+    if (sort === 'blr') out = [...out].sort((a, b) => rank(a.locTags) - rank(b.locTags) || Date.parse(b.postedAt || b.firstSeen) - Date.parse(a.postedAt || a.firstSeen));
     if (sort === 'new') out = [...out].sort((a, b) => Date.parse(b.postedAt || b.firstSeen) - Date.parse(a.postedAt || a.firstSeen));
     if (sort === 'cv') out = [...out].sort((a, b) => b.cvMatch - a.cvMatch || b.score - a.score);
     return out;
-  }, [jobs, track, q, roles, domains, regions, win, src, sen, sort, hideTracked, onlyNew, lastVisit, hiddenOnly, salaryOnly]);
+  }, [jobs, track, q, roles, domains, regions, win, src, sen, sort, hideTracked, onlyNew, lastVisit, hiddenOnly, salaryOnly, exp]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { new24: 0, hidden: 0 };
@@ -118,8 +125,9 @@ export default function JobsTab({ data, reload, toast, onOutreach }: { data: Job
           <input className="grow" placeholder="Search title, company, location…" value={q} onChange={(e) => setQ(e.target.value)} />
           <select value={win} onChange={(e) => setWin(e.target.value)}>{WINDOWS.map(([v, l]) => <option key={v} value={v}>Posted: {l}</option>)}</select>
           <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
-            <option value="score">Sort: best match</option><option value="new">Sort: newest</option><option value="cv">Sort: CV match</option>
+            <option value="blr">Sort: Bengaluru first, then remote</option><option value="score">Sort: best match</option><option value="new">Sort: newest</option><option value="cv">Sort: CV match</option>
           </select>
+          <select value={exp} onChange={(e) => setExp(e.target.value)}>{EXP.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
           <button onClick={() => setShowFilters(!showFilters)}>{showFilters ? 'Hide filters' : 'Filters'}</button>
           <button onClick={clear}>Clear</button>
         </div>
@@ -154,7 +162,22 @@ export default function JobsTab({ data, reload, toast, onOutreach }: { data: Job
         )}
       </div>
 
-      <div className="muted small" style={{ marginBottom: 8 }}>{filtered.length} matching · Bengaluru office or remote open to India only</div>
+      <div className="row" style={{ marginBottom: 8, justifyContent: 'space-between' }}>
+        <span className="muted small">{filtered.length} matching · Bengaluru office first, then remote open to India</span>
+        <ExportButton title="Jobs" subtitle={`Filters: ${[q && `search “${q}”`, win !== '0' && `posted within ${win}h`, exp && `${exp} yrs experience`, roles.join('/'), regions.join('/')].filter(Boolean).join(' · ') || 'none'} · sorted ${sort}`}
+          cols={[
+            { header: 'Role', get: (j: Job) => j.title, width: 170, link: (j: Job) => j.url },
+            { header: 'Company', get: (j: Job) => j.company, width: 100 },
+            { header: 'Location', get: (j: Job) => j.location || 'not stated', width: 100 },
+            { header: 'Where', get: (j: Job) => (j.locTags.includes('BLR') ? 'Bengaluru' : j.locTags.includes('REMOTE_IN') ? 'Remote (India OK)' : 'Not stated'), width: 70 },
+            { header: 'Experience', get: (j: Job) => (j.exp ? `${j.exp.min}-${j.exp.max} yrs${j.exp.estimated ? ' (est.)' : ''}` : ''), width: 60 },
+            { header: 'Pay', get: (j: Job) => j.salary || (j.payBand ? `est. ${j.payBand}` : ''), width: 85 },
+            { header: 'Posted', get: (j: Job) => (j.postedAt || j.firstSeen).slice(0, 10), width: 55 },
+            { header: 'Score', get: (j: Job) => j.score, width: 35 },
+            { header: 'CV fit', get: (j: Job) => (j.cvMatch ? `${j.cvMatch}%` : ''), width: 40 },
+            { header: 'Apply link', get: (j: Job) => j.url, link: (j: Job) => j.url },
+          ]} rows={filtered} />
+      </div>
       <div className="jobs">
         {filtered.slice(0, limit).map((j) => {
           const isNew = lastVisit && Date.parse(j.firstSeen) >= lastVisit;
@@ -176,6 +199,7 @@ export default function JobsTab({ data, reload, toast, onOutreach }: { data: Job
                   {j.categories.map((c) => <span key={c} className={`badge b-${c}`}>{c === 'AIML' ? 'AI/ML' : 'FDE'}</span>)}
                   {j.domain && j.domain !== 'OTHER' && <span className="badge b-dom">{DOMAIN_LABEL[j.domain] || j.domain}</span>}
                   {j.hidden && <span className="badge b-SEMI">hidden gem</span>}
+                  {j.exp && <span className="badge b-dom" title={j.exp.estimated ? 'estimated from seniority' : 'from the job post'}>{j.exp.min}–{j.exp.max} yrs{j.exp.estimated ? '*' : ''}</span>}
                   {j.salary ? <span className="badge b-money">{j.salary}</span> : j.payBand ? <span className="badge b-skip" title="Estimated from the Excel Salary_Intel sheet — not published by the employer">est. {j.payBand}</span> : null}
                   {(j.flags || []).map((f) => <span key={f} className={`badge ${f.startsWith('⚠') ? 'b-err' : 'b-warn'}`}>{f}</span>)}
                 </div>

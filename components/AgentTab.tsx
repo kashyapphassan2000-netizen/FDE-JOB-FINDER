@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ago, api, setTrack } from './api';
 import FitDrawer, { type FitJob } from './FitDrawer';
 import CaptureButton from './CaptureButton';
+import ExportButton from './ExportButton';
 
 type Mission = { id: string; title: string; desc: string; queries: string[] };
 type Find = {
@@ -14,10 +15,6 @@ type Run = { id: string; mission: string; prompt?: string; depth?: string; start
 type Usage = { limit: number; used: number; usedToday: number; dailyBudget: number; engines: { id: string; label: string; used: number; freeMonthly: number }[] };
 type Payload = { missions: Mission[]; runs: Run[]; finds: Find[]; engines: string[]; ai: boolean; usage: Usage; xLinks: { label: string; url: string }[]; boardLinks: { group: string; label: string; url: string }[] };
 
-const LINK_GROUPS: Record<string, string[]> = {
-  'x-posts': [], 'li-posts': ['LinkedIn'], 'blr-hidden': ['India boards', 'Startup boards'], 'remote-india': ['Remote boards', 'AI-only', 'Gig'],
-  'global-remote': ['Remote boards', 'AI-only', 'Startup boards', 'Gig'], domains: ['India boards', 'AI-only'], 'new-startups': ['Startup boards'], communities: ['Communities', 'Newsletters'],
-};
 const KIND: Record<Find['kind'], [string, string]> = { post: ['📣', 'Hiring post'], job: ['💼', 'Job'], careers_page: ['🏢', 'Careers page'], company: ['🔎', 'New company board'] };
 const EXAMPLES = [
   'X / Twitter posts from founders hiring forward deployed or AI engineers, remote or Bengaluru, this week',
@@ -50,6 +47,7 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
 
   async function run(body: { missionId?: string; prompt?: string }) {
     setBusy(body.missionId || 'custom');
+    if (body.prompt && body.missionId) setView('run');
     setSecs(0);
     timer.current = setInterval(() => setSecs((s) => s + 1), 1000);
     toast(depth === 'deep' ? 'Deep search running: many queries on every engine, reading every X post, checking career boards (2–4 min)…' : 'Quick search running (≈40 s)…');
@@ -109,7 +107,6 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
   const u = d.usage;
   const cur = missionId ? d.missions.find((m) => m.id === missionId) : undefined;
   const runs = cur ? d.runs.filter((r) => r.mission === cur.id) : d.runs;
-  const showLinksHidden = false;
   const linkGroups = d.boardLinks.reduce<Record<string, { label: string; url: string }[]>>((g, l) => ((g[l.group] ||= []).push(l), g), {});
 
   return (
@@ -122,8 +119,10 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
           <div>
             <h2>{cur.title}</h2>
             <p>{cur.desc}</p>
+            <textarea className="prompt tabprompt" placeholder={`Ask in plain English — searched only inside “${cur.title}”. e.g. ${cur.id === 'x-posts' ? '“founders hiring AI agent engineers who DM, remote, this week”' : cur.id === 'blr-hidden' ? '“seed-stage voice-AI startups in Bengaluru hiring FDEs”' : '“LLM / agent roles posted this week”'}`} value={prompt} onChange={(e) => setPrompt(e.target.value)} />
             <div className="row" style={{ marginTop: 10 }}>
-              <button className="primary" disabled={!!busy} onClick={() => run({ missionId: cur.id })}>{busy === cur.id ? `Searching… ${secs}s` : depth === 'deep' ? '🔎 Run deep search' : 'Run quick search'}</button>
+              {prompt.trim() && <button className="primary" disabled={!!busy} onClick={() => run({ missionId: cur.id, prompt })}>{busy === cur.id ? `Searching… ${secs}s` : '🔎 Search my request'}</button>}
+              <button className={prompt.trim() ? '' : 'primary'} disabled={!!busy} onClick={() => run({ missionId: cur.id })}>{busy === cur.id && !prompt.trim() ? `Searching… ${secs}s` : depth === 'deep' ? 'Full sweep of this tab' : 'Quick sweep'}</button>
               <button disabled={!!busy} onClick={() => fresh({ missionId: cur.id })} title="Ignore cached search results and fetch everything new">♻ Fresh results</button>
               <span className="seg"><button className={depth === 'deep' ? 'on' : ''} onClick={() => setDepth('deep')}>Deep</button><button className={depth === 'quick' ? 'on' : ''} onClick={() => setDepth('quick')}>Quick</button></span>
             </div>
@@ -175,19 +174,19 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
       </div>
       </>}
 
-      <CaptureButton compact={!cur || !cur.id.includes('posts')} />
-      <div className="panel">
+      {!cur && <CaptureButton compact />}
+      {!cur && <div className="panel">
         <div className="row" style={{ justifyContent: 'space-between' }}>
-          <h3 style={{ margin: 0 }}>Live searches — open while logged in (real-time, nothing missed)</h3>
-          <button className="small-btn" onClick={() => setShowLinks(!showLinks)}>{showLinks || cur ? 'Hide' : `Show ${d.xLinks.length + d.boardLinks.length} links`}</button>
+          <h3 style={{ margin: 0 }}>Optional: open sites yourself (only if you want to — results already come into the app)</h3>
+          <button className="small-btn" onClick={() => setShowLinks(!showLinks)}>{showLinks ? 'Hide' : `Show ${d.xLinks.length + d.boardLinks.length} links`}</button>
         </div>
-        {(showLinks || (cur && !showLinksHidden)) && (
+        {showLinks && (
           <div style={{ marginTop: 10 }}>
-            {(!cur || cur.id === 'x-posts') && <>
+            {<>
             <div className="small muted" style={{ marginBottom: 6 }}>X advanced search (formulas from your Excel, Latest tab, last 7 days) — open, scroll, then 📥 Capture:</div>
             <div className="row">{d.xLinks.map((l) => <a key={l.url} className="pill link-pill" href={l.url} target="_blank" rel="noreferrer">𝕏 {l.label}</a>)}</div>
             </>}
-            {Object.entries(linkGroups).filter(([g]) => !cur || (LINK_GROUPS[cur.id] || []).some((x) => g.includes(x))).map(([g, ls]) => (
+            {Object.entries(linkGroups).map(([g, ls]) => (
               <div key={g} style={{ marginTop: 10 }}>
                 <div className="small muted" style={{ marginBottom: 4 }}>{g}</div>
                 <div className="row">{ls.map((l) => <a key={l.url} className="pill link-pill" href={l.url} target="_blank" rel="noreferrer">{l.label} ↗</a>)}</div>
@@ -195,7 +194,7 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
             ))}
           </div>
         )}
-      </div>
+      </div>}
 
       <div className="row results-bar">
         <span className="seg">
@@ -206,6 +205,17 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
           <button className={!kind ? 'on' : ''} onClick={() => setKind('')}>All</button>
           {(['post', 'job', 'company', 'careers_page'] as const).map((k) => <button key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{KIND[k][0]} {KIND[k][1]}s · {counts[k] || 0}</button>)}
         </span>
+        <ExportButton title={`${cur ? cur.title : 'AI Agent'} — ${view === 'run' ? 'latest run' : 'all saved finds'}`} subtitle={lastRun?.prompt ? `Request: ${lastRun.prompt}` : cur?.desc}
+          cols={[
+            { header: 'Type', get: (f: Find) => KIND[f.kind][1], width: 60 },
+            { header: 'Role / post', get: (f: Find) => f.title, width: 170, link: (f: Find) => f.url },
+            { header: 'Company / author', get: (f: Find) => [f.company, f.author].filter(Boolean).join(' · '), width: 120 },
+            { header: 'Location', get: (f: Find) => f.location || 'not stated', width: 80 },
+            { header: 'Posted', get: (f: Find) => (f.postedAt || f.foundAt || '').slice(0, 10), width: 55 },
+            { header: 'How to apply', get: (f: Find) => f.applyHow || '', width: 90 },
+            { header: 'Post text / details', get: (f: Find) => f.snippet.slice(0, 380) },
+            { header: 'Link', get: (f: Find) => f.url, width: 110, link: (f: Find) => f.url },
+          ]} rows={finds} />
         <button className="small-btn danger" onClick={() => del({ what: 'finds', mission: mission || undefined, status: view === 'all' && status !== 'open' && status !== 'all' ? status : undefined }, `Delete ${mission ? 'this mission’s' : 'ALL'} saved finds${view === 'all' && status !== 'open' && status !== 'all' ? ` with status “${status}”` : ''}? (Your Tracker is not touched.)`)}>🗑 Clear {mission ? 'these' : 'all'} finds</button>
         <button className="small-btn" onClick={() => del({ what: 'finds', mission: mission || undefined, status: 'dismissed' }, 'Delete dismissed finds?')}>Clear dismissed</button>
         {view === 'all' && (

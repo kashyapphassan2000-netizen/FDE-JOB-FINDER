@@ -8,6 +8,7 @@ import OpportunitiesTab from '@/components/OpportunitiesTab';
 import TrendsTab from '@/components/TrendsTab';
 import SearchTab from '@/components/SearchTab';
 import IntelTab from '@/components/IntelTab';
+import DashboardTab from '@/components/DashboardTab';
 import AiKeysTab from '@/components/AiKeysTab';
 import TrackerTab from '@/components/TrackerTab';
 import ExcelTab from '@/components/ExcelTab';
@@ -18,7 +19,7 @@ import SettingsTab from '@/components/SettingsTab';
 import { ago, api, type JobsPayload } from '@/components/api';
 
 const NAV = [
-  { group: 'Find', items: [['Search any role', '🔍'], ['Jobs', '💼'], ['AI Agent', '🤖'], ['Trends', '📈'], ['Hiring radar', '📡'], ['Layoffs', '📉'], ['Hidden jobs & startups', '💎'], ['Outreach', '✉️'], ['Opportunities', '🏆']] },
+  { group: 'Find', items: [['My dashboard', '🏠'], ['Search any role', '🔍'], ['Jobs', '💼'], ['AI Agent', '🤖'], ['Trends', '📈'], ['Hiring radar', '📡'], ['Layoffs', '📉'], ['Hidden jobs & startups', '💎'], ['Outreach', '✉️'], ['Opportunities', '🏆']] },
   { group: 'Agent searches', items: [['X / Twitter', '𝕏'], ['LinkedIn posts', '🔗'], ['Hidden Bengaluru', '📍'], ['Remote India', '🏠'], ['US / EU remote', '🌍'], ['Semi & Embedded AI', '🔧'], ['New startups', '🚀'], ['Communities', '👥']] },
   { group: 'Track', items: [['Tracker', '📌'], ['CV', '📄']] },
   { group: 'Library', items: [['Excel sheets', '📊'], ['Excel coverage map', '🗺️']] },
@@ -32,7 +33,7 @@ const MISSION_TABS: Record<string, string> = {
 };
 
 export default function Home() {
-  const [tab, setTab] = useState<Tab>('Jobs');
+  const [tab, setTab] = useState<Tab>('My dashboard');
   const [data, setData] = useState<JobsPayload | null>(null);
   const [toast, setToast] = useState('');
   const [busy, setBusy] = useState(false);
@@ -144,6 +145,7 @@ export default function Home() {
         {tab === 'Tracker' && <TrackerTab data={data} reload={load} toast={setToast} />}
         {tab === 'Excel sheets' && <ExcelTab toast={setToast} />}
         {tab === 'Excel coverage map' && <PlatformsTab toast={setToast} />}
+        {tab === 'My dashboard' && <DashboardTab toast={setToast} />}
         {tab === 'Trends' && <TrendsTab toast={setToast} />}
         {(tab === 'Hiring radar' || tab === 'Layoffs') && <IntelTab key={tab} mode={tab === 'Layoffs' ? 'layoffs' : 'hiring'} toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}
         {tab === 'Search any role' && <SearchTab q={sq} toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}

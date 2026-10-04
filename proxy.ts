@@ -8,7 +8,7 @@ export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   if (PUBLIC.some((r) => r.test(pathname))) return NextResponse.next();
   const ok = await verifySession(req.cookies.get(SESSION_COOKIE)?.value);
-  if (ok) return NextResponse.next();
+  if (ok) return NextResponse.next(); // route handlers re-check the live access list (revocation / lockdown)
   if (pathname.startsWith('/api/')) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const url = req.nextUrl.clone();
   url.pathname = '/login';

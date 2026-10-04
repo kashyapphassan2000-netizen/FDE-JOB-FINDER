@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import type { CompanyEntry, Settings } from '@/lib/types';
 import { api } from './api';
+import AccessPanel from './AccessPanel';
 
 type DigestRes = { sent: boolean; count: number; to?: string; skipped?: string; ai?: string; picks: { id: string; title: string; company: string; total: number; cv: number; pay: string; url: string }[] };
 
@@ -67,6 +68,7 @@ export default function SettingsTab({ toast }: { toast: (s: string) => void }) {
 
   return (
     <>
+      <AccessPanel toast={toast} />
       <div className="panel">
         <h3 style={{ marginTop: 0 }}>Search keywords</h3>
         <p className="small muted">Used by LinkedIn, Adzuna, Jooble, JSearch, SerpApi and Apify (one per line). First = highest priority.</p>

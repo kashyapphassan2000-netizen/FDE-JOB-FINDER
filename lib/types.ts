@@ -24,6 +24,7 @@ export interface Job extends RawJob {
   score: number;
   cvMatch: number;
   flags?: string[]; // Excel red flags
+  exp?: { min: number; max: number; estimated: boolean }; // years of experience asked
   payBand?: string; // estimated pay when salary is not published
   firstSeen: string;
   lastSeen: string;
