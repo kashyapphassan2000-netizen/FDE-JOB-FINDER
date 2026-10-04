@@ -55,7 +55,7 @@ export default function Home() {
 
   useEffect(() => {
     try {
-      const t = localStorage.getItem('fj_tab') as Tab | null;
+      const t = (new URLSearchParams(window.location.search).get('tab') || localStorage.getItem('fj_tab')) as Tab | null; // ?tab= from app shortcuts
       if (t && ALL.includes(t)) setTab(t);
     } catch {}
     load();
