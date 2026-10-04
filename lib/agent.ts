@@ -391,11 +391,12 @@ Results:\n${JSON.stringify(items)}\nJSON: {"items":[{"i":0,"relevant":"yes|maybe
     if (opts.prompt) {
       const scope = mission ? SCOPE[mission.id] : '';
       const wantsPosts = !mission && /twitter|\bx\b|tweet|post|linkedin/i.test(opts.prompt);
-      rec = /today|24 ?h|last day/i.test(opts.prompt) ? 'day' : /week|7 days|recent|latest|new/i.test(opts.prompt) || wantsPosts ? 'week' : 'month';
+      // LinkedIn / X post tabs are strictly last-24-h: a typed request may only narrow, never widen, the window
+      rec = mission?.recency === 'day' ? 'day' : /today|24 ?h|last day/i.test(opts.prompt) ? 'day' : /week|7 days|recent|latest|new/i.test(opts.prompt) || wantsPosts ? 'week' : 'month';
       if (hasAI) {
         try {
           const { data, meta } = await chatJson<{ queries: string[] }>(SYSTEM,
-            `Turn this request into ${depth === 'deep' ? 16 : 8} precise, DIFFERENT web-search queries (Google syntax: quotes, OR, site:) that together leave nothing out.
+            `Turn this request into ${rec === 'day' ? (depth === 'deep' ? 8 : 5) : depth === 'deep' ? 16 : 8} precise, DIFFERENT web-search queries (Google syntax: quotes, OR, site:) that together leave nothing out.
 Cover every angle that fits the request: X/Twitter posts (site:x.com with hiring phrases like hiring, "we're hiring", "join us", "DM me"), LinkedIn posts (site:linkedin.com/posts), company boards (site:jobs.ashbyhq.com, site:jobs.lever.co, site:job-boards.greenhouse.io, site:apply.workable.com), careers pages, startup/funding news, communities (news.ycombinator.com, reddit).
 Vary role wording (forward deployed / applied AI / AI engineer / ML engineer / LLM / GenAI / founding engineer) and location wording (Bengaluru, Bangalore, remote India, remote worldwide). Never put date words like "past week" in queries.
 ${scope ? `SCOPE (strict): ${scope}\n` : ''}Request: ${opts.prompt}\nJSON: {"queries":["..."]}`, { maxTokens: 1500 });
@@ -407,7 +408,7 @@ ${scope ? `SCOPE (strict): ${scope}\n` : ''}Request: ${opts.prompt}\nJSON: {"que
         }
       }
       if (!queries.length || queries === mission?.queries) queries = mission ? mission.queries.map((q) => `${q} ${opts.prompt}`.slice(0, 250)) : fallbackPlan(opts.prompt);
-      else if (mission && depth === 'deep') queries = [...queries, ...mission.queries.slice(0, 6)]; // your request + the tab's standard sweep
+      else if (mission && depth === 'deep') queries = [...queries, ...mission.queries.slice(0, rec === 'day' ? 3 : 6)]; // your request + the tab's standard sweep
       if (wantsPosts && !queries.some((q) => q.includes('site:x.com'))) queries.push(...MISSIONS[0].queries.slice(0, 4));
     } else if (depth === 'quick') queries = queries.slice(0, 6);
     queries = Array.from(new Set(scopeQ(queries))); // X tab → only site:x.com queries, LinkedIn tab → only site:linkedin.com/posts
@@ -434,11 +435,11 @@ ${scope ? `SCOPE (strict): ${scope}\n` : ''}Request: ${opts.prompt}\nJSON: {"que
       if (top) {
         try {
           const { data } = await chatJson<{ queries: string[] }>(SYSTEM,
-            `Here is what a first search round found:\n${top}\n\n${rule ? `STRICT TAB SCOPE: ${rule.label}. ${mission ? SCOPE[mission.id] : ''}\nWrite 6 follow-up web-search queries that find MORE results of exactly this kind (nothing else).` : 'Write 6 follow-up web-search queries that find MORE opportunities the first round missed: other roles at these companies (their careers pages / ATS boards), similar companies, and more hiring posts in the same niche.'} Google syntax. JSON: {"queries":["..."]}`, { maxTokens: 700, timeoutMs: 30000 });
+            `Here is what a first search round found:\n${top}\n\n${rule ? `STRICT TAB SCOPE: ${rule.label}. ${mission ? SCOPE[mission.id] : ''}\nWrite ${rec === 'day' ? 4 : 6} follow-up web-search queries that find MORE results of exactly this kind (nothing else).` : 'Write 6 follow-up web-search queries that find MORE opportunities the first round missed: other roles at these companies (their careers pages / ATS boards), similar companies, and more hiring posts in the same niche.'} Google syntax. JSON: {"queries":["..."]}`, { maxTokens: 700, timeoutMs: 30000 });
           const fq = scopeQ((data?.queries || []).slice(0, 6));
           if (fq.length) {
             run.queries.push(...fq.map((q) => `↳ ${q}`));
-            const more = onlyMine(await searchAll(fq, rec === 'day' ? 'week' : rec));
+            const more = onlyMine(await searchAll(fq, rec));
             log(`follow-up: ${more.length} new results from ${fq.length} queries`);
             await readX(more);
             await readLinkedIn(more);

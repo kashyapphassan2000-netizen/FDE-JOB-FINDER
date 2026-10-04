@@ -1,3 +1,4 @@
+import { linkedinLive, xLive } from '@/lib/live';
 import { bindTenant } from '@/lib/auth';
 import { spendGuard } from '@/lib/limits';
 import { guard, bad } from '@/lib/guard';
@@ -16,6 +17,12 @@ export async function GET(req: Request) {
   if (g) return g;
   bindTenant(req);
   await loadVault();
+  // live platform feeds for the LinkedIn / X tabs (?live=li|x&q=…)
+  const live = new URL(req.url).searchParams.get('live');
+  if (live) {
+    const q = (new URL(req.url).searchParams.get('q') || '').slice(0, 120);
+    return Response.json(live === 'x' ? await xLive(q) : await linkedinLive(q));
+  }
   const [finds, runs] = await Promise.all([hgetall<Find>('agent:finds'), getJSON<AgentRun[]>('agent:runs', [])]);
   return Response.json({
     missions: MISSIONS.map((m) => ({ ...m, rule: RULES[m.id] ? { label: RULES[m.id].label, kinds: RULES[m.id].kinds } : null })),

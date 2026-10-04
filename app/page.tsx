@@ -65,14 +65,16 @@ export default function Home() {
   const [sq, setSq] = useState('');
   const [sqInput, setSqInput] = useState('');
   const [applySeed, setApplySeed] = useState<{ url: string; title: string; company: string; n: number } | null>(null);
-  const [me, setMe] = useState<{ email: string; role: 'owner' | 'member'; until: string | null; profileSet: boolean; used: number; limit: number | null } | null>(null);
+  const [me, setMe] = useState<{ email: string; role: 'owner' | 'member'; until: string | null; profileSet: boolean; used: number; limit: number | null; search?: { configured: number; live: number; parked: string[] } } | null>(null);
   const isOwner = me?.role === 'owner';
   // users (non-owners) never see settings, keys, access or the "alerts for other people" page
   const nav = NAV.map((g) => ({ ...g, items: g.items.filter(([t]) => isOwner || !(MEMBER_HIDDEN as readonly string[]).includes(t)) })).filter((g) => g.items.length);
 
   const load = useCallback(async () => {
     try {
-      setData(await api<JobsPayload>('/api/jobs'));
+      const p = await api<JobsPayload & { refreshing?: boolean }>('/api/jobs');
+      setData(p);
+      if (p.refreshing) setTimeout(() => api<JobsPayload>('/api/jobs').then(setData).catch(() => null), 70000); // show the live refresh when it lands
     } catch (e) {
       setToast((e as Error).message);
     }
@@ -156,7 +158,7 @@ export default function Home() {
             <input placeholder="🔍 Search any role everywhere — e.g. MLOps engineer" value={sqInput} onChange={(e) => setSqInput(e.target.value)} />
           </form>
           <div className="row top-actions">
-            <span className="muted small hide-sm">{data?.meta?.lastRefresh ? `Updated ${ago(data.meta.lastRefresh)}` : 'Never refreshed'}</span>
+            <span className="muted small hide-sm">{data?.meta?.lastRefresh ? `Updated ${ago(data.meta.lastRefresh)} ago` : 'Never refreshed'}{(data as { refreshing?: boolean } | null)?.refreshing ? ' · refreshing live…' : ''}</span>
             {me && !isOwner && <span className="badge b-dom small" title={`Signed in as ${me.email}`}>⚡ {me.used}/{me.limit} AI today{me.until ? ` · ⏱ ${Math.max(0, Math.round((Date.parse(me.until) - Date.now()) / 6e4))} min left` : ''}</span>}
             {isOwner && <button className="primary" disabled={busy} onClick={() => refreshNow(false)}>{busy ? 'Refreshing…' : '⟳ Refresh'}</button>}
             {isOwner && <button className="hide-sm" disabled={busy} onClick={() => refreshNow(true)} title="Ignore quota cooldowns and call every configured API now">Force all</button>}
@@ -164,6 +166,9 @@ export default function Home() {
             {tab === 'Jobs' && isOwner && <button className="hide-sm danger" disabled={busy} onClick={() => refreshNow(true, true)} title="Delete stored jobs and refetch everything">🗑 Clear & refetch</button>}
           </div>
         </header>
+        {me?.search && me.search.live === 0 && (
+          <div className="notice err"><b>🔍 Web search is OFF — {me.search.configured ? `free quota used up (${me.search.parked.join(', ')})` : 'no search key'}.</b> Everything that searches the web is paused: X / LinkedIn <i>posts</i>, agent tabs, deep research, job analyzer research, referrals, “Search any role”. Still LIVE without search: Jobs (all ATS + LinkedIn jobs), LinkedIn live panel, careers search, radar, trends, layoffs. {isOwner ? <>Fix in 2 minutes (free, no card): <b>Serper</b> (serper.dev → 2,500 free searches → SERPER_API_KEY) or <b>Google Programmable Search</b> (100/day free → GOOGLE_CSE_KEY + GOOGLE_CSE_CX) or <b>Jina</b> (jina.ai → JINA_API_KEY) in <b>AI &amp; Keys</b>. Tavily resets on the 1st.</> : 'Ask the owner to add a free search key.'}</div>
+        )}
         {me && !isOwner && !me.profileSet && tab !== 'Careers search' && (
           <div className="notice warn">👋 Welcome {me.email}. This is <b>your own private space</b> — your CV, tracker, knowledge graph, agents and job matches are yours only. First, <b>map your job role &amp; locations</b> so every page ranks jobs for you: <button className="small-btn primary" onClick={() => go('Careers search')}>Set my job role →</button></div>
         )}

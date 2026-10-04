@@ -1,5 +1,5 @@
 import { secret } from './secrets';
-import { getJSON, hgetall, hincr, setJSON } from './store';
+import { getJSON, hgetall, hincr, hset, setJSON } from './store';
 import { stripHtml } from './http';
 
 /**
@@ -115,6 +115,25 @@ export function availableEngines(): Engine[] {
   return ENGINES.filter((e) => Boolean(secret(e.needs)));
 }
 
+/** Engines whose free quota is used up are parked (monthly quota → until the 1st; rate limit → 1 h) so we stop wasting calls. */
+const isQuota = (m: string) => /\b(432|402)\b|usage limit|exceeds your plan|quota|credits? (exhausted|exceeded)|insufficient credits|out of credits/i.test(m);
+const isRate = (m: string) => /\b429\b|rate.?limit|too many requests/i.test(m);
+async function park(id: string, msg: string) {
+  const now = new Date();
+  const until = isQuota(msg) ? Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1) : Date.now() + 36e5;
+  await hset('search:dead', id, { until, reason: msg.slice(0, 200), at: Date.now() });
+}
+export async function searchStatus(): Promise<{ configured: string[]; live: string[]; parked: { id: string; until: number; reason: string }[] }> {
+  const dead = await hgetall<{ until: number; reason: string }>('search:dead');
+  const conf = availableEngines();
+  const parked = conf.filter((e) => dead[e.id] && dead[e.id].until > Date.now()).map((e) => ({ id: e.id, until: dead[e.id].until, reason: dead[e.id].reason }));
+  return { configured: conf.map((e) => e.id), live: conf.filter((e) => !parked.some((p) => p.id === e.id)).map((e) => e.id), parked };
+}
+async function liveEngines(): Promise<Engine[]> {
+  const st = await searchStatus();
+  return availableEngines().filter((e) => st.live.includes(e.id));
+}
+
 const month = () => new Date().toISOString().slice(0, 7);
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -136,7 +155,7 @@ export async function searchUsage() {
 
 /** Round-robin across configured engines; on failure fall through to the next one. */
 const cacheKey = (q: string, rec: Recency, all: boolean) => `sq:${all ? 'a' : 'o'}:${rec}:${q.toLowerCase().replace(/\s+/g, ' ').trim()}`.slice(0, 300);
-const CACHE_MS = { day: 2 * 36e5, week: 6 * 36e5, month: 12 * 36e5, any: 72 * 36e5 };
+const CACHE_MS = { day: 45 * 6e4, week: 6 * 36e5, month: 12 * 36e5, any: 72 * 36e5 };
 
 /** Same query within a few hours = answer from cache (saves free quota; posts still refresh several times a day). */
 export async function clearSearchCache() {
@@ -155,9 +174,9 @@ export async function webSearch(q: string, n = 10, recent: Recency | boolean = '
 }
 
 async function webSearchLive(q: string, n: number, rec: Recency): Promise<{ results: WebResult[]; engine: string | null; errors: string[] }> {
-  const engines = availableEngines();
+  const engines = await liveEngines();
   const errors: string[] = [];
-  if (!engines.length) return { results: [], engine: null, errors: ['No web-search key set (add Tavily / Firecrawl / Exa / Serper / SearXNG in AI & Keys)'] };
+  if (!engines.length) return { results: [], engine: null, errors: [availableEngines().length ? 'All web-search engines have used up their free quota (Tavily: 1,000/month) — add another free key in AI & Keys (Serper 2,500 free, Google CSE 100/day, Jina, Brave, Exa)' : 'No web-search key set (add Tavily / Firecrawl / Exa / Serper / SearXNG in AI & Keys)'] };
   const cursor = await getJSON<number>('search:rr', 0);
   await setJSON('search:rr', cursor + 1);
   for (let k = 0; k < engines.length; k++) {
@@ -167,7 +186,9 @@ async function webSearchLive(q: string, n: number, rec: Recency): Promise<{ resu
       await count(e.id);
       return { results, engine: e.id, errors };
     } catch (err) {
-      errors.push(`${e.id}: ${(err as Error).message.slice(0, 160)}`);
+      const m = (err as Error).message;
+      if (isQuota(m) || isRate(m)) await park(e.id, m);
+      errors.push(`${e.id}: ${m.slice(0, 160)}`);
     }
   }
   return { results: [], engine: null, errors };
@@ -185,7 +206,7 @@ export async function webSearchAll(q: string, n = 20, rec: Recency = 'month'): P
 }
 
 async function webSearchAllLive(q: string, n: number, rec: Recency): Promise<{ results: WebResult[]; engines: string[]; errors: string[] }> {
-  const engines = availableEngines();
+  const engines = await liveEngines();
   if (engines.length <= 1) {
     const r = await webSearchLive(q, n, rec);
     return { results: r.results, engines: r.engine ? [r.engine] : [], errors: r.errors };
@@ -196,7 +217,7 @@ async function webSearchAllLive(q: string, n: number, rec: Recency): Promise<{ r
   const used: string[] = [];
   const errors: string[] = [];
   res.forEach((r, i) => {
-    if (r.status !== 'fulfilled') return void errors.push(`${engines[i].id}: ${String((r.reason as Error)?.message).slice(0, 120)}`);
+    if (r.status !== 'fulfilled') { const m = String((r.reason as Error)?.message); if (isQuota(m) || isRate(m)) void park(engines[i].id, m); return void errors.push(`${engines[i].id}: ${m.slice(0, 120)}`); }
     used.push(engines[i].id);
     for (const x of r.value) {
       const k = x.url.split('#')[0].replace(/\?.*$/, '');

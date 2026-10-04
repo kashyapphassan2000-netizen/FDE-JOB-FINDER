@@ -1,7 +1,7 @@
 import { ping, getJSON, hgetall, setJSON } from './store';
 import { allProfiles, chat } from './llm';
 import { embed, embedder } from './semantic';
-import { availableEngines, readPage, searchUsage, webSearch } from './search';
+import { availableEngines, readPage, searchStatus, searchUsage, webSearch } from './search';
 import { mailerStatus } from './mailer';
 import { notifyConfigured } from './notify';
 import { secret } from './secrets';
@@ -34,9 +34,11 @@ export async function runHealthCheck(): Promise<{ at: string; checks: Check[] }>
   else C.push({ group: 'AI models', name: 'Embeddings', status: 'warn', detail: 'no embedding provider', fix: 'Add a free Gemini key in AI & Keys' });
   // search / reading
   const engs = availableEngines();
-  const [ws, wms, werr] = await timed(() => webSearch('forward deployed engineer bengaluru', 3, 'month'));
+  // a never-cached query, so this tests the engine itself (not yesterday's cache)
+  const [ws, wms, werr] = await timed(() => webSearch(`forward deployed engineer ${['bengaluru', 'india', 'remote', 'hiring', 'startup'][new Date().getMinutes() % 5]} ${new Date().toISOString().slice(0, 16)}`, 3, 'week'));
+  const ss = await searchStatus();
   const u = await searchUsage();
-  C.push({ group: 'Search & reading', name: `Web search (${engs.map((e) => e.label.split(' (')[0]).join(', ') || 'none'})`, status: ws?.results.length ? (u.used / Math.max(1, u.limit) > 0.85 ? 'warn' : 'ok') : 'fail', detail: ws?.results.length ? `${ws.results.length} results via ${ws.engine} in ${wms} ms · ${u.used}/${u.limit} free searches used this month` : `${werr || ws?.errors.join(' · ') || 'no results'}`, fix: ws?.results.length && u.used / Math.max(1, u.limit) <= 0.85 ? undefined : 'Add more free search keys (Serper 2,500, Brave 2,000/mo, Firecrawl, Exa) in AI & Keys' });
+  C.push({ group: 'Search & reading', name: `Web search (${engs.map((e) => e.label.split(' (')[0]).join(', ') || 'none'})`, status: ws?.results.length ? (u.used / Math.max(1, u.limit) > 0.85 ? 'warn' : 'ok') : 'fail', detail: (ws?.results.length ? `${ws.results.length} results via ${ws.engine} in ${wms} ms · ${u.used}/${u.limit} free searches counted this month` : `${werr || ws?.errors.join(' · ') || 'no results'}`) + (ss.parked.length ? ` · QUOTA USED UP: ${ss.parked.map((p) => `${p.id} until ${new Date(p.until).toISOString().slice(0, 10)}`).join(', ')}` : ''), fix: ws?.results.length && u.used / Math.max(1, u.limit) <= 0.85 ? undefined : 'Add more free search keys (Serper 2,500, Brave 2,000/mo, Firecrawl, Exa) in AI & Keys' });
   const [pg, pms, perr] = await timed(() => readPage('https://example.com', 2000));
   C.push({ group: 'Search & reading', name: 'Page reader (Jina)', status: pg && pg.length > 50 ? 'ok' : 'fail', detail: pg ? `${pg.length} chars in ${pms} ms` : perr, fix: pg ? undefined : 'Add a free JINA_API_KEY for higher limits' });
   // messaging

@@ -657,3 +657,6 @@ input:focus, select:focus, textarea:focus { border-color: var(--brand); box-shad
 .np-area { width: 100%; min-height: 60vh; margin: 10px 0; font-family: ui-monospace, Menlo, monospace; font-size: 14px; line-height: 1.55; resize: vertical; }
 @media (max-width: 900px) { .np-layout { grid-template-columns: 1fr; } .np-list { position: static; max-height: 240px; } }
 .ap-q { padding: 6px 0; border-bottom: 1px dashed var(--line, #e3e8ef); } .ap-q.need textarea { border-color: #f5b400; background: rgba(245,180,0,.06); }
+.live-feed { border: 1px solid rgba(0,240,160,.45); }
+.live-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #e5484d; margin-right: 4px; box-shadow: 0 0 0 0 rgba(229,72,77,.6); animation: livepulse 1.6s infinite; vertical-align: middle; }
+@keyframes livepulse { 0% { box-shadow: 0 0 0 0 rgba(229,72,77,.6); } 70% { box-shadow: 0 0 0 8px rgba(229,72,77,0); } 100% { box-shadow: 0 0 0 0 rgba(229,72,77,0); } }
