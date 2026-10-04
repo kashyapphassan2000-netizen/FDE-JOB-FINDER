@@ -46,7 +46,7 @@ const HIRE = '(hiring OR "we\'re hiring" OR "join us" OR "we\'re looking" OR "DM
 
 export const MISSIONS: Mission[] = [
   {
-    id: 'x-posts', title: 'X / Twitter hiring posts', desc: 'Founders & AI teams tweeting roles (Excel formula: hiring × AI/FDE × remote/India/Bangalore, last 7 days). Every post is read in full.', recency: 'week',
+    id: 'x-posts', title: 'X / Twitter hiring posts', desc: 'Founders & AI teams tweeting roles (Excel formula: hiring × AI/FDE × remote/India/Bangalore, last 24 h). Every post is read in full.', recency: 'day',
     queries: [
       `site:x.com ${HIRE} "forward deployed"`, `site:x.com hiring "forward deployed engineer" remote`, `site:x.com hiring "forward deployed" (India OR Bangalore OR Bengaluru)`,
       `site:x.com ${HIRE} ("AI engineer" OR "ML engineer" OR "LLM engineer") remote`, `site:x.com ${HIRE} ("AI engineer" OR "ML engineer") (Bangalore OR Bengaluru OR India)`,
@@ -56,7 +56,7 @@ export const MISSIONS: Mission[] = [
     ],
   },
   {
-    id: 'li-posts', title: 'LinkedIn hiring posts', desc: 'Founders / hiring managers posting FDE & AI roles in their feed (often never on job boards)', recency: 'week',
+    id: 'li-posts', title: 'LinkedIn hiring posts', desc: 'Founders / hiring managers posting FDE & AI roles in their feed (often never on job boards)', recency: 'day',
     queries: [
       `site:linkedin.com/posts "forward deployed engineer" hiring`, `site:linkedin.com/posts hiring "forward deployed" (Bengaluru OR Bangalore OR remote)`,
       `site:linkedin.com/posts "we are hiring" ("AI engineer" OR "ML engineer" OR "GenAI") Bengaluru`, `site:linkedin.com/posts hiring "AI engineer" remote India`,

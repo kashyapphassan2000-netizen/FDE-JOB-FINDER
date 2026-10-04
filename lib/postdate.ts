@@ -20,4 +20,4 @@ function iso(ms: number): string | null {
 }
 
 /** Is this a social post whose date we can only trust from the URL? */
-export const isSocialPost = (url: string) => /(?:x|twitter)\.com\/[^/]+\/status|linkedin\.com\/(posts|feed\/update)/i.test(url);
+export const isSocialPost = (url: string) => /\/\/(?:www\.|mobile\.)?(?:x|twitter)\.com\/|linkedin\.com\/(posts|feed\/update)/i.test(url);
