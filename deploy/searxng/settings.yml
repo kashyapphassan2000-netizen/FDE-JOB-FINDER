@@ -1,6 +1,14 @@
-# Minimal SearXNG config for FDE Job Finder: JSON API on, bot limiter off (only your app calls it),
-# a spread of upstream engines so no single one rate-limits you.
-use_default_settings: true
+# SearXNG config for FDE Job Finder: JSON API on, bot limiter off (only your app calls it).
+# Engines chosen by testing from a free cloud IP (Render): these answer and respect site: filters.
+# Google / DuckDuckGo / Brave / Qwant block cloud IPs (captcha / rate limit); Bing ignores site: and returns junk.
+use_default_settings:
+  engines:
+    keep_only:
+      - google cse
+      - yahoo
+      - yandex
+      - startpage
+      - mojeek
 general:
   instance_name: "fde-search"
 search:
@@ -9,27 +17,23 @@ search:
     - html
     - json
 server:
-  # set SEARXNG_SECRET as a secret in your host (any long random string)
+  # set SEARXNG_SECRET as an environment variable on your host (any long random string)
   secret_key: "change-me-or-set-SEARXNG_SECRET"
   limiter: false
   public_instance: false
   image_proxy: false
 outgoing:
-  request_timeout: 6.0
-  max_request_timeout: 12.0
+  request_timeout: 8.0
+  max_request_timeout: 15.0
   pool_connections: 50
 engines:
-  - name: google
+  - name: google cse
     disabled: false
-  - name: bing
+  - name: yahoo
     disabled: false
-  - name: duckduckgo
-    disabled: false
-  - name: brave
+  - name: yandex
     disabled: false
   - name: startpage
     disabled: false
   - name: mojeek
-    disabled: false
-  - name: qwant
     disabled: false
