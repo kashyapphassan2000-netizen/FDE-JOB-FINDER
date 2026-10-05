@@ -94,7 +94,9 @@ export async function unlimitedStatus() {
   const presets = new Set(profiles.filter((p) => p.enabled).map((p) => p.preset));
   const status: Record<string, { on: boolean; state: string; used?: number }> = {};
   for (const c of CATALOG) for (const o of c.options) {
-    let on = o.keys.length ? o.keys.filter((k) => !/TOKEN$|SENDER$|CX$|CHAT_ID$/.test(k) || o.id === 'telegram').every((k) => Boolean(secret(k))) : false;
+    const OPTIONAL = new Set(['SEARXNG_TOKEN']); // only the HF token for a private SearXNG Space is optional
+    const req = o.keys.filter((k) => !OPTIONAL.has(k));
+    let on = req.length ? req.every((k) => Boolean(secret(k))) : false;
     if (o.aiPreset) on = presets.has(o.aiPreset);
     if (o.id === 'liguest') on = true;
     if (o.id === 'gmail') on = m.gmail;
