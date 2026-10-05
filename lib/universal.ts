@@ -1,3 +1,5 @@
+import { parseQuery } from './nlq';
+import { linkedinLive } from './live';
 import { dateFromText, dateFromUrl, FRESH_HOURS, isSocialPost } from './postdate';
 import type { RawJob } from './types';
 import { DEFAULT_COMPANIES } from './companies';
@@ -66,7 +68,10 @@ export function captureLinks(q: string) {
 export async function universalSearch(q: string, opts: { ignoreLocation?: boolean; budgetMs?: number } = {}) {
   await loadVault();
   const t0 = Date.now();
-  const ws = words(q);
+  // plain English → role words + place ("data engineer jobs in Berlin, remote ok" → "data engineer" · Berlin · remote)
+  const nlq = parseQuery(q);
+  const role = nlq.keywords || q;
+  const ws = words(role);
   if (!ws.length) throw new Error('Type a role, e.g. “MLOps engineer” or “solutions architect”');
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), opts.budgetMs ?? 55000);
@@ -91,15 +96,18 @@ export async function universalSearch(q: string, opts: { ignoreLocation?: boolea
     // 2-4 in parallel: live boards, all company ATS boards, web/X/LinkedIn posts
     const companies = [...DEFAULT_COMPANIES, ...settings.extraCompanies].filter((c) => !settings.disabledCompanies.includes(`${c.ats}:${c.slug}`));
     const engines = availableEngines().length;
+    const place = nlq.location ? `"${nlq.location}"${nlq.remote ? ' OR remote' : ''}` : nlq.remote ? 'remote' : '(Bengaluru OR Bangalore OR remote)';
     const webQueries = engines ? [
-      `"${q}" (site:jobs.ashbyhq.com OR site:jobs.lever.co OR site:job-boards.greenhouse.io OR site:apply.workable.com) (Bengaluru OR Bangalore OR remote)`,
-      `site:x.com hiring "${q}"`, `site:linkedin.com/posts hiring "${q}" (Bengaluru OR remote OR India)`, `"${q}" hiring Bengaluru OR "remote India" careers`,
+      `"${role}" (site:jobs.ashbyhq.com OR site:jobs.lever.co OR site:job-boards.greenhouse.io OR site:apply.workable.com) ${place}`,
+      `site:x.com hiring "${role}"${nlq.location ? ` ${nlq.location}` : ''}`, `site:linkedin.com/posts hiring "${role}" ${nlq.location ? place : '(Bengaluru OR remote OR India)'}`, `"${role}" hiring ${nlq.location ? place : 'Bengaluru OR "remote India"'} careers`,
     ] : [];
     await Promise.all([
-      pool(LIVE, 8, async ([name, fn]) => { try { add(name, await fn(q, ctrl.signal)); } catch (e) { errors.push(`${name}: ${(e as Error).message.slice(0, 60)}`); } }),
+      // LinkedIn's own job search for the exact place asked (last 24 h, then 7 days)
+      linkedinLive(q).then((r) => add('LinkedIn (live)', [...r.jobs, ...r.recent], false)).catch((e) => { errors.push(`LinkedIn: ${(e as Error).message.slice(0, 60)}`); }),
+      pool(LIVE, 8, async ([name, fn]) => { try { add(name, await fn(role, ctrl.signal)); } catch (e) { errors.push(`${name}: ${(e as Error).message.slice(0, 60)}`); } }),
       pool(companies, 16, async (c) => {
         if (ctrl.signal.aborted) return;
-        try { add(`${c.name} (${c.ats})`, await FETCHERS[c.ats](c, ctrl.signal, [q])); } catch { /* one board down is fine */ }
+        try { add(`${c.name} (${c.ats})`, await FETCHERS[c.ats](c, ctrl.signal, [role])); } catch { /* one board down is fine */ }
       }),
       pool(webQueries, 4, async (wq) => {
         const r = await webSearch(wq, 15, 'week');
@@ -126,9 +134,15 @@ export async function universalSearch(q: string, opts: { ignoreLocation?: boolea
     if (/\/\/(?:[a-z]+\.)?(?:x|twitter|linkedin)\.com\//i.test(h.url)) { const t = Date.parse(h.postedAt || '') || Date.parse(dateFromText(`${h.title} ${h.text || ''}`) || ''); if (!t || Date.now() - t > FRESH_HOURS * 36e5) return false; } // LinkedIn / X: STRICT 24 h, proven date
     else if (h.postedAt && Date.now() - Date.parse(h.postedAt) > 60 * 864e5) return false;
     if (opts.ignoreLocation || !h.location) return true;
+    if (nlq.location) { // a place was asked → that place (or remote when asked), anywhere in the world
+      const L = h.location.toLowerCase();
+      const want = nlq.location.toLowerCase().split(/[ ,]+/)[0];
+      const alias: Record<string, string> = { bengaluru: 'bangalore', bangalore: 'bengaluru', gurugram: 'gurgaon', gurgaon: 'gurugram', usa: 'united states', uk: 'united kingdom', nyc: 'new york', sf: 'san francisco' };
+      return L.includes(want) || Boolean(alias[want] && L.includes(alias[want])) || (nlq.remote && /remote|anywhere|worldwide/.test(L));
+    }
     return locationAllowed(locationTags({ title: h.title, company: h.company, location: h.location, url: h.url }), h.location);
   }).sort((a, b) => Date.parse(b.postedAt || '1970') - Date.parse(a.postedAt || '1970'));
   const bySource = Object.entries(counts).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]).map(([source, n]) => ({ source, n }));
-  return { q, ms: Date.now() - t0, total: out.length, hits: out.slice(0, 600), bySource, boardsSearched: Object.keys(counts).length, errors: errors.slice(0, 8), captureLinks: captureLinks(q), stripped: hits.length - out.length };
+  return { q, parsed: { role, location: nlq.location, remote: nlq.remote }, ms: Date.now() - t0, total: out.length, hits: out.slice(0, 600), bySource, boardsSearched: Object.keys(counts).length, errors: errors.slice(0, 8), captureLinks: captureLinks(q), stripped: hits.length - out.length };
 }
 export { stripHtml };

@@ -14,7 +14,7 @@ import { loadVault } from './secrets';
 export type Where = 'blr-remote' | 'remote' | 'city' | 'any';
 export interface Subscriber {
   id: string; email: string; name?: string; roles: string[]; where: Where; city?: string; count: number; maxAgeH: number;
-  exclude?: string[]; active: boolean; createdAt: string; lastSent?: string; lastResult?: string; sentIds?: string[];
+  exclude?: string[]; active: boolean; createdAt: string; owner?: string /* member who created it (self-serve alerts); empty = the owner */; lastSent?: string; lastResult?: string; sentIds?: string[];
 }
 
 const isEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
@@ -29,13 +29,13 @@ export async function saveSub(input: Partial<Subscriber>): Promise<Subscriber> {
   const roles = (input.roles || []).map((r) => String(r).trim()).filter(Boolean).slice(0, 5);
   if (!roles.length) throw new Error('Add at least one role they are looking for');
   const all = await hgetall<Subscriber>('subs');
-  const cur = input.id ? all[input.id] : Object.values(all).find((s) => s.email === email);
+  const cur = input.id ? all[input.id] : Object.values(all).find((s) => s.email === email && (s.owner || '') === (input.owner || ''));
   const s: Subscriber = {
     id: cur?.id || randomBytes(6).toString('hex'), email, name: String(input.name || cur?.name || '').slice(0, 60), roles,
     where: (['blr-remote', 'remote', 'city', 'any'] as Where[]).includes(input.where as Where) ? (input.where as Where) : 'blr-remote',
     city: String(input.city || '').slice(0, 60), count: Math.max(3, Math.min(25, Number(input.count) || 10)), maxAgeH: Math.max(24, Math.min(168, Number(input.maxAgeH) || 48)),
     exclude: (input.exclude || []).map((x) => String(x).trim().toLowerCase()).filter(Boolean).slice(0, 15),
-    active: input.active !== false, createdAt: cur?.createdAt || new Date().toISOString(), lastSent: cur?.lastSent, lastResult: cur?.lastResult, sentIds: cur?.sentIds || [],
+    active: input.active !== false, owner: input.owner ?? cur?.owner, createdAt: cur?.createdAt || new Date().toISOString(), lastSent: cur?.lastSent, lastResult: cur?.lastResult, sentIds: cur?.sentIds || [],
   };
   await hset('subs', s.id, s);
   return s;

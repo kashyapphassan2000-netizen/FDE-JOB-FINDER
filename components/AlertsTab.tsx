@@ -5,33 +5,34 @@ import { ago, api } from './api';
 type Sub = { id: string; email: string; name?: string; roles: string[]; where: string; city?: string; count: number; maxAgeH: number; exclude?: string[]; active: boolean; lastSent?: string; lastResult?: string; sentTotal: number };
 type Mailer = { gmail: boolean; resend: boolean; resendDomain: boolean; canEmailAnyone: boolean };
 type Pick = { title: string; company: string; location: string; url: string; source: string; t: number };
-const WHERE: Record<string, string> = { 'blr-remote': 'Bengaluru office or remote (India)', remote: 'Remote only', city: 'A city + remote', any: 'Anywhere' };
+const WHERE: Record<string, string> = { city: 'A city / country + remote', remote: 'Remote only', any: 'Anywhere in the world', 'blr-remote': 'Bengaluru office or remote (India)' };
 const EMPTY = { email: '', name: '', roles: '', where: 'blr-remote', city: '', count: 10, maxAgeH: 48, exclude: '' };
 
-export default function AlertsTab({ toast }: { toast: (s: string) => void }) {
+export default function AlertsTab({ toast, mine = false }: { toast: (s: string) => void; mine?: boolean }) {
+  const EP = mine ? '/api/myalerts' : '/api/subscribers';
   const [subs, setSubs] = useState<Sub[]>([]);
   const [mailer, setMailer] = useState<Mailer | null>(null);
   const [f, setF] = useState<typeof EMPTY & { id?: string }>(EMPTY);
   const [busy, setBusy] = useState('');
   const [preview, setPreview] = useState<{ id: string; picks: Pick[] } | null>(null);
-  const load = useCallback(() => api<{ subs: Sub[]; mailer: Mailer }>('/api/subscribers').then((d) => { setSubs(d.subs); setMailer(d.mailer); }).catch((e) => toast(e.message)), [toast]);
+  const load = useCallback(() => api<{ subs: Sub[]; mailer: Mailer }>(EP).then((d) => { setSubs(d.subs); setMailer(d.mailer); }).catch((e) => toast(e.message)), [toast, EP]);
   useEffect(() => { load(); }, [load]);
   const set = (k: keyof typeof EMPTY, v: string | number) => setF((x) => ({ ...x, [k]: v }));
 
   async function save() {
     setBusy('save');
     try {
-      await api('/api/subscribers', { method: 'POST', body: JSON.stringify({ action: 'save', ...f, roles: f.roles.split(/[,\n]/), exclude: f.exclude.split(/[,\n]/) }) });
+      await api(EP, { method: 'POST', body: JSON.stringify({ action: 'save', ...f, roles: f.roles.split(/[,\n]/), exclude: f.exclude.split(/[,\n]/) }) });
       toast(f.id ? 'Updated' : `Added ${f.email} — first email goes out with the next daily run (or press “Send now”)`); setF(EMPTY); load();
     } catch (e) { toast((e as Error).message); } finally { setBusy(''); }
   }
   async function act(s: Sub, action: 'run' | 'preview' | 'delete' | 'toggle') {
     setBusy(`${action}:${s.id}`);
     try {
-      if (action === 'toggle') await api('/api/subscribers', { method: 'POST', body: JSON.stringify({ action: 'save', ...s, active: !s.active }) });
-      else if (action === 'delete') { if (!confirm(`Stop and remove alerts for ${s.email}?`)) return; await api('/api/subscribers', { method: 'POST', body: JSON.stringify({ action, id: s.id }) }); }
+      if (action === 'toggle') await api(EP, { method: 'POST', body: JSON.stringify({ action: 'save', ...s, active: !s.active }) });
+      else if (action === 'delete') { if (!confirm(`Stop and remove alerts for ${s.email}?`)) return; await api(EP, { method: 'POST', body: JSON.stringify({ action, id: s.id }) }); }
       else {
-        const r = await api<{ picks: Pick[]; result?: string }>('/api/subscribers', { method: 'POST', body: JSON.stringify({ action, id: s.id }) });
+        const r = await api<{ picks: Pick[]; result?: string }>(EP, { method: 'POST', body: JSON.stringify({ action, id: s.id }) });
         if (action === 'preview') setPreview({ id: s.id, picks: r.picks }); else toast(r.result || 'Sent');
       }
       load();
@@ -42,8 +43,8 @@ export default function AlertsTab({ toast }: { toast: (s: string) => void }) {
     <>
       <div className="hero">
         <div>
-          <h2>Job alerts for anyone</h2>
-          <p>Add a friend’s (or client’s) email and the roles they want. Every morning the app runs your full search strategy for them — every live job board, ~230 company boards, X & LinkedIn posts, newest first, nothing sent twice — and emails them the best job links.</p>
+          <h2>{mine ? 'My job alerts' : 'Job alerts for anyone'}</h2>
+          {mine ? <p>Get fresh jobs for YOUR roles (any field) in YOUR place (any city, country or remote) emailed every morning — to your email or any email you add (up to 3 alerts). Every live job board, ~230 company boards, LinkedIn and X posts, newest first, nothing sent twice.</p> : <p>Add a friend’s (or client’s) email and the roles they want. Every morning the app runs your full search strategy for them — every live job board, ~230 company boards, X & LinkedIn posts, newest first, nothing sent twice — and emails them the best job links.</p>}
         </div>
         <div className="hero-stats"><div><b>{subs.filter((s) => s.active).length}</b><span>active</span></div><div><b>{subs.reduce((n, s) => n + s.sentTotal, 0)}</b><span>jobs sent</span></div></div>
       </div>
@@ -51,9 +52,9 @@ export default function AlertsTab({ toast }: { toast: (s: string) => void }) {
         <div className="notice warn small"><b>Set up email first:</b> to email other people, add <b>GMAIL_USER</b> + <b>GMAIL_APP_PASSWORD</b> in Setup → AI & Keys (Google account → 2-Step Verification → App passwords). {mailer.resend ? 'Resend is set, but its free test sender only emails your own Resend address.' : ''} You can still add people and preview their jobs now.</div>
       )}
       <div className="panel">
-        <h3 style={{ marginTop: 0 }}>{f.id ? 'Edit' : 'Add a person'}</h3>
+        <h3 style={{ marginTop: 0 }}>{f.id ? 'Edit' : mine ? 'New alert' : 'Add a person'}</h3>
         <div className="row" style={{ marginBottom: 8 }}>
-          <input className="grow" type="email" placeholder="Their email" value={f.email} onChange={(e) => set('email', e.target.value)} />
+          <input className="grow" type="email" placeholder={mine ? 'Email to send to (empty = your sign-in email)' : 'Their email'} value={f.email} onChange={(e) => set('email', e.target.value)} />
           <input placeholder="Name (optional)" value={f.name} onChange={(e) => set('name', e.target.value)} />
         </div>
         <textarea className="tabprompt" rows={2} placeholder="Roles they want, comma separated — e.g. Data scientist, ML engineer, AI product manager" value={f.roles} onChange={(e) => set('roles', e.target.value)} />

@@ -19,7 +19,8 @@ export default function Login() {
   const [err, setErr] = useState('');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
-  const [mode, setMode] = useState<'user' | 'password'>('user');
+  const [mode, setMode] = useState<'user' | 'password' | 'request'>('user');
+  const [rq, setRq] = useState({ email: '', name: '', role: '', location: '', situation: '' });
   const [opts, setOpts] = useState<{ google: boolean; otp: boolean } | null>(null);
   useEffect(() => {
     const e = new URLSearchParams(location.search).get('e');
@@ -49,12 +50,20 @@ export default function Login() {
   return (
     <div className="wrap">
       <div className="panel login">
-        <div className="brand" style={{ padding: '0 0 14px' }}><div className="brand-mark">F</div><div><b>FDE Job Finder</b><small>private · invite only</small></div></div>
+        <div className="brand" style={{ padding: '0 0 14px' }}><div className="brand-mark">F</div><div><b>FDE Job Finder</b><small>private · request access below</small></div></div>
         <span className="seg" style={{ marginBottom: 12 }}>
           <button className={mode === 'user' ? 'on' : ''} onClick={() => setMode('user')}>Sign in</button>
-          <button className={mode === 'password' ? 'on' : ''} onClick={() => setMode('password')}>Owner password</button>
+          <button className={mode === 'request' ? 'on' : ''} onClick={() => { setMode('request'); setErr(''); setNote(''); }}>Request access</button>
+          <button className={mode === 'password' ? 'on' : ''} onClick={() => setMode('password')}>Owner</button>
         </span>
-        {mode === 'user' ? (
+        {mode === 'request' ? (
+          <form onSubmit={async (e) => { e.preventDefault(); setBusy(true); setErr(''); const r = await post('/api/auth/request', rq); setBusy(false); if (r.ok) setNote(r.d.note || 'Request sent.'); else setErr(r.d.error || 'Could not send'); }}>
+            <p className="muted small">From anywhere in the world, any field. Tell the owner who you are and what job you want — you get an email when access is approved. Then you get your own private space: job search for your role and city, a life/career mentor, AI agents, job alerts to your email, and a route to the hiring manager for every job.</p>
+            {(['email', 'name', 'role', 'location'] as const).map((k) => <input key={k} type={k === 'email' ? 'email' : 'text'} required={k === 'email' || k === 'role'} placeholder={{ email: 'Your Gmail / email *', name: 'Your name', role: 'Job you want (any field) *, e.g. data analyst, nurse, ML engineer', location: 'Where (city / country / remote)' }[k]} value={rq[k]} onChange={(e) => setRq({ ...rq, [k]: e.target.value })} style={{ width: '100%', marginBottom: 8 }} />)}
+            <textarea placeholder="Your situation in 1–3 lines (optional) — e.g. laid off 3 months ago, switching careers, fresher…" value={rq.situation} onChange={(e) => setRq({ ...rq, situation: e.target.value })} style={{ width: '100%', minHeight: 70, marginBottom: 8 }} />
+            <button className="primary" disabled={busy || !rq.email || !rq.role} style={{ width: '100%' }}>{busy ? 'Sending…' : 'Request access'}</button>
+          </form>
+        ) : mode === 'user' ? (
           <>
             {opts?.google && (
               <>

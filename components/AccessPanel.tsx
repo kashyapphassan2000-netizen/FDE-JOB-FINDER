@@ -6,7 +6,8 @@ type Member = { email: string; role: 'owner' | 'member'; addedAt: string; addedB
 type Limits = { maxMembers: number; maxTimed: number; actionsPerDay: number; maxAgents: number; minScheduleHours: number };
 const DURATIONS: [number, string][] = [[1, '1 hour'], [2, '2 hours'], [6, '6 hours'], [12, '12 hours'], [24, '24 hours'], [72, '3 days'], [168, '7 days'], [720, '30 days'], [0, 'Permanent']];
 const left = (iso?: string | null) => { if (!iso) return null; const ms = Date.parse(iso) - Date.now(); if (ms <= 0) return 'expired'; const h = ms / 36e5; return h < 1 ? `${Math.max(1, Math.round(ms / 6e4))} min left` : h < 48 ? `${Math.round(h)} h left` : `${Math.round(h / 24)} days left`; };
-type Payload = { relays: { email: string; code: string; minutesLeft: number }[]; mailer: { canEmailAnyone: boolean; gmail: boolean; brevo: boolean; resend: boolean }; members: Member[]; limits: Limits; lockdown: boolean; owners: string[]; you: string; ownersConfigured: boolean };
+type Req = { email: string; name: string; role: string; location: string; situation: string; at: string; status: 'pending' | 'approved' | 'denied' };
+type Payload = { requests?: Req[]; relays: { email: string; code: string; minutesLeft: number }[]; mailer: { canEmailAnyone: boolean; gmail: boolean; brevo: boolean; resend: boolean }; members: Member[]; limits: Limits; lockdown: boolean; owners: string[]; you: string; ownersConfigured: boolean };
 
 export default function AccessPanel({ toast }: { toast: (s: string) => void }) {
   const [d, setD] = useState<Payload | null>(null);
@@ -40,6 +41,23 @@ export default function AccessPanel({ toast }: { toast: (s: string) => void }) {
         <div className="notice warn small">
           <b>📭 Your users do NOT receive sign-in codes by email yet</b> — the app can only email <b>you</b> (Resend test mode). Until you fix it, every code a user asks for is sent to <b>you</b> (your email{''} + WhatsApp if connected) and shown below — pass it on, or send them a 🔗 Invite link.
           <div style={{ marginTop: 6 }}><b>Fix in 3 minutes:</b> Google Account → Security → turn on 2-Step Verification → search “App passwords” → create one → in <b>AI &amp; Keys → Access</b> paste <code>GMAIL_USER</code> (your Gmail) and <code>GMAIL_APP_PASSWORD</code> (the 16 letters). Or set up Google sign-in (no email needed): GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET.</div>
+        </div>
+      )}
+      {(d.requests || []).filter((r) => r.status === 'pending').length > 0 && (
+        <div className="notice small" style={{ borderColor: 'var(--mint)' }}><b>🙋 Access requests</b>
+          {(d.requests || []).filter((r) => r.status === 'pending').map((r) => (
+            <div key={r.email} style={{ margin: '8px 0', paddingTop: 6, borderTop: '1px solid var(--line)' }}>
+              <b>{r.name || r.email}</b> &lt;{r.email}&gt; · {r.role || 'role ?'} · {r.location || 'location ?'} <span className="muted">· {new Date(r.at).toLocaleString()}</span>
+              {r.situation && <div className="muted">“{r.situation}”</div>}
+              <div className="row" style={{ gap: 6, marginTop: 4 }}>
+                <button className="small-btn primary" onClick={() => act({ action: 'approve-req', email: r.email, hours: null }, 'Approved')}>Approve permanently</button>
+                <button className="small-btn" onClick={() => act({ action: 'approve-req', email: r.email, hours: 168 }, 'Approved for 7 days')}>7 days</button>
+                <button className="small-btn" onClick={() => act({ action: 'approve-req', email: r.email, hours: 24 }, 'Approved for 24 h')}>24 h</button>
+                <button className="small-btn" onClick={() => act({ action: 'approve-req', email: r.email, hours: 1 }, 'Approved for 1 h')}>1 h</button>
+                <button className="small-btn danger" onClick={() => act({ action: 'deny-req', email: r.email }, 'Denied')}>Deny</button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
       {d.relays.length > 0 && (

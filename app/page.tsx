@@ -23,6 +23,7 @@ import KnowledgeGraph from '@/components/KnowledgeGraph';
 import CareersSearchTab from '@/components/CareersSearchTab';
 import AnalyzerTab from '@/components/AnalyzerTab';
 import ReferralsTab from '@/components/ReferralsTab';
+import Onboarding from '@/components/Onboarding';
 import AlertsTab from '@/components/AlertsTab';
 import DashboardTab from '@/components/DashboardTab';
 import AiKeysTab from '@/components/AiKeysTab';
@@ -38,7 +39,7 @@ const NAV = [
   { group: 'Agents', items: [['Agent studio', '🤖']] },
   { group: 'Life', items: [['Life mentor', '🧭'], ['Knowledge graph', '🕸️']] },
   { group: 'Companies', items: [['Zero-day radar', '🛰️'], ['Careers search', '🎯'], ['Global companies hiring', '🌍'], ['Watch companies', '👁️']] },
-  { group: 'Get the job', items: [['Auto-apply', '⚡'], ['Job analyzer & prep', '🔬'], ['Recruiters & referrals', '🤝'], ['Job alerts for others', '📬']] },
+  { group: 'Get the job', items: [['Auto-apply', '⚡'], ['Job analyzer & prep', '🔬'], ['Recruiters & referrals', '🤝'], ['My job alerts', '🔔'], ['Job alerts for others', '📬']] },
   { group: 'Find', items: [['My dashboard', '🏠'], ['Search any role', '🔍'], ['Jobs', '💼'], ['AI Agent', '🤖'], ['Trends', '📈'], ['Hiring radar', '📡'], ['Layoffs', '📉'], ['Hidden jobs & startups', '💎'], ['Outreach', '✉️'], ['Opportunities', '🏆']] },
   { group: 'Agent searches', items: [['X / Twitter', '𝕏'], ['LinkedIn posts', '🔗'], ['Hidden Bengaluru', '📍'], ['Remote India', '🏠'], ['US / EU remote', '🌍'], ['Semi & Embedded AI', '🔧'], ['New startups', '🚀'], ['Communities', '👥']] },
   { group: 'Track', items: [['Tracker', '📌'], ['CV', '📄'], ['Notepad', '📝']] },
@@ -156,7 +157,7 @@ export default function Home() {
           <button className="burger" onClick={() => setMenu(true)} aria-label="Menu">☰</button>
           <h1 className="hide-sm">{tab}</h1>
           <form className="topsearch" onSubmit={(e) => { e.preventDefault(); if (sqInput.trim()) { setSq(sqInput.trim()); go('Search any role'); } }}>
-            <input placeholder="🔍 Search any role everywhere — e.g. MLOps engineer" value={sqInput} onChange={(e) => setSqInput(e.target.value)} />
+            <input placeholder="🔍 Any role, anywhere — e.g. “ML engineer jobs in Berlin, remote ok”" value={sqInput} onChange={(e) => setSqInput(e.target.value)} />
           </form>
           <div className="row top-actions">
             <span className="muted small hide-sm">{data?.meta?.lastRefresh ? `Updated ${ago(data.meta.lastRefresh)} ago` : 'Never refreshed'}{(data as { refreshing?: boolean } | null)?.refreshing ? ' · refreshing live…' : ''}</span>
@@ -171,7 +172,7 @@ export default function Home() {
           <div className="notice err"><b>🔍 Web search is OFF — {me.search.configured ? `free quota used up (${me.search.parked.join(', ')})` : 'no search key'}.</b> Everything that searches the web is paused: X / LinkedIn <i>posts</i>, agent tabs, deep research, job analyzer research, referrals, “Search any role”. Still LIVE without search: Jobs (all ATS + LinkedIn jobs), LinkedIn live panel, careers search, radar, trends, layoffs. {isOwner ? <>Fix: open <button className="small-btn primary" onClick={() => go('Unlimited setup')}>🔓 Unlimited setup</button> — your own SearXNG (unlimited), Linkup (~4,000/month free), Exa, Firecrawl, Serper… each with steps and a Save &amp; test box. Tavily resets on the 1st.</> : 'Ask the owner to add a free search key.'}</div>
         )}
         {me && !isOwner && !me.profileSet && tab !== 'Careers search' && (
-          <div className="notice warn">👋 Welcome {me.email}. This is <b>your own private space</b> — your CV, tracker, knowledge graph, agents and job matches are yours only. First, <b>map your job role &amp; locations</b> so every page ranks jobs for you: <button className="small-btn primary" onClick={() => go('Careers search')}>Set my job role →</button></div>
+          <Onboarding toast={setToast} onMentor={(q) => { setMentorSeed({ q, n: Date.now() }); go('Life mentor'); }} onSearch={(q) => { setSqInput(q); setSq(q); go('Search any role'); }} />
         )}
         {data?.storeMode === 'memory' && (
           <div className="notice warn">Storage is in <b>memory mode</b> – data is lost on redeploy. Connect Upstash Redis (PDF step 4).</div>
@@ -192,6 +193,7 @@ export default function Home() {
         {tab === 'Job analyzer & prep' && <AnalyzerTab toast={setToast} seed={anaSeed} onReferrals={(company, role) => { setRefSeed({ company, role, n: Date.now() }); go('Recruiters & referrals'); }} />}
         {tab === 'Recruiters & referrals' && <ReferralsTab toast={setToast} seed={refSeed} />}
         {isOwner && tab === 'Job alerts for others' && <AlertsTab toast={setToast} />}
+        {tab === 'My job alerts' && <AlertsTab toast={setToast} mine />}
         {tab === 'Global companies hiring' && <DirectoryTab toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}
         {tab === 'Outreach' && <OutreachTab toast={setToast} seed={seed} />}
         {tab === 'Opportunities' && <OpportunitiesTab toast={setToast} />}

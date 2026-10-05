@@ -3,6 +3,7 @@ import { currentUser, unauthorized } from '@/lib/auth';
 import { bad } from '@/lib/guard';
 import { getLimits, saveLimits, usageToday } from '@/lib/limits';
 import { pendingRelays } from '@/lib/otp';
+import { approve, clearRequest, deny, listRequests } from '@/lib/requests';
 import { mailerStatus } from '@/lib/mailer';
 import { hgetall } from '@/lib/store';
 import { accessUntil, addMember, setMemberExpiry, setMemberLimits, getLockdown, makeLinkToken, members, ownerEmails, removeMember, roleOf, setLockdown, setPassword } from '@/lib/access';
@@ -20,7 +21,7 @@ export async function GET(req: Request) {
   const agentCount: Record<string, number> = {};
   for (const a of Object.values(agents)) agentCount[a.owner] = (agentCount[a.owner] || 0) + 1;
   const relays = await pendingRelays();
-  return Response.json({ relays, mailer: mailerStatus(), members: ms.map((m) => ({ ...m, usedToday: usage[m.email] || 0, agents: agentCount[m.email] || 0 })), limits, lockdown: await getLockdown(), owners: ownerEmails(), you: u.email, ownersConfigured: ownerEmails().length > 0 });
+  return Response.json({ requests: await listRequests(), relays, mailer: mailerStatus(), members: ms.map((m) => ({ ...m, usedToday: usage[m.email] || 0, agents: agentCount[m.email] || 0 })), limits, lockdown: await getLockdown(), owners: ownerEmails(), you: u.email, ownersConfigured: ownerEmails().length > 0 });
 }
 
 // POST {action:"add",email,role?} | {action:"remove",email} | {action:"invite",email} | {action:"lockdown",on} | {action:"password",password}
@@ -31,6 +32,9 @@ export async function POST(req: Request) {
   const b = (await req.json().catch(() => ({}))) as { action?: string; email?: string; role?: 'owner' | 'member'; on?: boolean; password?: string; hours?: number | null; limits?: Record<string, number>; memberLimits?: { actionsPerDay?: number | null; maxAgents?: number | null } };
   try {
     if (b.action === 'add') { await addMember(b.email || '', b.role || 'member', u.email, b.hours ?? null); return Response.json({ ok: true }); }
+    if (b.action === 'approve-req') return Response.json({ ok: true, note: await approve((b.email || '').toLowerCase(), b.hours ?? null, new URL(req.url).origin) });
+    if (b.action === 'deny-req') { await deny((b.email || '').toLowerCase()); return Response.json({ ok: true }); }
+    if (b.action === 'clear-req') { await clearRequest((b.email || '').toLowerCase()); return Response.json({ ok: true }); }
     if (b.action === 'limits') return Response.json({ limits: await saveLimits(b.limits || {}) });
     if (b.action === 'member-limits') { await setMemberLimits(b.email || '', b.memberLimits || {}); return Response.json({ ok: true }); }
     if (b.action === 'expiry') { await setMemberExpiry(b.email || '', b.hours ?? null); return Response.json({ ok: true }); }
