@@ -14,13 +14,15 @@ No per-search quota: it searches Google, Bing, DuckDuckGo, Brave, Startpage, Moj
 returns JSON. Honest limit: each upstream engine may slow down very heavy use from one server IP, which is why
 it spreads queries across seven engines.
 
-## Option A — Hugging Face Space (free, 5 minutes, no card)
-1. huggingface.co → sign up → New Space → name `fde-search` → SDK **Docker** → Blank → visibility **Private** → Create.
-2. Upload the three files from this folder (`Dockerfile`, `settings.yml`, `README.md`) → it builds (~3 min).
-3. Space → Settings → Variables and secrets → New secret `SEARXNG_SECRET` = any long random text → restart.
-4. Your URL is `https://<your-hf-username>-fde-search.hf.space`. Test: open `…/search?q=test&format=json`.
-5. In FDE Job Finder → AI & Keys (or Unlimited setup): `SEARXNG_URL` = that URL; because the Space is private,
-   also `SEARXNG_TOKEN` = a Hugging Face **read** token (huggingface.co/settings/tokens).
+## Option A — Render.com (free, no card, ~5 minutes)
+1. render.com → sign up with GitHub.
+2. New + → Web Service → Build and deploy from a Git repository → connect GitHub → choose this repo.
+3. Branch: the branch holding this folder · Root Directory: `deploy/searxng` · Runtime: Docker · Instance type: Free.
+4. Environment Variables: `SEARXNG_SECRET` = any long random text, `PORT` = `8080`.
+5. Create Web Service → wait until Live → test `https://<name>.onrender.com/search?q=test&format=json`.
+6. In FDE Job Finder → Unlimited setup: `SEARXNG_URL` = that URL (no token needed).
+Free services sleep after 15 min idle; the first search after that takes ~1 min.
+(Hugging Face Docker Spaces now require a paid plan.)
 
 ## Option B — your own PC (truly unlimited, free)
 `docker run -d -p 8080:8080 -v $PWD/settings.yml:/etc/searxng/settings.yml searxng/searxng` → `SEARXNG_URL=http://localhost:8080`
