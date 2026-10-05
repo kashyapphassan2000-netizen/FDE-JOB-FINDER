@@ -130,7 +130,8 @@ export async function testEngine(id: string): Promise<{ ok: boolean; n: number; 
   if (!secret(e.needs)) return { ok: false, n: 0, ms: 0, sample: [], error: `${e.needs} is not set` };
   const t = Date.now();
   try {
-    const r = await e.run('forward deployed engineer bengaluru hiring', 5, 'week');
+    let r = await e.run('forward deployed engineer bengaluru hiring', 5, 'week');
+    if (!r.length) r = await e.run('forward deployed engineer jobs', 5, 'any'); // an empty week is not a broken key
     await hset('search:dead', id, { until: 0, reason: '', at: Date.now() }); // a working key un-parks the engine
     return { ok: r.length > 0, n: r.length, ms: Date.now() - t, sample: r.slice(0, 3).map((x) => x.url) };
   } catch (err) {

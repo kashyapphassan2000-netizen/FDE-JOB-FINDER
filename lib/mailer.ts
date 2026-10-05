@@ -41,7 +41,7 @@ async function sendMailRaw(to: string, subject: string, html: string): Promise<'
       body: JSON.stringify({ sender: { name: 'FDE Job Finder', email: secret('BREVO_SENDER') }, to: [{ email: to }], subject, htmlContent: html }),
     });
     if (r.ok) return 'brevo' as 'resend';
-    const err = (await r.text()).slice(0, 160);
+    const err = (await r.text()).slice(0, 160).replace(/We have detected you are using an unrecognised IP address[^.]*\./, 'Brevo blocks unknown server IPs — app.brevo.com → Security → Authorised IPs → deactivate the IP blocking.');
     if (!secret('RESEND_API_KEY')) throw new Error(`Brevo ${r.status}: ${err}`);
   }
   if (secret('RESEND_API_KEY')) {
