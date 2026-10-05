@@ -26,6 +26,17 @@ export async function sendMail(to: string, subject: string, html: string): Promi
   }
 }
 
+/** Where routine mail goes (digests, reports) vs where important mail goes (access requests, sign-in relays, high-fit roles, failures). */
+export const ownerInbox = () => secret('DIGEST_TO').split(/[,;\s]+/).filter(Boolean)[0] || '';
+export const importantInbox = () => (secret('IMPORTANT_TO') || secret('DIGEST_TO')).split(/[,;\s]+/).filter(Boolean)[0] || '';
+/** Important mail: goes to IMPORTANT_TO (and a copy to DIGEST_TO when they differ, so nothing important is ever missed). */
+export async function sendImportant(subject: string, html: string): Promise<string[]> {
+  const to = [...new Set([importantInbox(), ownerInbox()].filter(Boolean))];
+  const ok: string[] = [];
+  for (const t of to) await sendMail(t, `❗ ${subject}`, html).then(() => ok.push(t)).catch(() => null);
+  return ok;
+}
+
 async function sendMailRaw(to: string, subject: string, html: string): Promise<'gmail' | 'resend'> {
   if (secret('GMAIL_USER') && secret('GMAIL_APP_PASSWORD')) {
     const nodemailer = (await import('nodemailer')).default;

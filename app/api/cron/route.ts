@@ -10,7 +10,7 @@ import { draftOutreach, emailGap, weeklyGap } from '@/lib/autopilot';
 import { loadVault, secret } from '@/lib/secrets';
 import { runDueMission } from '@/lib/agent';
 import { runDiscover } from '@/lib/discover';
-import { getJSON } from '@/lib/store';
+import { getJSON, setJSON } from '@/lib/store';
 import { runDigest } from '@/lib/digest';
 
 export const maxDuration = 300;
@@ -46,6 +46,20 @@ async function handle(req: Request): Promise<Response> {
     }
     if (task === 'gap') {
       after(() => runAs(OWNER, async () => { const r = await weeklyGap(await getJobs()); if (secret('DIGEST_TO')) await emailGap(r, secret('DIGEST_TO')); }));
+      return Response.json({ ok: true, task, started: true });
+    }
+    if (task === 'health') {
+      // daily: if anything critical is down, the important inbox hears about it (once per day per failure set)
+      after(() => runAs(OWNER, async () => {
+        const { runHealthCheck } = await import('@/lib/health');
+        const { sendImportant, esc } = await import('@/lib/mailer');
+        const r = await runHealthCheck();
+        const bad = r.checks.filter((c) => c.status === 'fail');
+        const sig = bad.map((c) => c.name).sort().join('|');
+        if (!bad.length || (await getJSON<string>('health:alerted', '')) === `${new Date().toISOString().slice(0, 10)}:${sig}`) return;
+        await sendImportant(`${bad.length} service${bad.length > 1 ? 's' : ''} failing in FDE Job Finder`, `<div style="font-family:system-ui"><ul>${bad.map((c) => `<li><b>${esc(c.name)}</b> — ${esc(c.detail || '')}${c.fix ? `<br><span style="color:#555">Fix: ${esc(c.fix)}</span>` : ''}</li>`).join('')}</ul><p style="color:#888;font-size:12px">Full report: Setup → Observability → Run health check.</p></div>`);
+        await setJSON('health:alerted', `${new Date().toISOString().slice(0, 10)}:${sig}`);
+      }));
       return Response.json({ ok: true, task, started: true });
     }
     if (task === 'semantic') return Response.json({ ok: true, task, ...(await semanticPass(await getJobs(), { budgetMs: 240000 })) });

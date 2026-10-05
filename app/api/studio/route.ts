@@ -3,7 +3,7 @@ import { spendGuard } from '@/lib/limits';
 import { currentUser, unauthorized } from '@/lib/auth';
 import { bad } from '@/lib/guard';
 import { nsOf } from '@/lib/mentor';
-import { agentChat, deleteAgent, deleteSkill, DEPTHS, getAgentChat, getAgentDef, getRuns, listAgents, listSkills, MODES, publicSkill, runAgentDef, saveAgent, saveSkill, TOOLS } from '@/lib/studio';
+import { agentChat, deleteAgent, ensureCopilot, deleteSkill, DEPTHS, getAgentChat, getAgentDef, getRuns, listAgents, listSkills, MODES, publicSkill, runAgentDef, saveAgent, saveSkill, TOOLS } from '@/lib/studio';
 import { publicProfiles } from '@/lib/llm';
 import { createToken, listTokens, revokeToken } from '@/lib/mcp';
 import { notifyConfigured } from '@/lib/notify';
@@ -26,6 +26,7 @@ export async function GET(req: Request) {
     return Response.json({ agent: a, runs: await getRuns(id), chat: await getAgentChat(id) });
   }
   const models = (await publicProfiles()).filter((p) => p.enabled).map((p) => ({ id: p.id, label: p.label, model: p.model, preset: p.preset, local: /localhost|127\.0\.0\.1/.test(p.baseUrl) }));
+  await ensureCopilot(ns).catch(() => null);
   const tokens = await listTokens(u.email);
   return Response.json({ tokens, mcpUrl: `${new URL(req.url).origin}/api/mcp`, agents: await listAgents(ns), skills: (await listSkills(ns)).map(publicSkill), tools: TOOLS, modes: MODES, depths: DEPTHS, models, hosted: Boolean(process.env.VERCEL), channels: { ...notifyConfigured(), ...mailerStatus() } });
 }

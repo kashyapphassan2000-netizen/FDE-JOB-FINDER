@@ -36,9 +36,10 @@ export async function sendOtp(email: string): Promise<void> {
 export async function relayToOwner(email: string, code: string) {
   await hset('auth:relay', email, { c: encrypt(code), exp: Date.now() + TTL });
   const msg = `🔐 ${email} is trying to sign in to FDE Job Finder. Their code: ${code} (valid 10 min). Send it to them only if you expect this.`;
-  const owner = secret('DIGEST_TO');
   const done: string[] = [];
-  if (owner && owner !== email) await sendMail(owner, `Sign-in code for ${email}: ${code}`, `<p style="font-family:system-ui">${msg}</p><p style="color:#888;font-size:12px">Your users get this automatically once Gmail (app password) or Brevo is set up in AI &amp; Keys.</p>`).then(() => done.push('owner email')).catch(() => null);
+  const { sendImportant } = await import('./mailer');
+  const sent = await sendImportant(`Sign-in code for ${email}: ${code}`, `<p style="font-family:system-ui">${msg}</p><p style="color:#888;font-size:12px">Your users get this automatically once Gmail (app password) or Brevo is set up in AI &amp; Keys.</p>`);
+  if (sent.length) done.push(`owner email (${sent.join(', ')})`);
   const { notifyConfigured, sendWhatsApp } = await import('./notify');
   if (notifyConfigured().whatsapp) await sendWhatsApp(msg).then(() => done.push('owner WhatsApp')).catch(() => null);
   await track('login', 'code relayed', done.length ? 'ok' : 'warn', `${email} → ${done.join(', ') || 'Access panel only'}`);

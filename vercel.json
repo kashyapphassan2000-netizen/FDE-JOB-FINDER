@@ -238,6 +238,10 @@
       "schedule": "20 15 * * *"
     },
     {
+      "path": "/api/cron?task=health",
+      "schedule": "40 3 * * *"
+    },
+    {
       "path": "/api/cron?task=gap",
       "schedule": "10 2 * * 1"
     },

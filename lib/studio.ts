@@ -1,6 +1,6 @@
 import { track } from './obs';
 import { randomBytes } from 'node:crypto';
-import { aiConfigured, chatJson } from './llm';
+import { aiConfigured, allProfiles, chatJson, listModels } from './llm';
 import { readPage, webSearch } from './search';
 import { newsSearch } from './news';
 import { getJSON, hdel, hgetall, hset, setJSON } from './store';
@@ -155,7 +155,9 @@ export async function saveAgent(owner: string, a: Partial<AgentDef>): Promise<Ag
   if (!def.goal.trim()) throw new Error('Tell the agent what to do (instructions)');
   if (owner !== 'owner') {
     const lim = await limitsFor(owner);
-    if (!cur && (await listAgents(owner)).length >= lim.maxAgents) throw new Error(`Agent limit reached (${lim.maxAgents}). Delete one or ask the owner for more.`);
+    const mine = cur ? [] : await listAgents(owner);
+    const freeCopilot = a.name === 'Copilot' && !mine.some((x) => x.name === 'Copilot');
+    if (!cur && !freeCopilot && mine.length - (mine.some((x) => x.name === 'Copilot') ? 1 : 0) >= lim.maxAgents) throw new Error(`Agent limit reached (${lim.maxAgents}). Delete one or ask the owner for more.`);
     if (def.schedule !== 'manual' && EVERY[def.schedule] < lim.minScheduleHours) throw new Error(`Your plan allows scheduled runs at most every ${lim.minScheduleHours} h — pick a slower schedule.`);
   }
   if (def.canCall.length && !def.tools.includes('ask_agent')) def.tools.push('ask_agent');
@@ -596,16 +598,115 @@ async function deliver(a: AgentDef, r: Report, asked?: { email: boolean; whatsap
 }
 
 // ---------- each agent's own chatbot ----------
+// ---------- chat: route each message (talk vs task) + "use <model>" ----------
+const FAMILIES = ['kimi', 'deepseek', 'nemotron', 'qwen', 'llama', 'gpt-oss', 'gemini', 'mistral', 'mixtral', 'gemma', 'claude', 'glm', 'phi', 'command', 'grok', 'minimax'];
+const SMALL_TALK = /^\s*(hi+|h?ello+|hey+|hai|yo|namaste|good (morning|afternoon|evening|night)|thanks?( you)?|thank u|ty|ok(ay)?|cool|nice|great|bye|who are you\??|what can you do\??|how are you\??|sup|hii+)[\s!.?]*$/i;
+/** "use kimi", "with claude code + deepseek", "via nvidia", "on groq" → the AI & Keys entry (and exact model) to use for this message. */
+export async function modelFromText(text: string): Promise<{ ref?: ModelRef; note?: string; clean: string }> {
+  const t = text.toLowerCase();
+  const m = t.match(/\b(use|using|with|via|on|through|switch to|run (?:it )?(?:on|with)|model)\s*[:=]?\s*((?:claude code|cc|fcc)\s*(?:\+|and|with|using|on)?\s*)?([a-z0-9][a-z0-9._/:-]{1,60}(?:[ -][a-z0-9.]{1,12})?)/);
+  if (!m && !/claude code|\bfcc\b/.test(t)) return { clean: text };
+  const profs = (await allProfiles()).filter((p) => p.enabled && p.key);
+  const want = (m?.[3] || '').trim();
+  const strongVerb = /^(use|using|switch to|model)$/.test(m?.[1] || '');
+  const wantsCC = /claude code|\bfcc\b/.test(t);
+  let note = '';
+  if (wantsCC) {
+    const fcc = profs.find((p) => p.preset === 'fcc');
+    const local = fcc && /localhost|127\.0\.0\.1/.test(fcc.baseUrl);
+    note = !fcc ? 'Claude Code itself runs on YOUR computer (terminal), not inside this website. Two honest ways: (1) Claude Code → this app: Agents → "Use from Claude Code (MCP)" gives you one command, then ask Claude Code anything and it uses these job tools; (2) free-claude-code (FCC) proxy: add it in AI & Keys (preset FCC) with a public URL (e.g. a tunnel) so this site can reach it. Until then I answered with the model below.'
+      : local && process.env.VERCEL ? 'Your FCC proxy is set to localhost — the hosted site cannot reach your laptop. Run this app locally (npm run dev) or give FCC a public tunnel URL in AI & Keys. Answered with the model below meanwhile.' : '';
+    if (fcc && !(local && process.env.VERCEL)) return { ref: { profileId: fcc.id, model: want && !/^(claude|code|cc|fcc)$/.test(want) ? await bestModel(fcc, want) : '', strict: false }, clean: text, note };
+  }
+  if (!want) return { clean: text, note };
+  // 1) a provider name / label (nvidia, groq, gemini, openrouter, ollama, …)
+  const first = want.split(/[ /-]/)[0];
+  const byProv = profs.find((p) => first === p.preset || (strongVerb && first.length > 2 && (p.preset.startsWith(first) || p.label.toLowerCase().startsWith(first))));
+  const fam = FAMILIES.find((f) => want.includes(f));
+  if (byProv && !fam) return { ref: { profileId: byProv.id, model: '', strict: false }, clean: text, note };
+  // 2) a model family / exact model id → the first provider that actually serves it
+  if (fam || (strongVerb && /[/.:-]/.test(want))) {
+    const key = fam || want;
+    const exact = profs.find((p) => p.model.toLowerCase().includes(key));
+    if (exact) return { ref: { profileId: exact.id, model: exact.model, strict: false }, clean: text, note };
+    for (const p of [...(byProv ? [byProv] : []), ...profs.filter((x) => x !== byProv)]) {
+      const mdl = await bestModel(p, key);
+      if (mdl) return { ref: { profileId: p.id, model: mdl, strict: false }, clean: text, note };
+    }
+    return { clean: text, note: `${note ? `${note}\n` : ''}No provider you added serves "${key}" — add one in AI & Keys (NVIDIA / OpenRouter host most open models free). Answered with the default model.` };
+  }
+  return { clean: text, note };
+}
+const familyCache = new Map<string, string[]>();
+async function bestModel(p: { id: string; wire: 'openai' | 'anthropic' | 'gemini'; baseUrl: string; key: string }, key: string): Promise<string> {
+  let ms = familyCache.get(p.id);
+  if (!ms) { ms = await Promise.race([listModels(p as never).catch(() => [] as string[]), new Promise<string[]>((r) => setTimeout(() => r([]), 6000))]); familyCache.set(p.id, ms); }
+  const hits = ms.filter((x) => x.toLowerCase().includes(key) && !/embed|guard|reward|vision|tts|whisper|audio|image/i.test(x));
+  return hits.sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))[0] || '';
+}
+
 export async function agentChat(a: AgentDef, text: string): Promise<{ reply: string; run: Run }> {
   const history = await getJSON<{ role: 'user' | 'agent'; text: string; at: string }[]>(`studio:chat:${a.id}`, []);
   const ctx = history.slice(-10).map((m) => `${m.role === 'user' ? 'OWNER' : 'YOU'}: ${m.text.slice(0, 800)}`).join('\n');
-  const run = await runAgentDef(a, 'chat', `${ctx ? `Conversation so far:\n${ctx}\n\n` : ''}The owner now says: ${text}\nDo what they ask (use your tools as needed) and answer them directly.`, 200000);
-  const sent = run.delivered.filter((d) => d !== 'in-app');
-  const reply0 = run.report?.body ? `**${run.report.title}**\n\n${run.report.body}\n\n**Sources**\n${(run.report.sources || []).map((x) => `[${x.n}] ${x.title} — ${x.url}`).join('\n')}` : run.report ? `**${run.report.title}**\n\n${run.report.summary}${run.report.findings.length ? `\n\n${run.report.findings.map((f) => `- **${f.title}** — ${f.detail}${f.url ? ` (${f.url})` : ''}`).join('\n')}` : ''}${run.report.actions.length ? `\n\n**Next:**\n${run.report.actions.map((x) => `- ${x}`).join('\n')}` : ''}` : `Failed: ${run.error}`;
-  const reply = sent.length ? `${reply0}\n\n📨 ${sent.join(' · ')}` : reply0;
+  const t0 = Date.now();
+  const pick = await modelFromText(text);
+  const agent: AgentDef = pick.ref ? { ...a, model: pick.ref, members: a.members.map((m) => ({ ...m, model: pick.ref! })), supervisor: { ...a.supervisor, model: a.supervisor.model.profileId ? a.supervisor.model : pick.ref } } : a;
+  const toolList = agent.tools.map((t) => `${t}: ${TOOLS[t].desc}`).join('; ');
+  // router: small talk / questions answerable from knowledge → one fast answer; anything needing live data or action → the full agent run
+  let route: { route?: string; reply?: string; task?: string } | null = null;
+  if (SMALL_TALK.test(text)) route = { route: 'chat' };
+  else {
+    const r = await chatJson<{ route: string; reply?: string; task?: string }>(
+      `You are the front desk of "${agent.name}" (goal: ${agent.goal.slice(0, 400)}). Its tools: ${toolList}.
+Decide how to handle the owner's latest message:
+- "chat": greetings, thanks, small talk, questions about you / what you can do, advice, explanations, coaching, interview prep, opinions — anything answerable well WITHOUT live data. Put the full helpful answer in "reply" (markdown, direct, honest, no fluff).
+- "task": needs live/fresh data (jobs, posts, companies, people, news, prices), web search, reading a page, the owner's CV/jobs/notes, or an action (email, WhatsApp, save, schedule). Put a clear, complete instruction in "task" (resolve "it/that" from the conversation).
+Return {"route":"chat"|"task","reply"?:string,"task"?:string}.`,
+      `${ctx ? `Conversation so far:\n${ctx}\n\n` : ''}Latest message: ${pick.clean}`,
+      { maxTokens: 1800, timeoutMs: 45000, profileId: agent.model.profileId || undefined, model: agent.model.model || undefined },
+    ).catch(() => null);
+    route = r?.data || null;
+    if (route && r?.meta?.model) (route as { model?: string }).model = r.meta.model;
+  }
+  let reply0 = '';
+  let run: Run;
+  if (route?.route === 'chat') {
+    let answer = route.reply || '';
+    let model = (route as { model?: string }).model || '';
+    if (!answer) {
+      const r = await chatJson<{ reply: string }>(`You are "${agent.name}", an AI agent the owner built (${agent.goal.slice(0, 300)}). Be warm, short and direct. If greeted, greet back and say in 2-4 bullets what you can do for them right now with your tools (${agent.tools.join(', ')}), then ask what they want. Return {"reply": markdown}.`, `${ctx ? `Conversation so far:\n${ctx}\n\n` : ''}Owner: ${pick.clean}`, { maxTokens: 600, timeoutMs: 30000, profileId: agent.model.profileId || undefined, model: agent.model.model || undefined }).catch(() => null);
+      answer = r?.data?.reply || `Hi! I'm ${agent.name}. Tell me what you need — e.g. "find FDE roles posted in the last 24 h", "who is the hiring manager for this job", or "email me today's top 5".`;
+      model = r?.meta?.model || '';
+    }
+    reply0 = answer;
+    run = { id: randomBytes(6).toString('hex'), agentId: a.id, at: new Date().toISOString(), ms: Date.now() - t0, trigger: 'chat', steps: [{ who: agent.name, thought: 'Router: conversational — answered directly (no tools needed).', at: Date.now() }], report: null, delivered: ['in-app'], models: model ? [model] : [] };
+    await track('agent', `${a.name} chat`, 'ok', 'routed: conversation', Date.now() - t0);
+  } else {
+    const task = route?.task || pick.clean;
+    run = await runAgentDef(agent, 'chat', `${ctx ? `Conversation so far:\n${ctx}\n\n` : ''}The owner now says: ${pick.clean}\n${task !== pick.clean ? `Router's reading of the request: ${task}\n` : ''}Do what they ask (use your tools as needed) and answer them directly.`, 200000);
+    const sent = run.delivered.filter((d) => d !== 'in-app');
+    reply0 = run.report?.body ? `**${run.report.title}**\n\n${run.report.body}\n\n**Sources**\n${(run.report.sources || []).map((x) => `[${x.n}] ${x.title} — ${x.url}`).join('\n')}` : run.report ? `**${run.report.title}**\n\n${run.report.summary}${run.report.findings.length ? `\n\n${run.report.findings.map((f) => `- **${f.title}** — ${f.detail}${f.url ? ` (${f.url})` : ''}`).join('\n')}` : ''}${run.report.actions.length ? `\n\n**Next:**\n${run.report.actions.map((x) => `- ${x}`).join('\n')}` : ''}` : `Failed: ${run.error}`;
+    if (sent.length) reply0 += `\n\n📨 ${sent.join(' · ')}`;
+  }
+  const used = run.models?.length ? `\n\n_model: ${[...new Set(run.models)].join(', ')}_` : '';
+  const reply = `${pick.note ? `> ${pick.note}\n\n` : ''}${reply0}${used}`;
   const now = new Date().toISOString();
   await setJSON(`studio:chat:${a.id}`, [...history, { role: 'user', text, at: now }, { role: 'agent', text: reply, at: now }].slice(-60));
   return { reply, run };
+}
+/** Every user gets a built-in "Copilot": ask anything, it routes to every tool of the app. */
+export async function ensureCopilot(owner: string): Promise<void> {
+  const mine = await listAgents(owner);
+  if (mine.some((a) => a.name === 'Copilot')) return;
+  if (await getJSON<boolean>(`studio:copilot:${owner}`, false)) return; // deleted on purpose → don't recreate
+  await saveAgent(owner, {
+    name: 'Copilot', emoji: '🧭', type: 'autonomous',
+    goal: 'Ask-anything assistant for this job-finder. Talk normally when greeted. For any request, pick the right tools: jobs in the app (my_jobs), live company career pages (company_jobs), the web/LinkedIn/X posts (web_search + read_page), news, market data, the owner\'s CV (my_cv), notes/memory, emailing or WhatsApping results (notify). For any role, any domain, any location in the world. Always give links, who to contact and the fastest route to the decision-maker.',
+    rules: 'Honest: never invent jobs, people or links. Prefer roles posted in the last 24-72 h. Say plainly when something is not found and what you tried.',
+    tools: Object.keys(TOOLS).filter((t) => t !== 'ask_agent' && t !== 'http_get') as ToolId[],
+    thinking: { depth: 'deep', style: '' }, schedule: 'manual', enabled: true,
+  } as Partial<AgentDef>);
+  await setJSON(`studio:copilot:${owner}`, true);
 }
 export async function getAgentChat(id: string) { return getJSON<{ role: 'user' | 'agent'; text: string; at: string }[]>(`studio:chat:${id}`, []); }
 

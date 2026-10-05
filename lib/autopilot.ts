@@ -5,7 +5,7 @@ import { getCv } from './cv';
 import { getProfile } from './profile';
 import { readPage } from './search';
 import { getSem } from './semantic';
-import { sendMail, esc } from './mailer';
+import { sendMail, sendImportant, esc } from './mailer';
 import { sendWhatsApp, notifyConfigured } from './notify';
 import { secret } from './secrets';
 import { tenant } from './tenant';
@@ -44,8 +44,7 @@ export async function draftOutreach(jobs: Job[], max = 5): Promise<Draft[]> {
   return out;
 }
 async function announce(ds: Draft[]) {
-  const to = secret('DIGEST_TO');
-  if (to) await sendMail(to, `🎯 ${ds.length} high-fit role${ds.length > 1 ? 's' : ''} — outreach drafted`, `<div style="font-family:system-ui,sans-serif;max-width:680px">${ds.map((d) => `<div style="border:1px solid #e3e8ef;border-radius:12px;padding:12px 14px;margin:10px 0"><b><a href="${esc(d.url)}">${esc(d.title)}</a></b> — ${esc(d.company)}<div style="color:#555;font-size:13px;margin:6px 0">Subject: ${esc(d.subject)}</div><ul style="margin:0;padding-left:18px"><li>${esc(d.hook)}</li><li>${esc(d.proof)}</li><li>${esc(d.ask)}</li></ul></div>`).join('')}<p style="color:#999;font-size:12px">Send it to the engineering manager (Recruiters &amp; referrals finds them). Edit any [add your metric] first.</p></div>`).catch(() => null);
+  await sendImportant(`🎯 ${ds.length} high-fit role${ds.length > 1 ? 's' : ''} — outreach drafted`, `<div style="font-family:system-ui,sans-serif;max-width:680px">${ds.map((d) => `<div style="border:1px solid #e3e8ef;border-radius:12px;padding:12px 14px;margin:10px 0"><b><a href="${esc(d.url)}">${esc(d.title)}</a></b> — ${esc(d.company)}<div style="color:#555;font-size:13px;margin:6px 0">Subject: ${esc(d.subject)}</div><ul style="margin:0;padding-left:18px"><li>${esc(d.hook)}</li><li>${esc(d.proof)}</li><li>${esc(d.ask)}</li></ul></div>`).join('')}<p style="color:#999;font-size:12px">Send it to the engineering manager (Recruiters &amp; referrals finds them). Edit any [add your metric] first.</p></div>`).catch(() => null);
   if (notifyConfigured().whatsapp) await sendWhatsApp(`🎯 ${ds.length} high-fit role(s), outreach drafted:\n${ds.map((d) => `• ${d.title} — ${d.company}\n${d.url}`).join('\n')}`).catch(() => null);
 }
 
