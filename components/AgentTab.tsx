@@ -1,6 +1,7 @@
 'use client';
 import LiveFeed from './LiveFeed';
 import FeedPanel, { hasFeed } from './FeedPanel';
+import { ReachButton, SaveButton } from './ReachButton';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ago, api, setTrack } from './api';
 import FitDrawer, { type FitJob } from './FitDrawer';
@@ -34,6 +35,7 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
   const [depth, setDepth] = useState<'deep' | 'quick'>('deep');
   const [busy, setBusy] = useState('');
   const [secs, setSecs] = useState(0);
+  const [progress, setProgress] = useState('');
   const [lastRun, setLastRun] = useState<Run | null>(null);
   const [view, setView] = useState<'run' | 'all'>(missionId ? 'all' : 'run');
   const [kind, setKind] = useState('');
@@ -55,14 +57,25 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
   useEffect(() => { load(); }, [load]);
 
   async function run(body: { missionId?: string; prompt?: string }) {
-    if (body.missionId === 'li-posts' || body.missionId === 'x-posts') setLiveQ(body.prompt || ''); // live panel follows your search
+    if (body.missionId === 'li-posts' || body.missionId === 'x-posts') setLiveQ(body.prompt || ''); // live panel answers in seconds while the deep search runs // live panel follows your search
     setBusy(body.missionId || 'custom');
     if (body.prompt && body.missionId) setView('run');
     setSecs(0);
     timer.current = setInterval(() => setSecs((s) => s + 1), 1000);
     toast(depth === 'deep' ? 'Deep search running: many queries on every engine, reading every X post, checking career boards (2–4 min)…' : 'Quick search running (≈40 s)…');
     try {
-      const r = await api<Run>('/api/agent', { method: 'POST', body: JSON.stringify({ ...body, depth }) });
+      const st = await api<{ id: string }>('/api/agent', { method: 'POST', body: JSON.stringify({ ...body, depth }) });
+      // the search runs in the background on the server (no 504); poll for it
+      let r: Run | null = null;
+      for (let i = 0; i < 120 && !r; i++) {
+        await new Promise((ok) => setTimeout(ok, i < 5 ? 3000 : 5000));
+        const p = await api<{ done: boolean; run?: Run; log?: string[]; lost?: boolean }>(`/api/agent?run=${st.id}`).catch(() => null);
+        if (p?.done && p.run) r = p.run;
+        else if (p?.log?.length) setProgress(p.log[p.log.length - 1]);
+        else if (p?.lost && i > 70) throw new Error('The search stopped on the server (time limit). Try Quick depth or a narrower search.');
+      }
+      if (!r) throw new Error('Still running after 10 min — results will appear in the list when it finishes.');
+      setProgress('');
       toast(r.error ? `Agent: ${r.error}` : `Done in ${(r.ms / 1000).toFixed(0)}s · ${r.total ?? r.finds} relevant (${r.finds} new) · ${r.searches ?? '?'} searches`);
       setLastRun(r);
       setView('run');
@@ -72,6 +85,7 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
     } finally {
       if (timer.current) clearInterval(timer.current);
       setBusy('');
+      setProgress('');
     }
   }
   async function setStat(f: Find, s: Find['status'] | 'delete') {
@@ -148,6 +162,7 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
               <button disabled={!!busy} onClick={() => fresh({ missionId: cur.id })} title="Ignore cached search results and fetch everything new">♻ Fresh results</button>
               <span className="seg"><button className={depth === 'deep' ? 'on' : ''} onClick={() => setDepth('deep')}>Deep</button><button className={depth === 'quick' ? 'on' : ''} onClick={() => setDepth('quick')}>Quick</button></span>
             </div>
+            {busy && progress && <div className="small muted" style={{ marginTop: 6 }}>⏳ {progress}</div>}
           </div>
           <div className="hero-stats">
             <div><b>{d.finds.filter((f) => f.mission === cur.id).length}</b><span>saved finds</span></div>
@@ -155,7 +170,7 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
           </div>
         </div>
       )}
-      {cur && hasFeed(cur.id) && <FeedPanel missionId={cur.id} />}
+      {cur && hasFeed(cur.id) && <FeedPanel missionId={cur.id} toast={toast} />}
       {cur && (cur.id === 'li-posts' || cur.id === 'x-posts') && <LiveFeed kind={cur.id === 'li-posts' ? 'li' : 'x'} query={liveQ} toast={toast} />}
       {cur && (cur.id === 'li-posts' || cur.id === 'x-posts') && <div className="small muted" style={{ margin: '4px 2px 8px' }}>Below: hiring <b>posts</b> found through web search (last 24 h only, date proven from the post id). Search engines index posts with a delay, so this list is smaller than the live panel — that is normal, not a fault.</div>}
       {!cur && <>
@@ -267,7 +282,7 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
       {view === 'run' && lastRun && !lastRun.findIds && <div className="empty">This run is from before the upgrade. Run a mission or a search to see its results here.</div>}
 
       <div className="finds">
-        {finds.slice(0, 400).map((f) => <FindCard key={f.id} f={f} onStat={setStat} onWatch={watch} onFit={() => setFit({ id: f.id, title: f.title, company: f.company, location: f.location, url: f.url, description: f.snippet })} onOutreach={onOutreach} />)}
+        {finds.slice(0, 400).map((f) => <FindCard key={f.id} f={f} onStat={setStat} onWatch={watch} onFit={() => setFit({ id: f.id, title: f.title, company: f.company, location: f.location, url: f.url, description: f.snippet })} onOutreach={onOutreach} toast={toast} />)}
         {olderHidden > 0 && <div className="small muted" style={{ margin: '4px 0 8px' }}>{olderHidden} result{olderHidden > 1 ? 's' : ''} hidden (LinkedIn / X older than 24 h or with no provable date, or others outside “{AGE_LABEL[age]}”).</div>}
         {!finds.length && (view === 'all' || lastRun?.findIds) && <div className="empty">Nothing here{kind ? ' for this type' : ''}. {view === 'run' ? 'Try “All saved finds”, a Deep search, or a different mission.' : ''}</div>}
       </div>
@@ -296,7 +311,7 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
   );
 }
 
-function FindCard({ f, onStat, onWatch, onFit, onOutreach }: { f: Find; onStat: (f: Find, s: Find['status']) => void; onWatch: (f: Find) => void; onFit: () => void; onOutreach?: (company: string, role: string) => void }) {
+function FindCard({ f, onStat, onWatch, onFit, onOutreach, toast }: { f: Find; onStat: (f: Find, s: Find['status']) => void; onWatch: (f: Find) => void; onFit: () => void; onOutreach?: (company: string, role: string) => void; toast: (s: string) => void }) {
   const [more, setMore] = useState(false);
   const isPost = f.kind === 'post';
   const where = f.locTags?.includes('BLR') ? ['b-blr', 'Bengaluru'] : f.locTags?.includes('REMOTE_IN') ? ['b-ok', 'Remote · India OK'] : f.location ? ['b-skip', f.location.slice(0, 40)] : ['b-skip', 'location not stated'];
@@ -329,6 +344,8 @@ function FindCard({ f, onStat, onWatch, onFit, onOutreach }: { f: Find; onStat: 
         <a className="btn primary small-btn" href={f.url} target="_blank" rel="noreferrer noopener">{isPost ? 'Open post' : f.kind === 'job' ? 'Apply' : 'Open'}</a>
         {f.kind === 'company' && f.ats ? <button className="small-btn" onClick={() => onWatch(f)}>👁 Watch board</button> : <button className="small-btn" onClick={onFit}>✨ Fit</button>}
         {onOutreach && (f.company || f.author) && <button className="small-btn" onClick={() => onOutreach(f.company || (f.author || '').replace(/\s*\(@.*$/, ''), f.title)}>✉ People</button>}
+        {f.kind !== 'company' && <ReachButton item={{ title: f.title, company: f.company, url: f.url, text: f.snippet, location: f.location, author: f.author }} toast={toast} />}
+        <SaveButton item={{ title: f.title, company: f.company, url: f.url, text: `${f.snippet || ''}${f.applyHow ? `\nHow to apply: ${f.applyHow}` : ''}`, location: f.location, author: f.author }} toast={toast} folder={isPost ? 'Saved posts' : 'Saved jobs'} label="🔖 Notepad" />
         <button className="small-btn" onClick={() => onStat(f, 'saved')}>Save</button>
         <button className="small-btn" onClick={() => onStat(f, 'applied')}>Applied</button>
         <button className="small-btn danger" onClick={() => onStat(f, 'dismissed')}>Dismiss</button>

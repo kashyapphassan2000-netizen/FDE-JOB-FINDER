@@ -4,6 +4,7 @@ import type { Category, Domain, Job, TrackStatus } from '@/lib/types';
 import { ago, api, setTrack, STATUS_LABEL, type JobsPayload } from './api';
 import { scoreJob, type Profile } from '@/lib/relevance';
 import FitDrawer from './FitDrawer';
+import { ReachButton } from './ReachButton';
 import ExportButton from './ExportButton';
 
 const rank = (tags: string[]) => (tags.includes('BLR') ? 0 : tags.includes('REMOTE_IN') ? 1 : tags.includes('UNSTATED') ? 2 : 3);
@@ -237,6 +238,7 @@ export default function JobsTab({ data, reload, toast, onOutreach, onApply }: { 
                 <div className="jr-actions">
                   <a className="jr-apply" href={j.url} target="_blank" rel="noreferrer noopener">Apply now</a>
                   <button className="jr-ghost" onClick={() => setFit(j)}>✨ Ask AI: am I a fit?</button>
+                  <ReachButton item={{ title: j.title, company: j.company, url: j.url, location: j.location, text: j.description?.slice(0, 1500) }} toast={toast} />
                   {onOutreach && <button className="jr-ghost" onClick={() => onOutreach(j.company, j.title)}>✉ Find people</button>}
                   {onApply && !/linkedin\.com/.test(j.url) && <button className="jr-ghost" title="Read this job's application questions and answer them from your CV" onClick={() => onApply(j.url, j.title, j.company)}>⚡ Apply</button>}
                   <button className={`jr-icon ${track[j.id]?.status === 'saved' ? 'on' : ''}`} title="Save" onClick={() => mark(j, track[j.id]?.status === 'saved' ? 'none' : 'saved')}>{track[j.id]?.status === 'saved' ? '♥' : '♡'}</button>

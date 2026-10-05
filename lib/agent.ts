@@ -7,7 +7,8 @@ import { aiConfigured, chatJson } from './llm';
 import { getCv } from './cv';
 import { getSettings } from './settings';
 import { DEFAULT_COMPANIES } from './companies';
-import { getJSON, hdel, hgetall, hset, setJSON } from './store';
+import { delKey, getJSON, hdel, hgetall, hset, setJSON } from './store';
+import { parseQuery } from './nlq';
 import { loadVault } from './secrets';
 import { pool } from './http';
 import { fetchTweet, tweetIdFromUrl } from './xposts';
@@ -105,7 +106,7 @@ export const MISSIONS: Mission[] = [
     queries: [`(Bengaluru OR Bangalore) ("edge AI" OR "on-device AI" OR "embedded AI") engineer hiring`, `(Bengaluru OR Bangalore) semiconductor "machine learning engineer" OR "AI engineer"`, `"ML compiler" OR "AI compiler" engineer Bengaluru hiring`, `robotics startup Bengaluru "AI engineer" OR "perception engineer" OR "forward deployed"`, `(NVIDIA OR Qualcomm OR AMD OR Intel OR Samsung) Bengaluru "AI" engineer LLM hiring`, `"TinyML" OR "on-device LLM" engineer remote OR Bengaluru`, `automotive "AI engineer" OR "GenAI" Bengaluru (Bosch OR Mercedes OR Continental OR Harman)`, `"ML inference" OR "model optimization" engineer Bengaluru chip`] },
   { id: 'new-startups', title: 'Newly funded AI startups hiring', desc: 'Excel "Funding-alert pre-JD": startups that just raised — reach the founder before the JD exists', recency: 'week',
     queries: [`AI startup raises seed OR "Series A" Bengaluru hiring engineers`, `"raised" "Series A" AI agents startup hiring "forward deployed"`, `YC AI startup India hiring "founding engineer"`, `site:inc42.com funding AI startup`, `site:yourstory.com funding AI startup raises`, `site:entrackr.com AI startup raises`, `site:techcrunch.com AI startup raises Series A`, `"just raised" AI startup "we're hiring" engineers`, `YC W26 OR S26 AI startup India founders hiring`, `seed round AI agents startup India 2026 hiring`, `site:economictimes.indiatimes.com AI startup funding hiring`] },
-  { id: 'communities', title: 'Communities & newsletters', desc: 'Excel channels: HN Who is Hiring, r/developersIndia referrals, r/MachineLearning, Latent Space, Indie Hackers, Product Hunt AI launches', recency: 'month',
+  { id: 'communities', title: 'Communities & newsletters', desc: 'Excel channels: HN Who is Hiring, r/developersIndia referrals, r/MachineLearning, Latent Space, Indie Hackers, Product Hunt AI launches', recency: 'week',
     queries: [`site:news.ycombinator.com "who is hiring" remote AI engineer`, `site:reddit.com/r/developersIndia referral AI engineer`, `site:reddit.com/r/MachineLearning hiring remote`, `site:indiehackers.com hiring AI engineer`, `site:latent.space jobs AI engineer`, `site:producthunt.com AI launch hiring`, `site:reddit.com/r/forhire "AI engineer" OR "ML engineer"`, `site:reddit.com/r/MLjobs hiring remote`, `site:discord.com OR site:slack.com AI jobs channel India`, `site:dev.to OR site:hashnode.com hiring AI engineer`, `"who wants to be hired" OR "who is hiring" AI remote India`] },
 ];
 
@@ -148,6 +149,7 @@ export function isFreshFind(f: Find): boolean {
   const t = findTime(f);
   if (t === null) return false;
   if (isLinkedInOrX(f.url)) return Date.now() - t <= FRESH_HOURS * 36e5; // STRICT 24 h, proven date only
+  if (f.mission === 'communities' || /reddit\.com|news\.ycombinator\.com|t\.me\//i.test(f.url)) return Date.now() - t < 7 * 864e5; // community threads go stale fast: 7 days
   return Date.now() - t < FIND_FRESH_DAYS * 864e5; // everything else: 30 days
 }
 
@@ -222,7 +224,7 @@ function fallbackPlan(prompt: string): string[] {
   ];
 }
 
-export async function runAgent(opts: { missionId?: string; prompt?: string; budgetMs?: number; depth?: 'quick' | 'deep'; alert?: boolean; recency?: Recency }): Promise<AgentRun> {
+export async function runAgent(opts: { missionId?: string; prompt?: string; budgetMs?: number; depth?: 'quick' | 'deep'; alert?: boolean; recency?: Recency; runId?: string }): Promise<AgentRun> {
   const t0 = Date.now();
   const budget = opts.budgetMs ?? 260000;
   const left = () => budget - (Date.now() - t0);
@@ -230,8 +232,13 @@ export async function runAgent(opts: { missionId?: string; prompt?: string; budg
   await loadVault();
   const settings = await getSettings();
   const mission = MISSIONS.find((m) => m.id === opts.missionId);
-  const run: AgentRun = { id: `r${Date.now().toString(36)}`, mission: mission?.id || 'custom', prompt: opts.prompt, depth, startedAt: new Date().toISOString(), ms: 0, queries: [], engines: availableEngines().map((e) => e.id), ai: null, log: [], finds: 0, total: 0, companies: 0, searches: 0, findIds: [] };
-  const log = (s: string) => run.log.push(`${((Date.now() - t0) / 1000).toFixed(1)}s ${s}`);
+  const run: AgentRun = { id: opts.runId || `r${Date.now().toString(36)}`, mission: mission?.id || 'custom', prompt: opts.prompt, depth, startedAt: new Date().toISOString(), ms: 0, queries: [], engines: availableEngines().map((e) => e.id), ai: null, log: [], finds: 0, total: 0, companies: 0, searches: 0, findIds: [] };
+  let lastFlush = 0;
+  const log = (s: string) => {
+    run.log.push(`${((Date.now() - t0) / 1000).toFixed(1)}s ${s}`);
+    // live progress for the page while a background run works (throttled)
+    if (opts.runId && Date.now() - lastFlush > 3000) { lastFlush = Date.now(); setJSON(`agent:live:${opts.runId}`, { at: run.startedAt, log: run.log.slice(-30) }).catch(() => null); }
+  };
   const hasAI = await aiConfigured();
   const finds: Find[] = [];
   const now = new Date().toISOString();
@@ -410,6 +417,9 @@ ${scope ? `SCOPE (strict): ${scope}\n` : ''}Request: ${opts.prompt}\nJSON: {"que
       if (!queries.length || queries === mission?.queries) queries = mission ? mission.queries.map((q) => `${q} ${opts.prompt}`.slice(0, 250)) : fallbackPlan(opts.prompt);
       else if (mission && depth === 'deep') queries = [...queries, ...mission.queries.slice(0, rec === 'day' ? 3 : 6)]; // your request + the tab's standard sweep
       if (wantsPosts && !queries.some((q) => q.includes('site:x.com'))) queries.push(...MISSIONS[0].queries.slice(0, 4));
+      // ALWAYS search the user's own words too (exactly as typed, and as keywords + place) — the AI plan is extra, never instead
+      const nl = parseQuery(opts.prompt);
+      queries = [opts.prompt.trim(), `${nl.keywords} ${nl.location}${nl.remote ? ' remote' : ''}`.trim(), ...queries].filter(Boolean);
     } else if (depth === 'quick') queries = queries.slice(0, 6);
     queries = Array.from(new Set(scopeQ(queries))); // X tab → only site:x.com queries, LinkedIn tab → only site:linkedin.com/posts
     run.queries = [...queries];
@@ -517,7 +527,8 @@ ${scope ? `SCOPE (strict): ${scope}\n` : ''}Request: ${opts.prompt}\nJSON: {"que
   }
   run.ms = Date.now() - t0;
   const runs = await getJSON<AgentRun[]>('agent:runs', []);
-  await setJSON('agent:runs', [run, ...runs].slice(0, 40));
+  await setJSON('agent:runs', [run, ...runs.filter((r) => r.id !== run.id)].slice(0, 40));
+  if (opts.runId) await delKey(`agent:live:${opts.runId}`).catch(() => null);
   return run;
 }
 

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { ago, api, type JobsPayload } from './api';
 import type { Job } from '@/lib/types';
 import ExportButton from './ExportButton';
+import { ReachButton, SaveButton } from './ReachButton';
 
 /** Live jobs for an agent tab, straight from the job feed (every ATS board + LinkedIn, refreshed hourly) — no web search needed. */
 const FILTERS: Record<string, { title: string; test: (j: Job) => boolean }> = {
@@ -15,14 +16,20 @@ const FILTERS: Record<string, { title: string; test: (j: Job) => boolean }> = {
 };
 export function hasFeed(id: string) { return Boolean(FILTERS[id]); }
 
-export default function FeedPanel({ missionId }: { missionId: string }) {
+// communities move fast: only the last 3 days; other tabs: last 30 days
+const MAX_AGE_H: Record<string, number> = { communities: 72 };
+
+export default function FeedPanel({ missionId, toast = () => {} }: { missionId: string; toast?: (s: string) => void }) {
   const [d, setD] = useState<JobsPayload | null>(null);
   const [all, setAll] = useState(false);
   useEffect(() => { api<JobsPayload>('/api/jobs').then(setD).catch(() => null); }, []);
   const f = FILTERS[missionId];
   if (!f) return null;
   const when = (j: Job) => j.postedAt || j.firstSeen;
-  const jobs = (d?.jobs || []).filter(f.test).sort((a, b) => when(b).localeCompare(when(a)));
+  const maxH = MAX_AGE_H[missionId] || 720;
+  const matching = (d?.jobs || []).filter(f.test);
+  const jobs = matching.filter((j) => Date.now() - Date.parse(when(j)) <= maxH * 36e5).sort((a, b) => when(b).localeCompare(when(a)));
+  const older = matching.length - jobs.length;
   const shown = all ? jobs : jobs.slice(0, 25);
   return (
     <div className="panel live-feed">
@@ -32,8 +39,9 @@ export default function FeedPanel({ missionId }: { missionId: string }) {
       </div>
       <p className="small muted" style={{ margin: '4px 0 8px' }}>Straight from every company job board + LinkedIn (refreshed every hour and whenever the app is opened). Newest first. The agent results below add posts and pages found by web search.</p>
       {!d && <div className="small muted">Loading…</div>}
-      {d && !jobs.length && <div className="small muted">No open roles of this kind in the feed right now.</div>}
-      {shown.map((j) => <div key={j.id} className="tline"><b><a href={j.url} target="_blank" rel="noreferrer">{j.title} ↗</a></b> — {j.company} <span className="small muted">· {j.location} · {j.postedAt ? `posted ${ago(j.postedAt)} ago` : `seen ${ago(j.firstSeen)} ago`} · {j.sources.join('/')}</span></div>)}
+      {d && !jobs.length && <div className="small muted">No open roles of this kind in the last {maxH / 24} days right now.</div>}
+      {older > 0 && <div className="small muted">{older} older item{older > 1 ? 's' : ''} (over {maxH / 24} days) hidden to keep this fresh.</div>}
+      {shown.map((j) => <div key={j.id} className="tline"><b><a href={j.url} target="_blank" rel="noreferrer">{j.title} ↗</a></b> — {j.company} <span className="small muted">· {j.location} · {j.postedAt ? `posted ${ago(j.postedAt)} ago` : `seen ${ago(j.firstSeen)} ago`} · {j.sources.join('/')}</span> <span className="row" style={{ gap: 6, display: 'inline-flex' }}><ReachButton item={{ title: j.title, company: j.company, url: j.url, location: j.location, text: j.description?.slice(0, 1500) }} toast={toast} /><SaveButton item={{ title: j.title, company: j.company, url: j.url, location: j.location, text: j.description?.slice(0, 1500) }} toast={toast} folder={missionId === 'communities' ? 'Saved posts' : 'Saved jobs'} /></span></div>)}
       {jobs.length > 25 && <button className="small-btn" onClick={() => setAll(!all)}>{all ? 'Show less' : `Show all ${jobs.length}`}</button>}
     </div>
   );

@@ -1,4 +1,6 @@
-import { linkedinLive, xLive } from '@/lib/live';
+import { linkedinLive, postsLive, xLive } from '@/lib/live';
+import { after } from 'next/server';
+import { runAs, tenant } from '@/lib/tenant';
 import { bindTenant } from '@/lib/auth';
 import { spendGuard } from '@/lib/limits';
 import { guard, bad } from '@/lib/guard';
@@ -31,7 +33,15 @@ export async function GET(req: Request) {
   const live = new URL(req.url).searchParams.get('live');
   if (live) {
     const q = (new URL(req.url).searchParams.get('q') || '').slice(0, 120);
-    return Response.json(live === 'x' ? await xLive(q) : await linkedinLive(q));
+    return Response.json(live === 'x' ? await xLive(q) : live === 'lip' ? await postsLive('li', q) : await linkedinLive(q));
+  }
+  // a background run: poll until it lands in the run list
+  const runId = new URL(req.url).searchParams.get('run');
+  if (runId) {
+    const done = (await getJSON<AgentRun[]>('agent:runs', [])).find((r) => r.id === runId);
+    if (done) return Response.json({ done: true, run: done });
+    const live = await getJSON<{ at: string; log: string[] } | null>(`agent:live:${runId}`, null);
+    return Response.json({ done: false, log: live?.log || [], startedAt: live?.at || null, lost: !live });
   }
   const [finds, runs] = await Promise.all([hgetall<Find>('agent:finds'), getJSON<AgentRun[]>('agent:runs', [])]);
   return Response.json({
@@ -61,7 +71,15 @@ export async function POST(req: Request) {
   if (lim) return lim;
   const { missionId, prompt, depth } = (await req.json()) as { missionId?: string; prompt?: string; depth?: 'quick' | 'deep' };
   if (!missionId && !prompt?.trim()) return bad('mission or prompt required');
-  return Response.json(await runAgent({ missionId, prompt: prompt?.slice(0, 500), budgetMs: 275000, depth: depth || 'deep' }));
+  // runs in the BACKGROUND (after the answer is sent) → the browser never waits on one long request, so no 504 gateway timeout.
+  // The page polls GET ?run=<id> every few seconds.
+  const runId = `r${Date.now().toString(36)}`;
+  const who = tenant();
+  await setJSON(`agent:live:${runId}`, { at: new Date().toISOString(), log: ['queued'] });
+  after(() => runAs(who, async () => {
+    await runAgent({ missionId, prompt: prompt?.slice(0, 500), budgetMs: 270000, depth: depth || 'deep', runId }).catch(() => null);
+  }));
+  return Response.json({ started: true, id: runId });
 }
 
 export async function PATCH(req: Request) {
