@@ -6,7 +6,7 @@ const PUBLIC = [/^\/login/, /^\/api\/auth\//, /^\/api\/cron/, /^\/api\/health/, 
 
 // Owner-only areas: settings, API keys / AI providers, access & limits, sources, refresh of the shared feed,
 // digest / test alerts, job alerts for other people, adding companies to the shared boards list.
-const OWNER_ONLY = [/^\/api\/(settings|vault|sources|digest|notify|subscribers|companies\/detect|refresh|access)(\/|$)/, /^\/api\/ai\/(profiles|models|test)(\/|$)/];
+const OWNER_ONLY = [/^\/api\/(settings|vault|sources|digest|notify|subscribers|companies\/detect|refresh|access|unlimited)(\/|$)/, /^\/api\/ai\/(profiles|models|test)(\/|$)/];
 // shared market data: everyone can read, only the owner can force a rescan / edit
 const OWNER_WRITE = [/^\/api\/(discover|intel|trends|platforms|opportunities|directory|radar|obs)(\/|$)/];
 

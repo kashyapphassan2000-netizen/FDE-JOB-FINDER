@@ -68,14 +68,14 @@ export const ENGINES: Engine[] = [
     },
   },
   {
-    id: 'exa', freeMonthly: 1000, label: 'Exa', needs: 'EXA_API_KEY',
+    id: 'exa', freeMonthly: 1500, label: 'Exa', needs: 'EXA_API_KEY',
     run: async (q, n, recent) => {
       const d = await j('https://api.exa.ai/search', { method: 'POST', headers: { 'x-api-key': secret('EXA_API_KEY') }, body: JSON.stringify({ query: q, numResults: n, type: 'auto', ...(recent !== 'any' ? { startPublishedDate: since(recent) } : {}), contents: { highlights: { maxCharacters: 400 } } }) });
       return (d.results || []).map((r: any) => ({ title: r.title || '', url: r.url, snippet: (r.highlights || []).join(' ') || r.text || '', date: r.publishedDate || null, engine: 'exa' }));
     },
   },
   {
-    id: 'linkup', freeMonthly: 1000, label: 'Linkup', needs: 'LINKUP_API_KEY',
+    id: 'linkup', freeMonthly: 4000, label: 'Linkup', needs: 'LINKUP_API_KEY',
     run: async (q, n, recent) => {
       const d = await j('https://api.linkup.so/v1/search', { method: 'POST', headers: { Authorization: `Bearer ${secret('LINKUP_API_KEY')}` }, body: JSON.stringify({ q, depth: 'standard', outputType: 'searchResults' }) });
       return (d.results || []).slice(0, n).map((r: any) => ({ title: r.name || '', url: r.url, snippet: r.content || '', engine: 'linkup' }));
@@ -89,7 +89,7 @@ export const ENGINES: Engine[] = [
     },
   },
   {
-    id: 'brave', freeMonthly: 2000, label: 'Brave', needs: 'BRAVE_API_KEY',
+    id: 'brave', freeMonthly: 1000, label: 'Brave', needs: 'BRAVE_API_KEY',
     run: async (q, n, recent) => {
       const d = await j(`https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(q)}&count=${Math.min(n, 20)}${recent !== 'any' ? `&freshness=p${recent[0]}` : ''}`, { method: 'GET', headers: { 'X-Subscription-Token': secret('BRAVE_API_KEY'), Accept: 'application/json' } });
       return (d.web?.results || []).map((r: any) => ({ title: stripHtml(r.title, 200), url: r.url, snippet: stripHtml(r.description || '', 400), date: r.age || null, engine: 'brave' }));
@@ -123,6 +123,21 @@ async function park(id: string, msg: string) {
   const until = isQuota(msg) ? Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1) : Date.now() + 36e5;
   await hset('search:dead', id, { until, reason: msg.slice(0, 200), at: Date.now() });
 }
+/** Run one engine directly (bypasses cache + rotation) — used by the Unlimited setup “Test” buttons. */
+export async function testEngine(id: string): Promise<{ ok: boolean; n: number; ms: number; sample: string[]; error?: string }> {
+  const e = ENGINES.find((x) => x.id === id);
+  if (!e) return { ok: false, n: 0, ms: 0, sample: [], error: 'unknown engine' };
+  if (!secret(e.needs)) return { ok: false, n: 0, ms: 0, sample: [], error: `${e.needs} is not set` };
+  const t = Date.now();
+  try {
+    const r = await e.run('forward deployed engineer bengaluru hiring', 5, 'week');
+    await hset('search:dead', id, { until: 0, reason: '', at: Date.now() }); // a working key un-parks the engine
+    return { ok: r.length > 0, n: r.length, ms: Date.now() - t, sample: r.slice(0, 3).map((x) => x.url) };
+  } catch (err) {
+    return { ok: false, n: 0, ms: Date.now() - t, sample: [], error: (err as Error).message.slice(0, 200) };
+  }
+}
+
 export async function searchStatus(): Promise<{ configured: string[]; live: string[]; parked: { id: string; until: number; reason: string }[] }> {
   const dead = await hgetall<{ until: number; reason: string }>('search:dead');
   const conf = availableEngines();

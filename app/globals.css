@@ -660,3 +660,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--brand); box-shad
 .live-feed { border: 1px solid rgba(0,240,160,.45); }
 .live-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #e5484d; margin-right: 4px; box-shadow: 0 0 0 0 rgba(229,72,77,.6); animation: livepulse 1.6s infinite; vertical-align: middle; }
 @keyframes livepulse { 0% { box-shadow: 0 0 0 0 rgba(229,72,77,.6); } 70% { box-shadow: 0 0 0 8px rgba(229,72,77,0); } 100% { box-shadow: 0 0 0 0 rgba(229,72,77,0); } }
+.un-opt { border: 1px solid var(--line, #e3e8ef); border-radius: 12px; padding: 9px 12px; margin: 6px 0; }
+.un-opt.on { border-color: rgba(43,209,126,.6); background: rgba(43,209,126,.05); } .un-opt.warn { border-color: rgba(245,180,0,.6); }
+.un-tier { font-size: 10px; font-weight: 800; letter-spacing: .5px; padding: 2px 7px; border-radius: 99px; margin-right: 4px; }
+.un-unl { background: #00f0a0; color: #08110d; } .un-mon { background: #d6f5ff; color: #04506b; } .un-once { background: #eee6ff; color: #4a2a91; } .un-paid { background: #fff1d6; color: #7a4a00; } .un-closed { background: #eee; color: #888; }

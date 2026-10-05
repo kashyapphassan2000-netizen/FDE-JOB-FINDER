@@ -18,6 +18,7 @@ import AutopilotPanel from '@/components/AutopilotPanel';
 import ObservabilityTab from '@/components/ObservabilityTab';
 import NotepadTab from '@/components/NotepadTab';
 import ApplyTab from '@/components/ApplyTab';
+import UnlimitedTab from '@/components/UnlimitedTab';
 import KnowledgeGraph from '@/components/KnowledgeGraph';
 import CareersSearchTab from '@/components/CareersSearchTab';
 import AnalyzerTab from '@/components/AnalyzerTab';
@@ -42,11 +43,11 @@ const NAV = [
   { group: 'Agent searches', items: [['X / Twitter', '𝕏'], ['LinkedIn posts', '🔗'], ['Hidden Bengaluru', '📍'], ['Remote India', '🏠'], ['US / EU remote', '🌍'], ['Semi & Embedded AI', '🔧'], ['New startups', '🚀'], ['Communities', '👥']] },
   { group: 'Track', items: [['Tracker', '📌'], ['CV', '📄'], ['Notepad', '📝']] },
   { group: 'Library', items: [['Excel sheets', '📊'], ['Excel coverage map', '🗺️']] },
-  { group: 'Setup', items: [['Observability', '🩺'], ['Sources & APIs', '🔌'], ['AI & Keys', '🔑'], ['Settings', '⚙️']] },
+  { group: 'Setup', items: [['Unlimited setup', '🔓'], ['Observability', '🩺'], ['Sources & APIs', '🔌'], ['AI & Keys', '🔑'], ['Settings', '⚙️']] },
 ] as const;
 type Tab = (typeof NAV)[number]['items'][number][0];
 const ALL: Tab[] = NAV.flatMap((g) => g.items.map((i) => i[0] as Tab));
-const MEMBER_HIDDEN = ['Sources & APIs', 'AI & Keys', 'Settings', 'Job alerts for others'] as const;
+const MEMBER_HIDDEN = ['Sources & APIs', 'AI & Keys', 'Settings', 'Job alerts for others', 'Unlimited setup'] as const;
 const MISSION_TABS: Record<string, string> = {
   'X / Twitter': 'x-posts', 'LinkedIn posts': 'li-posts', 'Hidden Bengaluru': 'blr-hidden', 'Remote India': 'remote-india',
   'US / EU remote': 'global-remote', 'Semi & Embedded AI': 'domains', 'New startups': 'new-startups', Communities: 'communities',
@@ -167,7 +168,7 @@ export default function Home() {
           </div>
         </header>
         {me?.search && me.search.live === 0 && (
-          <div className="notice err"><b>🔍 Web search is OFF — {me.search.configured ? `free quota used up (${me.search.parked.join(', ')})` : 'no search key'}.</b> Everything that searches the web is paused: X / LinkedIn <i>posts</i>, agent tabs, deep research, job analyzer research, referrals, “Search any role”. Still LIVE without search: Jobs (all ATS + LinkedIn jobs), LinkedIn live panel, careers search, radar, trends, layoffs. {isOwner ? <>Fix in 2 minutes (free, no card): <b>Serper</b> (serper.dev → 2,500 free searches → SERPER_API_KEY) or <b>Google Programmable Search</b> (100/day free → GOOGLE_CSE_KEY + GOOGLE_CSE_CX) or <b>Jina</b> (jina.ai → JINA_API_KEY) in <b>AI &amp; Keys</b>. Tavily resets on the 1st.</> : 'Ask the owner to add a free search key.'}</div>
+          <div className="notice err"><b>🔍 Web search is OFF — {me.search.configured ? `free quota used up (${me.search.parked.join(', ')})` : 'no search key'}.</b> Everything that searches the web is paused: X / LinkedIn <i>posts</i>, agent tabs, deep research, job analyzer research, referrals, “Search any role”. Still LIVE without search: Jobs (all ATS + LinkedIn jobs), LinkedIn live panel, careers search, radar, trends, layoffs. {isOwner ? <>Fix: open <button className="small-btn primary" onClick={() => go('Unlimited setup')}>🔓 Unlimited setup</button> — your own SearXNG (unlimited), Linkup (~4,000/month free), Exa, Firecrawl, Serper… each with steps and a Save &amp; test box. Tavily resets on the 1st.</> : 'Ask the owner to add a free search key.'}</div>
         )}
         {me && !isOwner && !me.profileSet && tab !== 'Careers search' && (
           <div className="notice warn">👋 Welcome {me.email}. This is <b>your own private space</b> — your CV, tracker, knowledge graph, agents and job matches are yours only. First, <b>map your job role &amp; locations</b> so every page ranks jobs for you: <button className="small-btn primary" onClick={() => go('Careers search')}>Set my job role →</button></div>
@@ -181,6 +182,7 @@ export default function Home() {
         {tab === 'Agent studio' && <StudioTab toast={setToast} />}
         {tab === 'Life mentor' && <MentorTab toast={setToast} seed={mentorSeed} openGraph={() => go('Knowledge graph')} />}
         {tab === 'Knowledge graph' && <KnowledgeGraph toast={setToast} onAsk={(q) => { setMentorSeed({ q, n: Date.now() }); go('Life mentor'); }} />}
+        {isOwner && tab === 'Unlimited setup' && <UnlimitedTab toast={setToast} onAiKeys={() => go('AI & Keys')} />}
         {tab === 'Auto-apply' && <ApplyTab toast={setToast} seedUrl={applySeed} />}
         {tab === 'Observability' && <ObservabilityTab toast={setToast} onOpenAgent={() => go('Agent studio')} />}
         {tab === 'Notepad' && <NotepadTab toast={setToast} onUse={(text, where) => { if (where === 'mentor') { setMentorSeed({ q: text, n: Date.now() }); go('Life mentor'); } else if (where === 'analyze') { setAnaSeed({ url: /^https?:\/\//.test(text.trim()) ? text.trim() : '', company: '', n: Date.now() }); go('Job analyzer & prep'); } else { navigator.clipboard.writeText(text).then(() => setToast('Copied — paste it into any agent chat')); go('Agent studio'); } }} />}

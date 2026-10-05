@@ -1,20 +1,23 @@
+# Minimal SearXNG config for FDE Job Finder: JSON API on, bot limiter off (only your app calls it),
+# a spread of upstream engines so no single one rate-limits you.
 use_default_settings: true
 general:
   instance_name: "fde-search"
-server:
-  secret_key: "set-by-SEARXNG_SECRET-env"
-  limiter: false
-  image_proxy: false
-  public_instance: false
 search:
   safe_search: 0
   formats:
     - html
     - json
+server:
+  # set SEARXNG_SECRET as a secret in your host (any long random string)
+  secret_key: "change-me-or-set-SEARXNG_SECRET"
+  limiter: false
+  public_instance: false
+  image_proxy: false
 outgoing:
   request_timeout: 6.0
   max_request_timeout: 12.0
-  pool_connections: 100
+  pool_connections: 50
 engines:
   - name: google
     disabled: false

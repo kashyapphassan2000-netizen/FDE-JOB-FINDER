@@ -1,9 +1,6 @@
-# Your own SearXNG metasearch (Google/Bing/DuckDuckGo/Brave/Startpage/Mojeek… in one) = unlimited free web search for the AI agent.
-# Hosted free as a PRIVATE Hugging Face Docker Space (the app sends your HF token, nobody else can use it).
+# Your own SearXNG = unlimited web search for FDE Job Finder (no per-search quota).
+# Works on Hugging Face Spaces (free CPU), Render, Railway, Fly.io, any VM or your PC.
 FROM searxng/searxng:latest
-USER root
 COPY settings.yml /etc/searxng/settings.yml
-RUN chown -R 1000:1000 /etc/searxng /var/cache/searxng 2>/dev/null || true
-ENV SEARXNG_PORT=7860 SEARXNG_BIND_ADDRESS=0.0.0.0 GRANIAN_PORT=7860 GRANIAN_HOST=0.0.0.0
-USER 1000
-EXPOSE 7860
+ENV SEARXNG_SETTINGS_PATH=/etc/searxng/settings.yml
+EXPOSE 8080
