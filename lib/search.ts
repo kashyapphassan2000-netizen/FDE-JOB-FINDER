@@ -139,6 +139,22 @@ export async function testEngine(id: string): Promise<{ ok: boolean; n: number; 
   }
 }
 
+/** Run ONE engine directly (no rotation). Free path for 24×7 radars: SearXNG is self-hosted = unlimited.
+ *  Returns [] on failure; a used-up quota parks the engine like the normal search does. */
+export async function runEngine(id: string, q: string, n = 20, rec: Recency = 'week'): Promise<WebResult[]> {
+  const e = ENGINES.find((x) => x.id === id);
+  if (!e || !secret(e.needs)) return [];
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try { const r = await e.run(q, n, rec); await count(id); return r; }
+    catch (err) {
+      const m = (err as Error).message;
+      if (isQuota(m) || isRate(m)) { await park(id, m); return []; }
+      if (attempt === 1) return []; // e.g. a free Render instance waking up: one retry
+    }
+  }
+  return [];
+}
+
 export async function searchStatus(): Promise<{ configured: string[]; live: string[]; parked: { id: string; until: number; reason: string }[] }> {
   const dead = await hgetall<{ until: number; reason: string }>('search:dead');
   const conf = availableEngines();

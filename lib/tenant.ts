@@ -28,7 +28,7 @@ export function tenantFor(email: string, ownerEmails: string[]): Tenant {
 }
 
 /** Personal data keys: each user has their own. Everything else is shared. */
-const PERSONAL = new Set(['cv', 'track', 'profile', 'analyses', 'referrals', 'fit', 'xl', 'outreach:leads', 'agent:finds', 'agent:runs', 'watch:list', 'watch:hits', 'watch:meta', 'watch:migrated', 'sem', 'semvec', 'sem:meta', 'drafts', 'gap:reports', 'notes', 'apply:kits', 'apply:profile', 'reach']);
+const PERSONAL = new Set(['cv', 'track', 'profile', 'analyses', 'referrals', 'fit', 'xl', 'outreach:leads', 'agent:finds', 'agent:runs', 'watch:list', 'watch:hits', 'watch:meta', 'watch:migrated', 'sem', 'semvec', 'sem:meta', 'drafts', 'gap:reports', 'notes', 'apply:kits', 'apply:profile', 'reach', 'pw:config', 'pw:posts', 'pw:contacts', 'pw:meta']);
 const PERSONAL_PREFIX = ['watch:seen:'];
 export function scopedKey(key: string): string {
   const t = tenant();
