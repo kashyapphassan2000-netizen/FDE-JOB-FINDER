@@ -288,8 +288,13 @@ export async function ingestPosts(list: CapturedPost[]): Promise<{ got: number; 
     const postedAt = (x.postedAt && !Number.isNaN(Date.parse(x.postedAt)) ? new Date(x.postedAt).toISOString() : null) || dateFromUrl(url);
     if (!postedAt) { bump('no provable date'); continue; }
     if (Date.now() - Date.parse(postedAt) > c.maxAgeDays * 864e5) { bump(`older than ${c.maxAgeDays * 24} h`); continue; }
-    const text = String(x.text || '').slice(0, 3000);
-    const author = String(x.author || '').replace(/\s+/g, ' ').slice(0, 100);
+    let text = String(x.text || '').slice(0, 3000);
+    let author = String(x.author || '').replace(/\s+/g, ' ').slice(0, 100);
+    // X search results cut long posts (~280 chars) and hide links behind t.co → open the post for the full text + real links
+    if (x.platform === 'x' && (text.length >= 240 || /t\.co\//.test(text))) {
+      const tw = await fetchTweet(tid!, 8000).catch(() => null);
+      if (tw?.text) { text = `${tw.text}${tw.links.length ? `\n${tw.links.join(' ')}` : ''}`.slice(0, 3000); author = `${tw.author} (@${tw.handle})`; }
+    }
     const j = judge(`${text} ${author}`, c);
     if (!j.ok) { bump(j.why || 'filtered'); await hset('pw:rejected', id, Date.now()); continue; }
     const emails = Array.from(new Set((text.match(EMAIL_RX) || []).map((e) => e.toLowerCase().replace(/[.,;:]+$/, '')).filter((e) => !BAD_EMAIL.test(e)))).slice(0, 6);
@@ -344,9 +349,9 @@ export async function runAllRadars(budgetMs = 260000) {
   // 1. live X + LinkedIn posts via Apify (every few hours, within the free monthly credit) — roles of every user
   const { harvest, apifyOn } = await import('./apifyposts');
   if (apifyOn()) {
-    const roles: string[] = [];
-    for (const ns of order) { const u = users[ns]; if (!u?.enabled) continue; const cfg = await runAs(tenantFor(u.email, ownerEmails()), () => getPwConfig()).catch(() => null); if (cfg) roles.push(...cfg.roles, ...cfg.keywords); }
-    const h = await harvest(roles).catch((e) => ({ note: `failed ${(e as Error).message}` }));
+    const roles: string[] = [], places: string[] = [];
+    for (const ns of order) { const u = users[ns]; if (!u?.enabled) continue; const cfg = await runAs(tenantFor(u.email, ownerEmails()), () => getPwConfig()).catch(() => null); if (cfg) { roles.push(...cfg.roles, ...cfg.keywords); places.push(...cfg.places); } }
+    const h = await harvest(roles, { places }).catch((e) => ({ note: `failed ${(e as Error).message}` }));
     out.push(`apify: ${h.note}`);
   }
   for (const ns of order) {

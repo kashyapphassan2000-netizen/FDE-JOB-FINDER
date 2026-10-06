@@ -57,7 +57,7 @@ export const CATALOG: Capability[] = [
     id: 'linkedin', title: '🔗 LinkedIn', unlocks: 'LinkedIn jobs (live) and heavy LinkedIn scraping',
     options: [
       { id: 'liguest', name: 'LinkedIn public job search', tier: 'unlimited', free: 'No key — already live (last 24 h jobs panel + every refresh)', keys: [], url: 'https://www.linkedin.com/jobs', steps: ['Nothing to do — LinkedIn may briefly rate-limit the server; it recovers on its own'] },
-      { id: 'apify', name: 'Apify — LIVE X + LinkedIn posts (minutes old)', tier: 'monthly', free: '$5 credit every month, no card needed — ~6 X sweeps + 2 LinkedIn sweeps a day fit inside it', keys: ['APIFY_TOKEN'], url: 'https://console.apify.com/settings/integrations', steps: ['apify.com → Sign up free (Google login works, no card)', 'Console → Settings → API & Integrations → copy “Personal API token”', 'Paste below → Save & test. The Hiring post radar then fetches live X + LinkedIn posts every few hours by itself'] },
+      { id: 'apify', name: 'Apify — LIVE X + LinkedIn posts (minutes old)', tier: 'monthly', free: '$5 credit every month, no card needed — X every 6 h + LinkedIn every 12 h ≈ $4.2/month fits inside it', keys: ['APIFY_TOKEN'], url: 'https://console.apify.com/settings/integrations', steps: ['apify.com → Sign up free (Google login works, no card)', 'Console → Settings → API & Integrations → copy “Personal API token”', 'Paste below → Save & test. The Hiring post radar then fetches live X + LinkedIn posts every few hours by itself'] },
     ],
   },
   {

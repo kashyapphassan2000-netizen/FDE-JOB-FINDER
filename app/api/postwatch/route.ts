@@ -41,7 +41,7 @@ export async function POST(req: Request) {
       if (u.role !== 'owner') return bad('Only the owner can spend Apify credit', 403);
       const { harvest } = await import('@/lib/apifyposts');
       const c = await getPwConfig();
-      const h = await harvest([...c.roles, ...c.keywords], { force: true });
+      const h = await harvest([...c.roles, ...c.keywords], { force: true, places: c.places });
       const r = await runRadar({ budgetMs: 200000, maxQueries: 4 });
       return Response.json({ ...r, log: [`Apify: ${h.note}`, ...r.log] });
     }

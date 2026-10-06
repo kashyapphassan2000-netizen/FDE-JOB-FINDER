@@ -54,7 +54,7 @@ export default function PostRadarTab({ toast }: { toast: (s: string) => void }) 
         </div>
       </div>
       <div className={`notice ${d.apify?.on ? 'ok' : 'warn'} small`} style={{ marginBottom: 10 }}>
-        {d.apify?.on ? <>🟢 <b>LIVE X + LinkedIn posts via Apify is ON</b> — X every 4 h, LinkedIn every 12 h, posts minutes old, no login. {d.apify.pool} live posts in the pool · credit used this month ${d.apify.spent} of ${d.apify.cap} (free $5/month). {d.apify.owner && <button className="small-btn primary" disabled={!!busy} onClick={() => post({ action: 'live-now' }, 'live')}>{busy === 'live' ? 'Fetching live X + LinkedIn… (1–3 min)' : '⚡ Fetch live posts now'}</button>}</>
+        {d.apify?.on ? <>🟢 <b>LIVE X + LinkedIn posts via Apify is ON</b> — X every 6 h, LinkedIn every 12 h, posts minutes old, no login. {d.apify.pool} live posts in the pool · credit used this month ${d.apify.spent} of ${d.apify.cap} (free $5/month). {d.apify.owner && <button className="small-btn primary" disabled={!!busy} onClick={() => post({ action: 'live-now' }, 'live')}>{busy === 'live' ? 'Fetching live X + LinkedIn… (1–3 min)' : '⚡ Fetch live posts now'}</button>}</>
           : <>🔴 <b>Live X + LinkedIn posts are OFF.</b> Free search engines only see posts hours–days late — that is why the 24 h list is empty. Fix in 2 minutes, free: <b>apify.com → Sign up (Google login, no card) → Settings → API &amp; Integrations → copy the Personal API token → paste it as <code>APIFY_TOKEN</code> in Setup → Unlimited setup (or AI &amp; Keys)</b>. Apify gives $5 credit every month; the radar stays under it automatically.</>}
       </div>
       <div className="panel" style={{ marginBottom: 10 }}>

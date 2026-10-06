@@ -8,7 +8,7 @@ import type { CapturedPost } from './postwatch';
  *  • X:        scraper_one/x-posts-search      — "Latest" search with a last-N-hours window ($0.00025 / tweet + $0.0025 / run)
  *  • LinkedIn: harvestapi/linkedin-post-search — LinkedIn's own post search, last 24 h, newest first (~$0.002 / post)
  * Apify's free plan gives $5 of credit EVERY month → a spend guard keeps us under APIFY_MONTHLY_USD (default 4.5).
- * Posts land in ONE shared pool ('apify:pool'); every user's radar runs them through their own strict filter + AI check.
+ * X 2 queries every 6 h + LinkedIn 1 query every 12 h ≈ $4.2/month. Posts land in ONE shared pool ('apify:pool'); every user's radar runs them through their own strict filter + AI check.
  */
 const X_ACTOR = 'scraper_one~x-posts-search';
 const LI_ACTOR = 'harvestapi~linkedin-post-search';
@@ -56,33 +56,42 @@ export async function apifyLinkedIn(queries: string[], n = 20): Promise<Captured
   }));
 }
 
-/** Search phrases from everyone's radar roles (owner first), as X / LinkedIn boolean queries. */
-function phrases(roles: string[]) {
+/** One short query per role (X caps queries at 100 chars), rotated across sweeps so every role is covered.
+ *  Budget inside the free $5/month: X 2 queries × 20 tweets every 6 h (~$1.8) + LinkedIn 1 query × 20 posts every 12 h (~$2.4). */
+function queries(roles: string[], places: string[], cursor: number) {
+  const uniq = Array.from(new Set(roles.map((r) => r.trim()).filter((r) => r.length > 1))).slice(0, 30);
   const q = (r: string) => (/\s/.test(r) ? `"${r}"` : r);
-  const uniq = Array.from(new Set(roles.map((r) => r.trim()).filter(Boolean))).slice(0, 14);
+  const city = places.find((p) => !/remote|india|anywhere/i.test(p)) || '';
+  const pick = (k: number) => uniq[(cursor + k) % Math.max(1, uniq.length)];
   return {
-    x: `(${uniq.map(q).join(' OR ')}) (hiring OR "we're hiring" OR "we are hiring" OR "join us" OR "looking for" OR "DM me" OR "send your resume") -is:retweet`,
-    li: [`hiring (${uniq.slice(0, 7).map(q).join(' OR ')})`, ...(uniq.length > 7 ? [`hiring (${uniq.slice(7, 14).map(q).join(' OR ')})`] : [])],
+    x: [0, 1].map((k) => `${q(pick(k))} (hiring OR "we're hiring" OR "join us") -is:retweet`.slice(0, 100)),
+    li: [`hiring ${q(pick(0))}${city ? ` ${city}` : ''}`.slice(0, 120)],
   };
 }
 
-/** Hourly from the cron: fetch when due (X every 4 h, LinkedIn every 12 h by default) and the month's credit allows. */
-export async function harvest(roles: string[], opts: { force?: boolean } = {}): Promise<{ x: number; li: number; note: string }> {
+/** Hourly from the cron: fetch when due and the month's credit allows. Roles + places = every user's radar. */
+export async function harvest(roles: string[], opts: { force?: boolean; places?: string[] } = {}): Promise<{ x: number; li: number; note: string }> {
   if (!apifyOn()) return { x: 0, li: 0, note: 'APIFY_TOKEN not set' };
   const b = await apifyBudget();
   if (b.left < 0.05) return { x: 0, li: 0, note: `monthly Apify credit used ($${b.spent} of $${b.cap})` };
-  const meta = await getJSON<{ x?: number; li?: number }>('apify:meta', {});
-  const xEvery = (Number(secret('APIFY_X_EVERY_H')) || 4) * 36e5, liEvery = (Number(secret('APIFY_LI_EVERY_H')) || 12) * 36e5;
-  const p = phrases(roles);
+  const meta = await getJSON<{ x?: number; li?: number; xc?: number; lc?: number }>('apify:meta', {});
+  const xEvery = (Number(secret('APIFY_X_EVERY_H')) || 6) * 36e5, liEvery = (Number(secret('APIFY_LI_EVERY_H')) || 12) * 36e5;
+  const places = opts.places?.length ? opts.places : ['Bengaluru', 'remote'];
   const out: CapturedPost[] = [];
   const notes: string[] = [];
   if (opts.force || !meta.x || Date.now() - meta.x > xEvery) {
-    try { const r = await apifyX(p.x, Math.ceil(xEvery / 36e5) + 1, 40); out.push(...r); notes.push(`X ${r.length}`); meta.x = Date.now(); }
-    catch (e) { notes.push(`X failed: ${(e as Error).message.slice(0, 120)}`); }
+    const qs = queries(roles, places, meta.xc || 0).x;
+    for (const qq of qs) {
+      try { const r = await apifyX(qq, Math.ceil(xEvery / 36e5) + 1, 20); out.push(...r); notes.push(`X "${qq.split(' (')[0]}" ${r.length}`); }
+      catch (e) { notes.push(`X failed: ${(e as Error).message.slice(0, 120)}`); }
+    }
+    meta.x = Date.now(); meta.xc = (meta.xc || 0) + qs.length;
   }
   if (opts.force || !meta.li || Date.now() - meta.li > liEvery) {
-    try { const r = await apifyLinkedIn(p.li, 20); out.push(...r); notes.push(`LinkedIn ${r.length}`); meta.li = Date.now(); }
+    const qs = queries(roles, places, meta.lc || 0).li;
+    try { const r = await apifyLinkedIn(qs, 20); out.push(...r); notes.push(`LinkedIn "${qs[0]}" ${r.length}`); }
     catch (e) { notes.push(`LinkedIn failed: ${(e as Error).message.slice(0, 120)}`); }
+    meta.li = Date.now(); meta.lc = (meta.lc || 0) + 1;
   }
   await setJSON('apify:meta', meta);
   for (const x of out) await hset('apify:pool', x.url.replace(/[?#].*$/, ''), { ...x, at: Date.now() });
