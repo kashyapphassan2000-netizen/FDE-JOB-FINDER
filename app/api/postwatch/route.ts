@@ -20,6 +20,7 @@ export async function GET(req: Request) {
     config, meta, pending: list.filter((p) => !p.sent).length, total: list.length,
     posts: list.slice(0, 500), contacts: Object.values(contacts).sort((a, b) => b.foundAt.localeCompare(a.foundAt)).slice(0, 1000),
     free: st.live.includes('searxng'),
+    apify: await (async () => { const a = await import('@/lib/apifyposts'); return { on: a.apifyOn(), ...(await a.apifyBudget()), pool: (await a.poolPosts()).length, owner: u.role === 'owner' }; })(),
   });
 }
 
@@ -35,6 +36,14 @@ export async function POST(req: Request) {
       const lim = await spendGuard(1);
       if (lim) return lim;
       return Response.json(await runRadar({ budgetMs: 200000, maxQueries: u.role === 'owner' ? 20 : 8 }));
+    }
+    if (b.action === 'live-now') {
+      if (u.role !== 'owner') return bad('Only the owner can spend Apify credit', 403);
+      const { harvest } = await import('@/lib/apifyposts');
+      const c = await getPwConfig();
+      const h = await harvest([...c.roles, ...c.keywords], { force: true });
+      const r = await runRadar({ budgetMs: 200000, maxQueries: 4 });
+      return Response.json({ ...r, log: [`Apify: ${h.note}`, ...r.log] });
     }
     if (b.action === 'email') return Response.json({ note: await emailBatch() });
     if (b.action === 'delete' && b.id) { await hdel('pw:posts', b.id); return Response.json({ ok: true }); }

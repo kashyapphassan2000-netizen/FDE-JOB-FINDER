@@ -8,7 +8,7 @@ import CaptureButton from './CaptureButton';
 type Config = { enabled: boolean; roles: string[]; places: string[]; keywords: string[]; exclude: string[]; platforms: ('x' | 'li')[]; maxAgeDays: number; batch: number; email: string; allowUnstated: boolean };
 type Post = { id: string; platform: 'x' | 'li'; url: string; author: string; text: string; postedAt: string | null; foundAt: string; roles: string[]; place: string; emails: string[]; links: string[]; sent: boolean; ai?: { role: string; company: string; location: string; mode: string; experience: string; salary: string; apply: string; summary: string } };
 type Contact = { email: string; who: string; company: string; platform: 'x' | 'li'; sourceUrl: string; context: string; foundAt: string; postedAt: string | null };
-type State = { config: Config; meta: { lastRun?: string; lastLog?: string[]; lastEmail?: string; sentTotal: number; scanned: number }; pending: number; total: number; posts: Post[]; contacts: Contact[]; free: boolean };
+type State = { config: Config; meta: { lastRun?: string; lastLog?: string[]; lastEmail?: string; sentTotal: number; scanned: number }; pending: number; total: number; posts: Post[]; contacts: Contact[]; free: boolean; apify?: { on: boolean; cap: number; spent: number; left: number; pool: number; owner: boolean } };
 
 const join = (x: string[]) => x.join(', ');
 const split = (s: string) => s.split(/[,\n]/).map((x) => x.trim()).filter(Boolean);
@@ -52,6 +52,10 @@ export default function PostRadarTab({ toast }: { toast: (s: string) => void }) 
           <div><b>{d.contacts.length}</b><span>contact emails</span></div>
           <div><b>{d.meta.lastRun ? ago(d.meta.lastRun) : '—'}</b><span>last scan</span></div>
         </div>
+      </div>
+      <div className={`notice ${d.apify?.on ? 'ok' : 'warn'} small`} style={{ marginBottom: 10 }}>
+        {d.apify?.on ? <>🟢 <b>LIVE X + LinkedIn posts via Apify is ON</b> — X every 4 h, LinkedIn every 12 h, posts minutes old, no login. {d.apify.pool} live posts in the pool · credit used this month ${d.apify.spent} of ${d.apify.cap} (free $5/month). {d.apify.owner && <button className="small-btn primary" disabled={!!busy} onClick={() => post({ action: 'live-now' }, 'live')}>{busy === 'live' ? 'Fetching live X + LinkedIn… (1–3 min)' : '⚡ Fetch live posts now'}</button>}</>
+          : <>🔴 <b>Live X + LinkedIn posts are OFF.</b> Free search engines only see posts hours–days late — that is why the 24 h list is empty. Fix in 2 minutes, free: <b>apify.com → Sign up (Google login, no card) → Settings → API &amp; Integrations → copy the Personal API token → paste it as <code>APIFY_TOKEN</code> in Setup → Unlimited setup (or AI &amp; Keys)</b>. Apify gives $5 credit every month; the radar stays under it automatically.</>}
       </div>
       <div className="panel" style={{ marginBottom: 10 }}>
         <b>⚡ Truly live (last minutes), free, unlimited — from your own logged-in X / LinkedIn:</b>

@@ -9,7 +9,7 @@ import { getSettings } from './settings';
 import { track } from './obs';
 import type { RawJob } from './types';
 import { matchesQuery, parseQuery } from './nlq';
-import { readPage, webSearchAll, type Recency } from './search';
+import { readPage, webSearchAll, type Recency, type WebResult } from './search';
 import { dateFromUrl } from './postdate';
 import { fetchTweet, tweetIdFromUrl } from './xposts';
 import { linkedInPost } from './postwatch';
@@ -89,6 +89,11 @@ export async function postsLive(kind: 'x' | 'li', q: string): Promise<{ posts: L
   const engines = new Set<string>(Object.entries(found.doors).filter(([, n]) => n > 0).map(([k, n]) => `${k} (${n})`));
   const errors: string[] = [];
   const raw = found.results;
+  // live pool (Apify, minutes old) — exact text + time already, matched to your words
+  const { poolPosts } = await import('./apifyposts');
+  const pooled = (await poolPosts()).filter((p) => p.platform === kind && matchesQuery(`${p.text} ${p.author}`, nlq));
+  if (pooled.length) engines.add(`Apify live (${pooled.length})`);
+  for (const p of pooled) raw.unshift({ title: p.author, url: p.url, snippet: p.text, date: p.postedAt, engine: 'apify', _live: p } as WebResult & { _live: typeof p });
   const seen = new Set<string>();
   const items: LivePost[] = [];
   for (const r of raw) {

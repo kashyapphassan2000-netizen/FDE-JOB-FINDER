@@ -152,6 +152,13 @@ export async function runRadar(opts: { budgetMs?: number; maxQueries?: number } 
     for (const h of r.results) raw.push({ ...h, platform: x.pf });
   });
   log.push(`${qs.map((x) => `${x.pf === 'x' ? 'X' : 'LI'}:${x.t}`).join(', ')} → ${raw.length} posts found (${Object.entries(doors).map(([k, v]) => `${k} ${v}`).join(', ')})`);
+  // truly live posts fetched by Apify (shared pool) → through this user's own strict filter + AI check
+  const { poolPosts } = await import('./apifyposts');
+  const livePool = await poolPosts();
+  if (livePool.length) {
+    const r = await ingestPosts(livePool);
+    log.push(`live pool (Apify): ${livePool.length} posts → ${r.added} new real openings`);
+  }
   const have = await hgetall<PwPost>('pw:posts');
   const everSent = await hgetall<number>('pw:sent'); // permanent ledger: a post is never emailed twice
   const cand = new Map<string, WebResult & { platform: 'x' | 'li' }>();
@@ -267,6 +274,7 @@ export async function ingestPosts(list: CapturedPost[]): Promise<{ got: number; 
   const c = await getPwConfig();
   const have = await hgetall<PwPost>('pw:posts');
   const everSent = await hgetall<number>('pw:sent');
+  const rejected = await hgetall<number>('pw:rejected'); // checked before and not a real opening → never re-checked
   const reasons: Record<string, number> = {};
   const bump = (k: string) => { reasons[k] = (reasons[k] || 0) + 1; };
   const fresh: PwPost[] = [];
@@ -276,20 +284,21 @@ export async function ingestPosts(list: CapturedPost[]): Promise<{ got: number; 
     if (x.platform === 'x') { if (!tid) { bump('no post link'); continue; } url = `https://x.com/${url.match(/x\.com\/([^/]+)\//i)?.[1] || 'i'}/status/${tid}`; }
     else if (!/linkedin\.com\/(posts|feed\/update)\//i.test(url)) { bump('no post link'); continue; }
     const id = idOf(url);
-    if (have[id] || everSent[id] || fresh.some((f) => f.id === id)) { bump('already have'); continue; }
+    if (have[id] || everSent[id] || rejected[id] || fresh.some((f) => f.id === id)) { bump('already checked'); continue; }
     const postedAt = (x.postedAt && !Number.isNaN(Date.parse(x.postedAt)) ? new Date(x.postedAt).toISOString() : null) || dateFromUrl(url);
     if (!postedAt) { bump('no provable date'); continue; }
     if (Date.now() - Date.parse(postedAt) > c.maxAgeDays * 864e5) { bump(`older than ${c.maxAgeDays * 24} h`); continue; }
     const text = String(x.text || '').slice(0, 3000);
     const author = String(x.author || '').replace(/\s+/g, ' ').slice(0, 100);
     const j = judge(`${text} ${author}`, c);
-    if (!j.ok) { bump(j.why || 'filtered'); continue; }
+    if (!j.ok) { bump(j.why || 'filtered'); await hset('pw:rejected', id, Date.now()); continue; }
     const emails = Array.from(new Set((text.match(EMAIL_RX) || []).map((e) => e.toLowerCase().replace(/[.,;:]+$/, '')).filter((e) => !BAD_EMAIL.test(e)))).slice(0, 6);
     const links = Array.from(new Set(text.match(/https?:\/\/[^\s)]+/g) || [])).slice(0, 8);
     fresh.push({ id, platform: x.platform, url, author, text, postedAt, foundAt: new Date().toISOString(), roles: j.roles.slice(0, 4), place: j.place, emails, links, sent: false, verified: true });
   }
   const checked = await aiCheck(fresh, c);
   if (checked.dropped) reasons['AI: not a real opening for your roles'] = checked.dropped;
+  for (const f of fresh) if (!checked.keep.some((k) => k.id === f.id)) await hset('pw:rejected', f.id, Date.now());
   const known = await hgetall<PwContact>('pw:contacts');
   for (const p of checked.keep) {
     await hset('pw:posts', p.id, p);
@@ -332,6 +341,14 @@ export async function runAllRadars(budgetMs = 260000) {
   if (!users.owner) users.owner = { email: 'owner', enabled: true }; // the owner's radar runs with defaults even before saving settings
   const out: string[] = [];
   const order = ['owner', ...Object.keys(users).filter((k) => k !== 'owner')];
+  // 1. live X + LinkedIn posts via Apify (every few hours, within the free monthly credit) — roles of every user
+  const { harvest, apifyOn } = await import('./apifyposts');
+  if (apifyOn()) {
+    const roles: string[] = [];
+    for (const ns of order) { const u = users[ns]; if (!u?.enabled) continue; const cfg = await runAs(tenantFor(u.email, ownerEmails()), () => getPwConfig()).catch(() => null); if (cfg) roles.push(...cfg.roles, ...cfg.keywords); }
+    const h = await harvest(roles).catch((e) => ({ note: `failed ${(e as Error).message}` }));
+    out.push(`apify: ${h.note}`);
+  }
   for (const ns of order) {
     const u = users[ns];
     const left = budgetMs - (Date.now() - t0);
