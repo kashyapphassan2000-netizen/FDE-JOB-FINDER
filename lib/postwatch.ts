@@ -74,14 +74,14 @@ export async function savePwConfig(p: Partial<PwConfig>): Promise<PwConfig> {
 /** LinkedIn public post page → just the post text (drops the sign-in wall, menus, reactions, comments chrome). */
 export function linkedInPost(md: string): { author: string; text: string } | null {
   // reader output: "## Name’s Post" → profile link → "1d" → THE POST → "See more comments" / "## Explore …"
-  const m = md.match(/^##\s*(.+?)[’']s Post\s*$/m);
+  const m = md.match(/^#{1,3}\s*(.+?)[’']s Post\s*$/m);
   if (!m) return null;
   const after = md.slice((m.index || 0) + m[0].length).split('\n');
   const out: string[] = [];
   for (const raw of after) {
     const l = raw.trim();
-    if (/^##\s|^\[?see more comments|^\[?like\]?$|^\d+\s*(reactions?|comments?)|^to view or add a comment|^more relevant posts/i.test(l)) { if (out.length) break; else continue; }
-    if (!l || /^\[!\[image/i.test(l) || /^\d+[smhdwy]o?$/.test(l) || /^(edited|follow)$/i.test(l)) continue;
+    if (/^#{1,3}\s|^\[?see more comments|^\[like\]|^like$|^\d+\s*(reactions?|comments?)|^to view or add a comment|^more relevant posts|^share$/i.test(l)) { if (out.length) break; else continue; }
+    if (!l || /^\[!\[image/i.test(l) || /^\d+[smhdwy]o?$/.test(l) || /^(edited|follow|copy)$/i.test(l) || /^\*\s+\[report this/i.test(l) || /trk=public_post_feed-actor-name|trk=public_post_feed-actor-image/.test(l)) continue;
     out.push(l.replace(/\[([^\]]*)\]\((https?:[^)]*)\)/g, (_, t, u) => { if (/linkedin\.com\/(company|in|feed\/hashtag|signup)/.test(u)) return ` ${t} `; const red = u.match(/redir\/redirect\?url=([^&]+)/); if (red) return ` ${decodeURIComponent(red[1])} `; return /^https?:/.test(t) ? ` ${t} ` : ` ${t} ${u.replace(/[?&]trk=.*$/, '')} `; }));
   }
   const text = out.join('\n').trim();

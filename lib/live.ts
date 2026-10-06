@@ -12,6 +12,7 @@ import { matchesQuery, parseQuery } from './nlq';
 import { readPage, webSearchAll, type Recency } from './search';
 import { dateFromUrl } from './postdate';
 import { fetchTweet, tweetIdFromUrl } from './xposts';
+import { linkedInPost } from './postwatch';
 
 /**
  * LIVE feeds for the LinkedIn / X tabs — straight from the platform, last 24 h, no search-engine delay.
@@ -130,8 +131,10 @@ export async function postsLive(kind: 'x' | 'li', q: string): Promise<{ posts: L
   } else {
     const byAge = [...items].sort((a, b) => (b.postedAt || '').localeCompare(a.postedAt || '')).slice(0, 14);
     await Promise.race([Promise.all(byAge.map(async (p) => {
-      const md = await readPage(p.url, 8000).catch(() => '');
+      const md = await readPage(p.url, 25000).catch(() => '');
       if (!md || /sign in to view|authwall|join linkedin/i.test(md.slice(0, 400)) && md.length < 600) return;
+      const exact = linkedInPost(md); // the post block itself (author + full text), no page chrome
+      if (exact) { p.text = exact.text.slice(0, 2500); p.author = exact.author; verified.add(p.url); return; }
       const who = md.match(/^Title:\s*(.+?)\s+on LinkedIn/im)?.[1];
       const body = md.replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[([^\]]*)\]\((https?:[^)]*)\)/g, '$1 $2').split('\n').map((l) => l.trim())
         .filter((l) => l && !/^(sign in|join now|agree & join|skip to main|report this|like|comment|repost|send|see more|show more|cookie|user agreement|privacy policy|©|linkedin corporation|url source|markdown content|title:)/i.test(l)).join('\n');
