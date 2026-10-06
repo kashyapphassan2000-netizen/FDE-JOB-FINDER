@@ -20,7 +20,7 @@ export default function DirectoryTab({ toast, onOutreach }: { toast: (s: string)
   const [role, setRole] = useState<keyof typeof ROLE_OPTS>('fde');
   const [region, setRegion] = useState('');
   const [onlyNew, setOnlyNew] = useState(false);
-  const [fresh, setFresh] = useState(false);
+  const [fresh, setFresh] = useState(true); // strict: companies with a role posted in the last 24 h first
   const [q, setQ] = useState('');
   const [sort, setSort] = useState('fde');
   const [scope, setScope] = useState<keyof typeof SCOPE>('me');

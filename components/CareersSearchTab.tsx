@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ago, api, dateLabel } from './api';
 import ExportButton from './ExportButton';
+import { FreshSelect, inWindow, newestFirst, useFresh } from './Fresh';
 import SourceFilter, { Filtered, useSourceFilter } from './SourceFilter';
 import { srcKeys, sourceLabel } from '@/lib/sourcetype';
 import type { Profile } from '@/lib/relevance';
@@ -32,7 +33,7 @@ export default function CareersSearchTab({ toast, onAnalyze }: { toast: (s: stri
   const [secs, setSecs] = useState(0);
   const [q, setQ] = useState('');
   const [edit, setEdit] = useState(false);
-  const [fresh, setFresh] = useState(0);
+  const [freshH, setFreshH] = useFresh();
   const [noUnstated, setNoUnstated] = useState(false);
   const [co, setCo] = useState('');
   useEffect(() => { if (!busy) return; setSecs(0); const t = setInterval(() => setSecs((s) => s + 1), 1000); return () => clearInterval(t); }, [busy]);
@@ -51,7 +52,7 @@ export default function CareersSearchTab({ toast, onAnalyze }: { toast: (s: stri
     catch (e) { toast((e as Error).message); } finally { setBusy(''); }
   }
 
-  const shown0 = useMemo(() => (r?.hits || []).filter((h) => (!fresh || (h.postedAt && Date.now() - Date.parse(h.postedAt) <= fresh * 864e5)) && (!noUnstated || h.locRank < (r?.profile.locations.length || 0)) && (!co || h.company === co)), [r, fresh, noUnstated, co]);
+  const shown0 = useMemo(() => (r?.hits || []).filter((h) => inWindow(h.postedAt, freshH) && (!noUnstated || h.locRank < (r?.profile.locations.length || 0)) && (!co || h.company === co)), [r, freshH, noUnstated, co]);
   const sf = useSourceFilter(shown0, (h) => srcKeys(h.url));
   const shown = sf.visible;
   const companies = useMemo(() => Array.from(new Set((r?.hits || []).map((h) => h.company))).sort(), [r]);
@@ -101,7 +102,7 @@ export default function CareersSearchTab({ toast, onAnalyze }: { toast: (s: stri
             {r.byLocation.filter((x) => x.n).map((x) => <span key={x.location} className="badge b-dom">{x.location} · {x.n}</span>)}
           </div>
           <div className="row" style={{ marginBottom: 10 }}>
-            <select value={fresh} onChange={(e) => setFresh(+e.target.value)}><option value={0}>Posted: any time</option><option value={1}>Last 24 h</option><option value={3}>Last 3 days</option><option value={7}>Last 7 days</option><option value={30}>Last 30 days</option></select>
+            <FreshSelect hours={freshH} setHours={setFreshH} />
             <select value={co} onChange={(e) => setCo(e.target.value)}><option value="">All companies ({companies.length})</option>{companies.map((c) => <option key={c}>{c}</option>)}</select>
             <label className="small"><input type="checkbox" checked={noUnstated} onChange={(e) => setNoUnstated(e.target.checked)} /> hide “location not stated”</label>
             <span className="grow" />

@@ -1,6 +1,7 @@
 'use client';
 import FeedPanel, { hasFeed } from './FeedPanel';
 import { ReachButton, SaveButton } from './ReachButton';
+import { FreshSelect, inWindow, newestFirst, useFresh } from './Fresh';
 import { SOURCE_ICON, SOURCE_TYPES, sourceType, srcKeys } from '@/lib/sourcetype';
 import SourceFilter, { useSourceFilter } from './SourceFilter';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -45,9 +46,7 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
   const [showLinks, setShowLinks] = useState(false);
   // freshness window (hours; 0 = any). Default: last 24 h, latest first.
   // LinkedIn & X: always STRICT 24 h (proven date). Other results: window you pick (default 24 h).
-  const [age, setAgeState] = useState(24);
-  useEffect(() => { try { const v = localStorage.getItem('fj_agent_age'); if (v !== null && Number(v) >= 0) setAgeState(Number(v)); } catch {} }, []);
-  const setAge = (v: number) => { setAgeState(v); try { localStorage.setItem('fj_agent_age', String(v)); } catch {} };
+  const [age, setAge] = useFresh(); // one window for the whole app — strict 24 h by default
   const liX = (u: string) => /\/\/(?:[a-z]+\.)?(?:x|twitter|linkedin)\.com\//i.test(u);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -246,12 +245,10 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
         <select value={stype} onChange={(e) => setStype(e.target.value)} title="Where it came from">
           <option value="">Every source</option>{SOURCE_TYPES.map((t) => <option key={t} value={t}>{SOURCE_ICON[t]} {t} · {pool.filter((f) => sourceType(f.url) === t).length}</option>)}
         </select>
-        <select value={age} onChange={(e) => setAge(Number(e.target.value))} title="Window for results that are NOT from LinkedIn / X">
-          {[24, 72, 168, 720, 0].map((h) => <option key={h} value={h}>Other results: {AGE_LABEL[h]}</option>)}
-        </select>
+        <FreshSelect hours={age} setHours={setAge} />
         <span className="badge b-date" title="LinkedIn and X results are shown only when their posting date is proven (from the link or the post text) and within the last 24 hours">⏱ LinkedIn & X: last 24 h only</span>
-        <ExportButton title={`${cur ? cur.title : mission ? d.missions.find((m) => m.id === mission)?.title || 'AI Agent' : 'AI Agent'} — ${view === 'run' ? 'latest run' : 'saved finds'} · ${AGE_LABEL[age]}`} filename={`${cur?.id || mission || 'agent'}-${AGE_LABEL[age]}`}
-          subtitle={`${cur ? `Only this tab (${cur.title}). ` : ''}Posted ${AGE_LABEL[age]}, newest first. ${lastRun?.prompt ? `Request: ${lastRun.prompt}` : cur?.desc || ''}`}
+        <ExportButton title={`${cur ? cur.title : mission ? d.missions.find((m) => m.id === mission)?.title || 'AI Agent' : 'AI Agent'} — ${view === 'run' ? 'latest run' : 'saved finds'} · ${AGE_LABEL[age] || `last ${age} h`}`} filename={`${cur?.id || mission || 'agent'}-${AGE_LABEL[age] || `last ${age} h`}`}
+          subtitle={`${cur ? `Only this tab (${cur.title}). ` : ''}Posted ${AGE_LABEL[age] || `last ${age} h`}, newest first. ${lastRun?.prompt ? `Request: ${lastRun.prompt}` : cur?.desc || ''}`}
           cols={[
             { header: 'Type', get: (f: Find) => KIND[f.kind][1], width: 60 },
             { header: 'Role / post', get: (f: Find) => f.title, width: 170, link: (f: Find) => f.url },

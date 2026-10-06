@@ -5,6 +5,7 @@ import ExportButton from './ExportButton';
 import { ReachButton, SaveButton } from './ReachButton';
 import { SOURCE_ICON, SOURCE_TYPES, sourceType, srcKeys } from '@/lib/sourcetype';
 import SourceFilter, { useSourceFilter } from './SourceFilter';
+import { FreshSelect, inWindow, newestFirst, useFresh } from './Fresh';
 
 type Hit = { title: string; company: string; location: string; url: string; postedAt?: string | null; salary?: string; source: string; text?: string };
 type Res = { q: string; parsed?: { role: string; location: string; remote: boolean }; ms: number; total: number; hits: Hit[]; bySource: { source: string; n: number }[]; boardsSearched: number; errors: string[]; captureLinks: { label: string; url: string }[]; stripped: number };
@@ -29,7 +30,8 @@ export default function SearchTab({ q, toast, onOutreach }: { q: string; toast: 
     return () => { alive = false; clearInterval(iv); };
   }, [q, any, toast]);
 
-  const shown0 = useMemo(() => (res?.hits || []).filter((h) => (!src || h.source === src) && (!stype || sourceType(h.url) === stype)), [res, src, stype]);
+  const [freshH, setFreshH] = useFresh();
+  const shown0 = useMemo(() => (res?.hits || []).filter((h) => (!src || h.source === src) && (!stype || sourceType(h.url) === stype) && inWindow(h.postedAt, freshH)).sort(newestFirst((h) => h.postedAt)), [res, src, stype, freshH]);
   const sf = useSourceFilter(shown0, (h) => srcKeys(h.url));
   const shown = sf.visible;
   if (!q) return <div className="empty">Type any role in the search bar at the top — e.g. “MLOps engineer”, “solutions architect”, “AI product manager”, “computer vision”.</div>;
@@ -51,6 +53,7 @@ export default function SearchTab({ q, toast, onOutreach }: { q: string; toast: 
             {SOURCE_TYPES.map((t) => { const n = res.hits.filter((h) => sourceType(h.url) === t).length; return n ? <span key={t} className={`chip ${stype === t ? 'on' : ''}`} onClick={() => setStype(stype === t ? '' : t)}>{SOURCE_ICON[t]} {t} · {n}</span> : null; })}
             {res.bySource.map((s) => <span key={s.source} className={`chip ${src === s.source ? 'on' : ''}`} onClick={() => setSrc(s.source)}>{s.source} · {s.n}</span>)}
             <span className="grow" />
+            <FreshSelect hours={freshH} setHours={setFreshH} hidden={(res?.hits.length || 0) - (res?.hits || []).filter((h) => inWindow(h.postedAt, freshH)).length} />
             <ExportButton title={`Search: ${q}`} subtitle={`${shown.length} results${src ? ` from ${src}` : ''} · ${any ? 'location rule ignored' : 'Bengaluru office or remote-from-India only'}`} filename={`search-${q}`}
               cols={[{ header: 'Role', get: (h: Hit) => h.title, link: (h) => h.url }, { header: 'Company', get: (h) => h.company, width: 100 }, { header: 'Location', get: (h) => h.location, width: 100 },
                 { header: 'Posted', get: (h) => (h.postedAt ? `${ago(h.postedAt)} ago` : ''), width: 50 }, { header: 'Salary', get: (h) => h.salary || '', width: 70 }, { header: 'Source', get: (h) => h.source, width: 80 }]}

@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ago, api } from './api';
 import ExportButton from './ExportButton';
+import { FreshSelect, inWindow, newestFirst, useFresh } from './Fresh';
 import SourceFilter, { Filtered, useSourceFilter } from './SourceFilter';
 import { srcKeys, sourceLabel } from '@/lib/sourcetype';
 
@@ -61,6 +62,7 @@ export default function WatchTab({ toast }: { toast: (s: string) => void }) {
   async function saveLocs(id: string) { await api('/api/watch', { method: 'POST', body: JSON.stringify({ action: 'locations', id, locations: editLocs }) }); setEdit(null); load(); }
   async function remove(w: W) { if (!confirm(`Stop watching ${w.name}?`)) return; await api('/api/watch', { method: 'DELETE', body: JSON.stringify({ id: w.id }) }); load(); }
 
+  const [freshH] = useFresh();
   if (!d) return <div className="panel muted">Loading…</div>;
   const list = d.items.filter((w) => !q || w.name.toLowerCase().includes(q.toLowerCase()));
   const presets = d.locationPresets;
@@ -106,7 +108,7 @@ export default function WatchTab({ toast }: { toast: (s: string) => void }) {
           <div className="row" style={{ justifyContent: 'space-between' }}><h3 style={{ margin: 0 }}>🔔 New AI / FDE roles at your companies</h3>
             <ExportButton title="New AI / FDE roles at watched companies" filename="watch-new-roles" cols={[{ header: 'Found', get: (h: Hit) => new Date(h.foundAt).toLocaleString('en-IN'), width: 80 }, { header: 'Company', get: (h) => h.company, width: 90 }, { header: 'Role', get: (h) => h.title, link: (h) => h.url }, { header: 'Location', get: (h) => h.location, width: 110 }, { header: 'Why', get: (h) => h.why, width: 110 }]} rows={d.hits} />
           </div>
-          <Filtered items={d.hits} keys={(h) => srcKeys(h.url)}>{(hits) => hits.slice(0, 40).map((h) => <div key={h.id + h.foundAt} className="tline"><span className="badge b-date">{ago(h.foundAt)} ago</span> <b>{h.company}</b> · <a href={h.url} target="_blank" rel="noreferrer">{h.title}</a> <span className="small muted">· {h.location} · {h.why}{h.emailed ? ' · ✉ emailed' : ''}</span></div>)}</Filtered>
+          <Filtered items={d.hits.filter((h) => inWindow(h.foundAt, freshH)).sort(newestFirst((h) => h.foundAt))} keys={(h) => srcKeys(h.url)}>{(hits) => hits.slice(0, 40).map((h) => <div key={h.id + h.foundAt} className="tline"><span className="badge b-date">{ago(h.foundAt)} ago</span> <b>{h.company}</b> · <a href={h.url} target="_blank" rel="noreferrer">{h.title}</a> <span className="small muted">· {h.location} · {h.why}{h.emailed ? ' · ✉ emailed' : ''}</span></div>)}</Filtered>
         </div>
       )}
 

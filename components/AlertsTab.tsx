@@ -6,7 +6,7 @@ type Sub = { id: string; email: string; name?: string; roles: string[]; where: s
 type Mailer = { gmail: boolean; resend: boolean; resendDomain: boolean; canEmailAnyone: boolean };
 type Pick = { title: string; company: string; location: string; url: string; source: string; t: number };
 const WHERE: Record<string, string> = { city: 'A city / country + remote', remote: 'Remote only', any: 'Anywhere in the world', 'blr-remote': 'Bengaluru office or remote (India)' };
-const EMPTY = { email: '', name: '', roles: '', where: 'blr-remote', city: '', count: 10, maxAgeH: 48, exclude: '' };
+const EMPTY = { email: '', name: '', roles: '', where: 'blr-remote', city: '', count: 10, maxAgeH: 24, exclude: '' };
 
 export default function AlertsTab({ toast, mine = false }: { toast: (s: string) => void; mine?: boolean }) {
   const EP = mine ? '/api/myalerts' : '/api/subscribers';

@@ -220,12 +220,15 @@ export async function runDiscover(budgetMs = 240000): Promise<{ added: number; c
   const auto = await getJSON<string[]>('disc:auto', []);
   const known = new Set(settings.extraCompanies.map((c) => `${c.ats}:${c.slug}`));
   const fits = (r: DiscoveredCompany['roles'][number]) => locationAllowed(locationTags({ title: r.title, company: '', url: r.url, location: r.location }), r.location);
-  const toWatch = all.filter((c) => c.status === 'new' && c.ats && c.roles.some(fits) && !known.has(`${c.ats.ats}:${c.ats.slug}`)).slice(0, 25);
-  if (toWatch.length && auto.length < 300) {
+  // every company found hiring AI / FDE / ML engineers on a public board is watched — roles you can take first; the jobs feed
+  // still applies your location rule, so a company's FUTURE Bengaluru / remote-India openings reach you the day they are posted
+  const toWatch = all.filter((c) => c.status === 'new' && c.ats && c.roles.length && !known.has(`${c.ats.ats}:${c.ats.slug}`))
+    .sort((a, b) => Number(b.roles.some(fits)) - Number(a.roles.some(fits)) || b.roles.length - a.roles.length).slice(0, 40);
+  if (toWatch.length && auto.length < 600) {
     for (const c of toWatch) c.status = 'watched';
     await saveSettings({ extraCompanies: [...settings.extraCompanies, ...toWatch.map((c) => ({ ats: c.ats!.ats, slug: c.ats!.slug, name: c.name, tag: c.region.includes('INDIA') || c.region.includes('BLR') ? ('india' as const) : undefined }))] });
     await setJSON('disc:auto', [...auto, ...toWatch.map((c) => c.key)]);
-    log.push(`auto-watched ${toWatch.length} new startups with FDE/AI roles you can take: ${toWatch.map((c) => c.name).join(', ')}`);
+    log.push(`auto-watched ${toWatch.length} new companies hiring AI / FDE / ML (${toWatch.filter((c) => c.roles.some(fits)).length} with roles you can take now): ${toWatch.map((c) => c.name).join(', ')}`);
   }
   await setJSON('disc:companies', all);
   await setJSON('disc:meta', { at: new Date().toISOString(), log });

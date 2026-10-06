@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { ago, api, type JobsPayload } from './api';
 import type { Job } from '@/lib/types';
 import ExportButton from './ExportButton';
+import { FreshSelect, inWindow, newestFirst, useFresh } from './Fresh';
 import SourceFilter, { Filtered, useSourceFilter } from './SourceFilter';
 import { srcKeys, sourceLabel } from '@/lib/sourcetype';
 import { ReachButton, SaveButton } from './ReachButton';
@@ -28,7 +29,8 @@ export default function FeedPanel({ missionId, toast = () => {} }: { missionId: 
   const f = FILTERS[missionId];
   if (!f) return null;
   const when = (j: Job) => j.postedAt || j.firstSeen;
-  const maxH = MAX_AGE_H[missionId] || 720;
+  const [freshH] = useFresh();
+  const maxH = freshH || 24 * 365;
   const matching = (d?.jobs || []).filter(f.test);
   const jobs = matching.filter((j) => Date.now() - Date.parse(when(j)) <= maxH * 36e5).sort((a, b) => when(b).localeCompare(when(a)));
   const older = matching.length - jobs.length;
@@ -41,8 +43,8 @@ export default function FeedPanel({ missionId, toast = () => {} }: { missionId: 
       </div>
       <p className="small muted" style={{ margin: '4px 0 8px' }}>Straight from every company job board + LinkedIn (refreshed every hour and whenever the app is opened). Newest first. The agent results below add posts and pages found by web search.</p>
       {!d && <div className="small muted">Loading…</div>}
-      {d && !jobs.length && <div className="small muted">No open roles of this kind in the last {maxH / 24} days right now.</div>}
-      {older > 0 && <div className="small muted">{older} older item{older > 1 ? 's' : ''} (over {maxH / 24} days) hidden to keep this fresh.</div>}
+      {d && !jobs.length && <div className="small muted">No open roles of this kind in this window ({freshH ? `last ${freshH} h` : 'any time'}) right now.</div>}
+      {older > 0 && <div className="small muted">{older} older item{older > 1 ? 's' : ''} (older than {freshH} h) hidden — change “Posted” above to see them.</div>}
       <Filtered items={shown} keys={(j) => srcKeys(j.url, j.sources)}>{(vis) => vis.map((j) => <div key={j.id} className="tline"><b><a href={j.url} target="_blank" rel="noreferrer">{j.title} ↗</a></b> — {j.company} <span className="small muted">· {j.location} · {j.postedAt ? `posted ${ago(j.postedAt)} ago` : `seen ${ago(j.firstSeen)} ago`} · {j.sources.join('/')}</span> <span className="row" style={{ gap: 6, display: 'inline-flex' }}><ReachButton item={{ title: j.title, company: j.company, url: j.url, location: j.location, text: j.description?.slice(0, 1500) }} toast={toast} /><SaveButton item={{ title: j.title, company: j.company, url: j.url, location: j.location, text: j.description?.slice(0, 1500) }} toast={toast} folder={missionId === 'communities' ? 'Saved posts' : 'Saved jobs'} /></span></div>)}</Filtered>
       {jobs.length > 25 && <button className="small-btn" onClick={() => setAll(!all)}>{all ? 'Show less' : `Show all ${jobs.length}`}</button>}
     </div>

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Job } from '@/lib/types';
 import { ago, api, dateLabel } from './api';
 import ExportButton from './ExportButton';
+import { FreshSelect, inWindow, newestFirst, useFresh } from './Fresh';
 import SourceFilter, { Filtered, useSourceFilter } from './SourceFilter';
 import { srcKeys, sourceLabel } from '@/lib/sourcetype';
 
@@ -21,12 +22,12 @@ export default function DashboardTab({ toast }: { toast: (s: string) => void }) 
   const [minY, setMinY] = useState(0);
   const [maxY, setMaxY] = useState(6);
   const [role, setRole] = useState<'FDE' | 'ALL'>('FDE');
-  const [fresh, setFresh] = useState(30);
+  const [freshH, setFreshH] = useFresh();
   useEffect(() => { api<D>('/api/dashboard').then(setD).catch((e) => toast(e.message)); }, [toast]);
 
   const recs0 = useMemo(() => (d?.jobs || [])
-    .filter((j) => (role === 'ALL' || j.categories.includes('FDE')) && (!j.exp || (j.exp.max >= minY && j.exp.min <= maxY)) && Date.now() - Date.parse(j.postedAt || j.firstSeen) < fresh * 864e5 && !(j.flags || []).some((f) => f.startsWith('⚠')))
-    .sort((a, b) => rank(a.locTags) - rank(b.locTags) || (b.score + b.cvMatch) - (a.score + a.cvMatch)), [d, minY, maxY, role, fresh]);
+    .filter((j) => (role === 'ALL' || j.categories.includes('FDE')) && (!j.exp || (j.exp.max >= minY && j.exp.min <= maxY)) && (!freshH || Date.now() - Date.parse(j.postedAt || j.firstSeen) < freshH * 36e5) && !(j.flags || []).some((f) => f.startsWith('⚠')))
+    .sort((a, b) => rank(a.locTags) - rank(b.locTags) || Date.parse(b.postedAt || b.firstSeen) - Date.parse(a.postedAt || a.firstSeen)), [d, minY, maxY, role, freshH]);
   const sf = useSourceFilter(recs0, (j) => srcKeys(j.url, j.sources));
   const recs = sf.visible;
   if (!d) return <div className="panel muted">Building your dashboard…</div>;
@@ -36,7 +37,7 @@ export default function DashboardTab({ toast }: { toast: (s: string) => void }) 
   const why = (j: Job) => [j.locTags.includes('BLR') ? 'Bengaluru' : j.locTags.includes('REMOTE_IN') ? 'remote, India OK' : '', j.hidden ? 'low competition' : '', j.cvMatch >= 40 ? `${j.cvMatch}% CV fit` : '', j.salary ? 'pay shown' : j.payBand ? `est. ${j.payBand}` : '', Date.now() - Date.parse(j.postedAt || j.firstSeen) < 2 * 864e5 ? 'fresh (<48h)' : ''].filter(Boolean).join(' · ');
 
   const sections = [
-    { title: 'Summary', text: `${d.jobs.length} jobs tracked (${fde} FDE). Recommendations for ${role === 'FDE' ? 'FDE' : 'FDE + AI/ML'} roles, ${minY}-${maxY} years experience, posted in the last ${fresh} days: ${recs.length} (${blr} Bengaluru, ${rem} remote). Applications: ${Object.entries(d.funnel).map(([k, v]) => `${k} ${v}`).join(', ') || 'none yet'}. Outreach: ${d.outreach.sent} emails sent, ${d.outreach.replied} replies.` },
+    { title: 'Summary', text: `${d.jobs.length} jobs tracked (${fde} FDE). Recommendations for ${role === 'FDE' ? 'FDE' : 'FDE + AI/ML'} roles, ${minY}-${maxY} years experience, posted in the last ${freshH ? `${freshH} h` : 'any time'}: ${recs.length} (${blr} Bengaluru, ${rem} remote). Applications: ${Object.entries(d.funnel).map(([k, v]) => `${k} ${v}`).join(', ') || 'none yet'}. Outreach: ${d.outreach.sent} emails sent, ${d.outreach.replied} replies.` },
     { title: 'Layoffs to watch', headers: ['Company', 'Date', 'Cuts', 'Why', 'Next', 'In your tracker', 'Link'], rows: d.layoffs.map((l) => [l.name, l.date || '', l.count || '', l.reason || '', l.next || '', l.inYourTracker ? 'YES' : '', l.url || '']) },
     { title: 'Skills employers ask for', text: d.trends.skills.map((s) => `${s.key} (${s.n})`).join(', ') + (d.trends.yourSkills.cvUploaded ? `\nMissing from your CV: ${d.trends.yourSkills.missing.join(', ')}` : '') },
     ...(d.report ? [{ title: 'Market this week', text: d.report.summary || '' }, { title: 'Market headlines', headers: ['Region', 'Headline', 'Summary', 'Link'], rows: d.report.headlines.map((h) => [h.region, h.title, h.summary, h.url]) }, { title: 'Your next moves', text: d.report.moves.map((m, i) => `${i + 1}. ${m}`).join('\n') }] : []),
@@ -60,9 +61,9 @@ export default function DashboardTab({ toast }: { toast: (s: string) => void }) 
         <span className="seg"><button className={role === 'FDE' ? 'on' : ''} onClick={() => setRole('FDE')}>FDE only</button><button className={role === 'ALL' ? 'on' : ''} onClick={() => setRole('ALL')}>FDE + AI/ML</button></span>
         <label className="small">Experience from <select value={minY} onChange={(e) => setMinY(+e.target.value)}>{[0, 1, 2, 3, 4, 5, 6, 8, 10].map((y) => <option key={y} value={y}>{y}</option>)}</select></label>
         <label className="small">to <select value={maxY} onChange={(e) => setMaxY(+e.target.value)}>{[1, 2, 3, 4, 5, 6, 8, 10, 15, 30].map((y) => <option key={y} value={y}>{y === 30 ? 'any' : y}</option>)}</select> years</label>
-        <label className="small">posted within <select value={fresh} onChange={(e) => setFresh(+e.target.value)}>{[1, 3, 7, 14, 30, 90].map((x) => <option key={x} value={x}>{x} days</option>)}</select></label>
+        <FreshSelect hours={freshH} setHours={setFreshH} />
         <span style={{ marginLeft: 'auto' }}>
-          <ExportButton title="My dashboard — FDE recommendations & analysis" subtitle={`${role === 'FDE' ? 'FDE' : 'FDE + AI/ML'} · ${minY}-${maxY === 30 ? 'any' : maxY} years · last ${fresh} days · Bengaluru first, then remote`} sections={sections}
+          <ExportButton title="My dashboard — FDE recommendations & analysis" subtitle={`${role === 'FDE' ? 'FDE' : 'FDE + AI/ML'} · ${minY}-${maxY === 30 ? 'any' : maxY} years · ${freshH ? `last ${freshH} h` : "any time"} · Bengaluru first, then remote`} sections={sections}
             cols={[
               { header: '#', get: (j: Job) => recs.indexOf(j) + 1, width: 22 },
               { header: 'Role', get: (j: Job) => j.title, width: 160, link: (j: Job) => j.url },

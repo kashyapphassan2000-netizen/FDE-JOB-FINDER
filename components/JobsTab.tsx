@@ -5,6 +5,7 @@ import { ago, api, setTrack, STATUS_LABEL, type JobsPayload } from './api';
 import { scoreJob, type Profile } from '@/lib/relevance';
 import FitDrawer from './FitDrawer';
 import { ReachButton } from './ReachButton';
+import { FreshSelect, useFresh } from './Fresh';
 import { SOURCE_ICON, SOURCE_TYPES, sourceType, srcKeys } from '@/lib/sourcetype';
 import SourceFilter, { useSourceFilter } from './SourceFilter';
 import ExportButton from './ExportButton';
@@ -18,7 +19,6 @@ export const DOMAINS: [Domain, string][] = [
   ['IT', 'IT / SaaS'], ['FINTECH', 'Fintech'], ['HEALTH', 'Health'], ['DEFENSE', 'Defense'], ['CONSULTING', 'Consulting'],
 ];
 const REGIONS = [['BLR', 'Bengaluru office'], ['REMOTE_IN', 'Remote · India-eligible'], ['UNSTATED', 'Location not stated']] as const;
-const WINDOWS = [['24', '24h'], ['72', '3 days'], ['168', '7 days'], ['720', '30 days'], ['0', 'Any time']] as const;
 const DOMAIN_LABEL = Object.fromEntries(DOMAINS) as Record<Domain, string>;
 
 const hue = (s: string) => [...(s || 'x')].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7);
@@ -29,12 +29,13 @@ export default function JobsTab({ data, reload, toast, onOutreach, onApply }: { 
   const [roles, setRoles] = useState<Category[]>([]);
   const [domains, setDomains] = useState<Domain[]>([]);
   const [regions, setRegions] = useState<string[]>([]);
-  const [win, setWin] = useState('24');
+  const [freshH, setFreshH] = useFresh(); // one window for the whole app — strict 24 h by default
+  const win = String(freshH);
   const [quick, setQuick] = useState<'all' | 'blr' | 'remote' | 'fde' | 'saved'>('all');
   const [src, setSrc] = useState('');
   const [stype, setStype] = useState('');
   const [sen, setSen] = useState('');
-  const [sort, setSort] = useState<'prio' | 'blr' | 'score' | 'new' | 'cv' | 'ai'>('prio');
+  const [sort, setSort] = useState<'prio' | 'blr' | 'score' | 'new' | 'cv' | 'ai'>('new'); // newest first by default
   const [ranking, setRanking] = useState(false);
   // raw cosine values sit in a narrow band (≈0.80–0.92) → show where a job stands relative to the rest
   const semSorted = useMemo(() => Object.values(data?.sem || {}).map((x) => x.s).sort((a, b) => a - b), [data?.sem]);
@@ -55,11 +56,10 @@ export default function JobsTab({ data, reload, toast, onOutreach, onApply }: { 
 
   useEffect(() => {
     try {
-      const f = JSON.parse(localStorage.getItem('fj_filters5') || '{}');
+      const f = JSON.parse(localStorage.getItem('fj_filters6') || '{}');
       if (f.roles) setRoles(f.roles);
       if (f.domains) setDomains(f.domains);
       if (f.regions) setRegions(f.regions);
-      if (f.win) setWin(f.win);
       if (f.sort) setSort(f.sort);
       if (f.sen) setSen(f.sen);
       setLastVisit(Number(localStorage.getItem('fj_lastVisit') || 0));
@@ -67,7 +67,7 @@ export default function JobsTab({ data, reload, toast, onOutreach, onApply }: { 
     } catch {}
   }, []);
   useEffect(() => {
-    try { localStorage.setItem('fj_filters5', JSON.stringify({ roles, domains, regions, win, sort, sen })); } catch {}
+    try { localStorage.setItem('fj_filters6', JSON.stringify({ roles, domains, regions, sort, sen })); } catch {}
   }, [roles, domains, regions, win, sort, sen]);
 
   const jobs = data?.jobs || [];
@@ -121,7 +121,7 @@ export default function JobsTab({ data, reload, toast, onOutreach, onApply }: { 
   }, [jobs]);
 
   const toggle = <T,>(arr: T[], v: T, set: (a: T[]) => void) => set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
-  const clear = () => { setRoles([]); setDomains([]); setRegions([]); setSrc(''); setStype(''); setSen(''); setHiddenOnly(false); setSalaryOnly(false); setQ(''); setWin('24'); };
+  const clear = () => { setRoles([]); setDomains([]); setRegions([]); setSrc(''); setStype(''); setSen(''); setHiddenOnly(false); setSalaryOnly(false); setQ(''); setFreshH(24); };
 
   async function mark(job: Job, status: TrackStatus | 'none') {
     try {
@@ -153,7 +153,7 @@ export default function JobsTab({ data, reload, toast, onOutreach, onApply }: { 
       <div className="panel">
         <div className="row" style={{ marginBottom: 8 }}>
           <input className="grow" placeholder="Search title, company, location…" value={q} onChange={(e) => setQ(e.target.value)} />
-          <select value={win} onChange={(e) => setWin(e.target.value)}>{WINDOWS.map(([v, l]) => <option key={v} value={v}>Posted: {l}</option>)}</select>
+          <FreshSelect hours={freshH} setHours={setFreshH} />
           <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
             <option value="prio">Sort: my priorities (roles → locations → newest)</option><option value="blr">Sort: Bengaluru first, then remote</option><option value="score">Sort: best match</option><option value="new">Sort: newest</option><option value="cv">Sort: CV match</option><option value="ai">Sort: 🧠 best AI match (semantic + rerank)</option>
           </select>
@@ -199,7 +199,7 @@ export default function JobsTab({ data, reload, toast, onOutreach, onApply }: { 
 
       <SourceFilter counts={sf.counts} hidden={sf.hidden} setHidden={sf.setHidden} />
       <div className="row" style={{ marginBottom: 8, justifyContent: 'space-between' }}>
-        <span className="muted small">{filtered.length} matching · Bengaluru office first, then remote open to India</span>
+        <span className="muted small">{lastVisit > 0 && <b style={{ color: 'var(--mint)' }}>🆕 {filtered.filter((j) => Date.parse(j.firstSeen) > lastVisit).length} new since your last check · </b>}{filtered.length} matching · Bengaluru office first, then remote open to India</span>
         <ExportButton title="Jobs" subtitle={`Filters: ${[q && `search “${q}”`, win !== '0' && `posted within ${win}h`, exp && `${exp} yrs experience`, roles.join('/'), regions.join('/')].filter(Boolean).join(' · ') || 'none'} · sorted ${sort}`}
           cols={[
             { header: 'Role', get: (j: Job) => j.title, width: 170, link: (j: Job) => j.url },
