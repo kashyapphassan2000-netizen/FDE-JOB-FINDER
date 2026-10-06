@@ -44,7 +44,7 @@ export default function AlertsTab({ toast, mine = false }: { toast: (s: string) 
       <div className="hero">
         <div>
           <h2>{mine ? 'My job alerts' : 'Job alerts for anyone'}</h2>
-          {mine ? <p>Get fresh jobs for YOUR roles (any field) in YOUR place (any city, country or remote) emailed every morning — to your email or any email you add (up to 3 alerts). Every live job board, ~230 company boards, LinkedIn and X posts, newest first, nothing sent twice.</p> : <p>Add a friend’s (or client’s) email and the roles they want. Every morning the app runs your full search strategy for them — every live job board, ~230 company boards, X & LinkedIn posts, newest first, nothing sent twice — and emails them the best job links.</p>}
+          {mine ? <p>Get fresh jobs for YOUR roles (any field) in YOUR place (any city, country or remote) emailed every morning — to your email or any email you add (up to 3 alerts). Every live job board, ~230 company boards, newest first, nothing sent twice.</p> : <p>Add a friend’s (or client’s) email and the roles they want. Every morning the app runs your full search strategy for them — every live job board, ~230 company boards, newest first, nothing sent twice — and emails them the best job links.</p>}
         </div>
         <div className="hero-stats"><div><b>{subs.filter((s) => s.active).length}</b><span>active</span></div><div><b>{subs.reduce((n, s) => n + s.sentTotal, 0)}</b><span>jobs sent</span></div></div>
       </div>

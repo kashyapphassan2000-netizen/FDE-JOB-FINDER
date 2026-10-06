@@ -64,7 +64,7 @@ export default function SearchTab({ q, toast, onOutreach }: { q: string; toast: 
                 <div className="find-head"><span className="kind k-job">{h.source}</span><span className="small muted" style={{ marginLeft: 'auto' }}>{h.postedAt ? `posted ${ago(h.postedAt)}` : ''}</span></div>
                 <a className="find-title" href={h.url} target="_blank" rel="noreferrer">{h.title}</a>
                 <div className="job-sub"><b>{h.company}</b>{h.location && <span>· {h.location}</span>}{h.salary && <span className="badge b-money">{h.salary}</span>}</div>
-                {h.text && /X posts|LinkedIn posts/.test(h.source) && <div className="find-text">{h.text}</div>}
+                
                 <div className="row" style={{ marginTop: 8, gap: 6 }}>
                   <a className="btn primary small-btn" href={h.url} target="_blank" rel="noreferrer">Open / Apply</a>
                   <button className="small-btn" onClick={() => setTrack({ id: h.url, title: h.title, company: h.company, location: h.location, url: h.url, sources: [`search:${h.source}`], categories: [], postedAt: h.postedAt || null }, 'saved').then(() => toast('Saved to Tracker'))}>Save</button>

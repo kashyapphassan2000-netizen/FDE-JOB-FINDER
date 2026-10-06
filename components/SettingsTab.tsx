@@ -120,14 +120,12 @@ export default function SettingsTab({ toast }: { toast: (s: string) => void }) {
       </div>
 
       <div className="panel">
-        <h3 style={{ marginTop: 0 }}>Telegram channels, subreddits & X accounts</h3>
+        <h3 style={{ marginTop: 0 }}>Telegram channels & subreddits</h3>
         <div className="row">
           <label className="grow small">Public Telegram channels (no @):<textarea id="tg" defaultValue={s.telegramChannels.join('\n')} style={{ minHeight: 70 }} /></label>
           <label className="grow small">Subreddits (no r/):<textarea id="rd" defaultValue={s.subreddits.join('\n')} style={{ minHeight: 70 }} /></label>
-          <label className="grow small">X accounts to watch for hiring tweets (free, no API) — founders, recruiters, VC talent partners:<textarea id="xa" placeholder="e.g. @founder_handle" defaultValue={(s.xAccounts || []).join('\n')} style={{ minHeight: 70 }} /></label>
         </div>
-        <p className="small muted">Already watched automatically: your Excel's @aijobsai, @aimljobs, YC, Latent Space, AI labs, plus every author the agent finds posting a hiring tweet.</p>
-        <button className="primary" onClick={() => save({ telegramChannels: lines((document.getElementById('tg') as HTMLTextAreaElement).value), subreddits: lines((document.getElementById('rd') as HTMLTextAreaElement).value), xAccounts: lines((document.getElementById('xa') as HTMLTextAreaElement).value) })}>Save</button>
+        <button className="primary" onClick={() => save({ telegramChannels: lines((document.getElementById('tg') as HTMLTextAreaElement).value), subreddits: lines((document.getElementById('rd') as HTMLTextAreaElement).value) })}>Save</button>
       </div>
 
       <div className="panel">
