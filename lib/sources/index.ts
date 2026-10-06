@@ -7,8 +7,9 @@ import { KEYED_SOURCES } from './keyed';
 import { EXTRA_SOURCES } from './extra';
 import { CAREER_PAGE_SOURCE } from './careerpages';
 import { X_WATCH_SOURCE } from './xwatch';
+import { BOARD_READER_SOURCE } from './boardreader';
 
-export const SOURCES: SourceDef[] = [...ATS_SOURCES, ...BOARD_SOURCES, ...COMMUNITY_SOURCES, ...EXTRA_SOURCES, CAREER_PAGE_SOURCE, X_WATCH_SOURCE, ...KEYED_SOURCES];
+export const SOURCES: SourceDef[] = [...ATS_SOURCES, ...BOARD_SOURCES, ...COMMUNITY_SOURCES, ...EXTRA_SOURCES, CAREER_PAGE_SOURCE, BOARD_READER_SOURCE, X_WATCH_SOURCE, ...KEYED_SOURCES];
 
 export function sourceConfigured(s: SourceDef): boolean {
   return s.keyless || s.envKeys.every((k) => Boolean(secret(k)));

@@ -17,6 +17,30 @@ const inr = (n?: number) => (n ? `₹${(n / 1e5).toFixed(n >= 1e6 ? 0 : 1)}L` : 
 
 export const EXTRA_SOURCES: SourceDef[] = [
   {
+    id: 'bigco',
+    name: 'Big-company careers feeds (Atlassian JSON, Bloomberg RSS)',
+    group: 'Big Tech careers',
+    keyless: true,
+    envKeys: [],
+    defaultIntervalMin: 180,
+    covers: 'Excel: Atlassian (Bengaluru R&D + remote India) and Bloomberg — their own public job feeds, every role, exact links',
+    docs: 'atlassian.com/endpoint/careers/listings (public JSON) · bloomberg.avature.net SearchJobs RSS',
+    run: async (ctx) => {
+      const out: RawJob[] = [];
+      const errs: string[] = [];
+      try {
+        const a = await getJson<any[]>('https://www.atlassian.com/endpoint/careers/listings', { signal: ctx.signal, timeoutMs: 30000 });
+        for (const x of a || []) out.push({ title: x.title, company: 'Atlassian', location: (x.locations || []).join(' | '), url: x.portalJobPost?.portalUrl || `https://www.atlassian.com/company/careers/details/${x.id}`, postedAt: toIso(x.portalJobPost?.updatedDate) || null, description: stripHtml(`${x.category || ''} ${x.overview || ''}`, 400) });
+      } catch (e) { errs.push(`Atlassian: ${(e as Error).message.slice(0, 80)}`); }
+      try {
+        const xml = await getText('https://bloomberg.avature.net/careers/SearchJobs/feed/?817=%5B11007%5D', { signal: ctx.signal, timeoutMs: 30000 });
+        for (const it of parseRss(xml)) out.push({ title: it.title, company: 'Bloomberg', location: 'India (Bloomberg careers filter)', url: it.link, postedAt: toIso(it.pubDate) || null, description: it.description || '' });
+      } catch (e) { errs.push(`Bloomberg: ${(e as Error).message.slice(0, 80)}`); }
+      if (!out.length && errs.length) throw new Error(errs.join(' · '));
+      return Object.assign(out, { warnings: errs });
+    },
+  },
+  {
     id: 'jpmc',
     name: 'JPMorgan Chase careers (Oracle HCM)',
     group: 'Big Tech careers',

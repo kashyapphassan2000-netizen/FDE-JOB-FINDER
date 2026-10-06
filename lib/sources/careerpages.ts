@@ -1,4 +1,5 @@
 import type { RawJob, SourceDef } from '../types';
+import { secret } from '../secrets';
 import { pool } from '../http';
 import { atsFromUrl, guessAts, probe } from '../atsdetect';
 import { classify, locationAllowed, locationTags } from '../classify';
@@ -20,15 +21,15 @@ export const CAREER_PAGES: [string, string][] = [
   ['Postman', 'https://www.postman.com/company/careers/open-positions/'], ['Zerodha', 'https://careers.zerodha.com/'], ['Flipkart', 'https://www.flipkartcareers.com/#!/joblist'],
   ['Ather Energy', 'https://careers.atherenergy.com/jobs'],
   // Frontier_Labs_India / Hidden_Channels / GCCs without a public API
-  ['Krutrim', 'https://www.olakrutrim.com/careers'], ['AI4Bharat', 'https://ai4bharat.iitm.ac.in/careers'], ['Yellow.ai', 'https://yellow.ai/careers/'],
-  ['Gnani.ai', 'https://gnani.ai/careers/'], ['Qure.ai', 'https://www.qure.ai/careers'], ['Skit.ai', 'https://skit.ai/careers'],
+  ['Krutrim', 'https://www.instahyre.com/jobs-at-krutrim/'], ['AI4Bharat', 'https://ai4bharat.iitm.ac.in/careers'], ['Yellow.ai', 'https://careers.yellow.ai/jobs/Careers'],
+  ['Gnani.ai', 'https://gnani.ai/careers/'], ['Qure.ai', 'https://career.qure.ai/jobs/Careers'], ['Skit.ai', 'https://skit.ai/careers'],
   ['Dolby', 'https://jobs.dolby.com/careers?location=Bangalore'], ['Uber', 'https://www.uber.com/us/en/careers/list/?location=IND-Karnataka-Bangalore'],
   ['Zoho', 'https://careers.zohocorp.com/jobs/Careers'], ['NatWest Group', 'https://jobs.natwestgroup.com/search/?locationsearch=India'],
   ['Walmart Global Tech', 'https://careers.walmart.com/results?q=machine%20learning&page=1&sort=rank&jobState=KA'],
   ['Goldman Sachs', 'https://higher.gs.com/results?LOCATION=Bengaluru&page=1&sort=RELEVANCE'], ['Juspay', 'https://juspay.io/careers'],
   // AI infra / remote employers (CONSOLIDATED_AI_INFRA_COMPANIES, REMOTE_GENUINE_EMPLOYERS_INDIA)
-  ['Weights & Biases', 'https://wandb.ai/site/careers'], ['Replicate', 'https://replicate.com/about#careers'], ['Groq', 'https://groq.com/careers'],
-  ['Qdrant', 'https://qdrant.tech/careers/'], ['dstack', 'https://dstack.ai/careers'], ['WhyLabs', 'https://whylabs.ai/careers'],
+  ['Weights & Biases', 'https://wandb.ai/site/careers'],
+  ['Qdrant', 'https://qdrant.tech/careers/'],
   ['E2E Networks', 'https://www.e2enetworks.com/careers'], ['Automattic', 'https://automattic.com/work-with-us/jobs/'],
   // Gig / talent platforms (NEW_GIG_TRAINING_PLATFORMS, Talent_Marketplaces)
   ['micro1', 'https://jobs.micro1.ai'], ['Alignerr', 'https://www.alignerr.com/jobs'], ['Crossover', 'https://www.crossover.com/jobs/ai-engineer/in'],
@@ -82,7 +83,28 @@ export async function readRoles(name: string, url: string): Promise<{ jobs: RawJ
 
 
 /** Verified by hand: these "custom" careers sites are really public ATS boards → exact JSON, no AI reading needed. */
-const KNOWN: Record<string, [RawAts, string]> = { Outlier: ['greenhouse', 'scaleai'], Turing: ['greenhouse', 'turing'], Alignerr: ['greenhouse', 'labelbox'], Mindrift: ['greenhouse', 'toloka'], 'Handshake AI': ['greenhouse', 'handshake'], PhonePe: ['smartrecruiters', 'PHONEPELIMITED'], Automattic: ['greenhouse', 'automatticcareers'], 'Weights & Biases': ['greenhouse', 'coreweave'] };
+const KNOWN: Record<string, [RawAts, string]> = { Outlier: ['greenhouse', 'scaleai'], Turing: ['greenhouse', 'turing'], Alignerr: ['greenhouse', 'labelbox'], Mindrift: ['greenhouse', 'toloka'], 'Handshake AI': ['greenhouse', 'handshake'], PhonePe: ['smartrecruiters', 'PHONEPELIMITED'], Qdrant: ['ashby', 'qdrant.tech'], Automattic: ['greenhouse', 'automatticcareers'], 'Weights & Biases': ['greenhouse', 'coreweave'] };
+
+/** Render the page in a real browser (Firecrawl, ~1 credit) and look for the job board it embeds. */
+async function renderedAts(url: string, name: string) {
+  const key = secret('FIRECRAWL_API_KEY');
+  if (!key) return null;
+  const r = await fetch('https://api.firecrawl.dev/v2/scrape', { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ url, formats: ['links', 'html'], waitFor: 4000, onlyMainContent: false }), signal: AbortSignal.timeout(60000) });
+  if (!r.ok) return null;
+  const d = await r.json();
+  const links: string[] = [...(d?.data?.links || []), ...((String(d?.data?.html || '').match(/https?:\/\/[^\s"'<>)]+/g)) || [])];
+  const seen = new Set<string>();
+  for (const l of links) {
+    const a = atsFromUrl(l);
+    const k = a && `${a.ats}:${a.slug}`;
+    if (!a || !k || seen.has(k)) continue;
+    seen.add(k);
+    const p = await probe(a.ats, a.slug, name);
+    if (p) return p;
+    if (seen.size > 4) break;
+  }
+  return null;
+}
 
 /** One-time mapping per company (re-checked every 14 days): its ATS JSON board if it has one, else the real listing page. */
 type CpMap = { kind: 'ats'; ats: RawAts; slug: string; at: string } | { kind: 'page'; url: string; at: string } | { kind: 'none'; at: string; why: string };
@@ -92,14 +114,20 @@ async function mapCompany(name: string, url: string): Promise<CpMap & { jobs?: R
   const key = name.toLowerCase().replace(/[^a-z0-9]/g, '');
   const g = await guessAts(name).catch(() => null);
   if (g && g.slug.replace(/[^a-z0-9]/g, '').includes(key.slice(0, Math.min(6, key.length)))) return { kind: 'ats', ats: g.ats, slug: g.slug, at, jobs: g.jobs };
+  let why = '';
   try {
     const r = await readRoles(name, url);
     const link = (r.md.match(/https?:\/\/[^\s)"']+/g) || []).map((u) => atsFromUrl(u)).find(Boolean);
     if (link) { const p = await probe(link.ats, link.slug, name); if (p) return { kind: 'ats', ats: p.ats, slug: p.slug, at, jobs: p.jobs }; }
-    return r.jobs.length ? { kind: 'page', url: r.url, at, jobs: r.jobs } : { kind: 'none', at, why: 'page opens but shows no job list (search widget / login wall)' };
+    if (r.jobs.length) return { kind: 'page', url: r.url, at, jobs: r.jobs };
+    why = 'page opens but shows no job list (search widget / login wall)';
   } catch (e) {
-    return { kind: 'none', at, why: (e as Error).message.slice(0, 120) };
+    why = (e as Error).message.slice(0, 120);
   }
+  // the page renders its jobs with JavaScript → a real browser (Firecrawl) shows the hidden ATS board behind it (e.g. Postman → Workday)
+  const hidden = await renderedAts(url, name).catch(() => null);
+  if (hidden) return { kind: 'ats', ats: hidden.ats, slug: hidden.slug, at, jobs: hidden.jobs };
+  return { kind: 'none', at, why };
 }
 
 export const CAREER_PAGE_SOURCE: SourceDef = {

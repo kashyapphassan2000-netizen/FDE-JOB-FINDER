@@ -42,6 +42,7 @@ const FEEDS: { url: string; label: string; region: 'INDIA' | 'GLOBAL' }[] = [
   { url: 'https://economictimes.indiatimes.com/tech/funding/rssfeeds/78570540.cms', label: 'ET Tech funding', region: 'INDIA' },
   { url: 'https://inc42.com/feed/', label: 'Inc42', region: 'INDIA' },
   { url: 'https://yourstory.com/feed', label: 'YourStory', region: 'INDIA' },
+  { url: 'https://entrackr.com/feed/', label: 'Entrackr', region: 'INDIA' },
   { url: 'https://techcrunch.com/tag/funding/feed/', label: 'TechCrunch funding', region: 'GLOBAL' },
   { url: 'https://news.crunchbase.com/feed/', label: 'Crunchbase News', region: 'GLOBAL' },
 ];

@@ -77,6 +77,7 @@ export const DEFAULT_COMPANIES: CompanyEntry[] = [
   wd('hitachi', 'wd1', 'hitachi', 'Hitachi'), wd('target', 'wd5', 'targetcareers', 'Target'), wd('philips', 'wd3', 'jobs-and-careers', 'Philips'),
   wd('mastercard', 'wd1', 'CorporateCareers', 'Mastercard'), wd('paypal', 'wd1', 'jobs', 'PayPal'), wd('thomsonreuters', 'wd5', 'External_Career_Site', 'Thomson Reuters'),
   wd('gehc', 'wd5', 'GEHC_ExternalSite', 'GE HealthCare'), wd('cisco', 'wd5', 'Cisco_Careers', 'Cisco'), wd('equinix', 'wd1', 'External', 'Equinix'),
+  wd('salesforce', 'wd12', 'External_Career_Site', 'Salesforce'), wd('adobe', 'wd5', 'external_experienced', 'Adobe'), wd('nvidia', 'wd5', 'NVIDIAExternalCareerSite', 'NVIDIA'), wd('target', 'wd5', 'targetcareers', 'Target'), wd('equinix', 'wd1', 'External', 'Equinix'), wd('gevernova', 'wd5', 'Vernova_ExternalSite', 'GE Vernova'), wd('sec', 'wd3', 'Samsung_Careers', 'Samsung'), wd('postman', 'wd108', 'careers', 'Postman'), // Excel: big companies, exact Workday boards (verified)
   wd('autodesk', 'wd1', 'Ext', 'Autodesk'), wd('workday', 'wd5', 'Workday', 'Workday'), wd('harman', 'wd3', 'HARMAN', 'Harman', 'embedded'),
   // From the AI Job Search Master Excel (verified live Oct 2026)
   wd('gevernova', 'wd5', 'Vernova_ExternalSite', 'GE Vernova'), ab('surge-ai', 'Surge AI', 'fde'), sr('Swiggy', 'Swiggy', 'india'),
