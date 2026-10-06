@@ -91,7 +91,8 @@ export async function reachPlan(input: ReachInput): Promise<ReachPlan> {
   let plan: Partial<ReachPlan> = {};
   if (await aiConfigured()) {
     const cv = await getCv();
-    const { data, meta } = await chatJson<{ decider: { who: string; why: string }; route: { step: string; how: string }[]; hacks: string[]; messages: { channel: string; to: string; text: string }[]; people_why?: Record<string, string> }>(
+    type PlanAI = { decider: { who: string; why: string }; route: { step: string; how: string }[]; hacks: string[]; messages: { channel: string; to: string; text: string }[]; people_why?: Record<string, string> };
+    let { data, meta } = await chatJson<PlanAI>(
       'You are an elite tech recruiter-turned-coach. You know exactly who decides on a hire at startups vs big companies and the fastest honest route to them. Brutally practical, no fluff, no invented facts.',
       `Job / post: ${role} at ${company || 'company not stated'} (${input.location || 'location not stated'})
 URL: ${input.url}${post ? `\nThis is a SOCIAL POST by ${input.author || 'the author'} — they are most likely the hiring person.` : ''}
@@ -108,8 +109,15 @@ Return JSON:
 "hacks":["5-8 specific smart shortcuts / jugaad for THIS company+role: e.g. comment with a 3-line proof on their latest post, find the engineering manager via the GitHub org / engineering blog authors, the hiring-team box on the LinkedIn job page, Greenhouse/Ashby 'hiring team' names, meetups/hackathons they sponsor, alumni from your college, a tiny demo built on their product sent in the DM… only ones that genuinely apply"],
 "messages":[{"channel":"LinkedIn connection note (≤300 chars)","to":"name/title","text":""},{"channel":"Cold email","to":"","text":"Subject: …\\n\\n≤120 words"},{"channel":"X / LinkedIn DM to the post author","to":"","text":"≤280 chars"},{"channel":"Referral ask to an engineer","to":"","text":""},{"channel":"Follow-up after 4 days","to":"","text":""}],
 "people_why":{"<name>":"why this person matters"}}`,
-      { maxTokens: 2600, timeoutMs: 60000 },
+      { maxTokens: 3500, timeoutMs: 60000 },
     ).catch((e) => { warnings.push(`AI plan failed: ${(e as Error).message.slice(0, 120)}`); return { data: null, meta: null }; });
+    if (!data?.route?.length) {
+      // the reply was cut off or unreadable → one retry on a different free model, shorter
+      warnings.push('first AI plan was unreadable — retried');
+      const again = await chatJson<PlanAI>('Elite tech recruiter coach. Practical, honest, never invent people.', `Role: ${role} at ${company || 'unknown'} (${input.location || ''}). URL: ${input.url}. Real people: ${peopleOut.slice(0, 8).map((p) => `${p.name} (${p.role})`).join('; ') || 'none'}. Inboxes: ${inboxes.join(', ') || 'none'}.
+JSON: {"decider":{"who":"","why":""},"route":[{"step":"1. …","how":""}],"hacks":[""],"messages":[{"channel":"LinkedIn note (≤300 chars)","to":"","text":""},{"channel":"Cold email","to":"","text":"Subject: …\\n\\n≤100 words"}]}`, { maxTokens: 1600, timeoutMs: 40000 }).catch(() => ({ data: null, meta: null }));
+      if (again.data?.route?.length) { data = again.data; meta = again.meta; warnings.pop(); }
+    }
     if (data) {
       plan = { decider: data.decider, route: data.route || [], hacks: data.hacks || [], messages: data.messages || [], model: meta ? `${meta.provider} · ${meta.model}` : undefined };
       for (const p of peopleOut) { const w = data.people_why?.[p.name]; if (w) (p as { why?: string }).why = w; }
