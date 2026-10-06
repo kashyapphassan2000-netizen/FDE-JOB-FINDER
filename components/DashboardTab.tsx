@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Job } from '@/lib/types';
 import { ago, api, dateLabel } from './api';
 import ExportButton from './ExportButton';
+import SourceFilter, { Filtered, useSourceFilter } from './SourceFilter';
+import { srcKeys, sourceLabel } from '@/lib/sourcetype';
 
 type D = {
   jobs: Job[]; meta: { lastRefresh: string | null } | null; posts: { id: string; title: string; company: string; author?: string; url: string; postedAt?: string | null; foundAt: string; location: string; applyHow?: string }[];
@@ -22,9 +24,11 @@ export default function DashboardTab({ toast }: { toast: (s: string) => void }) 
   const [fresh, setFresh] = useState(30);
   useEffect(() => { api<D>('/api/dashboard').then(setD).catch((e) => toast(e.message)); }, [toast]);
 
-  const recs = useMemo(() => (d?.jobs || [])
+  const recs0 = useMemo(() => (d?.jobs || [])
     .filter((j) => (role === 'ALL' || j.categories.includes('FDE')) && (!j.exp || (j.exp.max >= minY && j.exp.min <= maxY)) && Date.now() - Date.parse(j.postedAt || j.firstSeen) < fresh * 864e5 && !(j.flags || []).some((f) => f.startsWith('⚠')))
     .sort((a, b) => rank(a.locTags) - rank(b.locTags) || (b.score + b.cvMatch) - (a.score + a.cvMatch)), [d, minY, maxY, role, fresh]);
+  const sf = useSourceFilter(recs0, (j) => srcKeys(j.url, j.sources));
+  const recs = sf.visible;
   if (!d) return <div className="panel muted">Building your dashboard…</div>;
   const blr = recs.filter((j) => j.locTags.includes('BLR')).length;
   const rem = recs.filter((j) => !j.locTags.includes('BLR') && j.locTags.includes('REMOTE_IN')).length;
@@ -80,6 +84,7 @@ export default function DashboardTab({ toast }: { toast: (s: string) => void }) 
       <div className="grid2">
         <div className="panel" style={{ gridColumn: '1 / -1' }}>
           <h3 style={{ marginTop: 0 }}>🎯 Recommended for you ({recs.length})</h3>
+          <SourceFilter counts={sf.counts} hidden={sf.hidden} setHidden={sf.setHidden} />
           {[0, 1, 2].map((r) => {
             const list = recs.filter((j) => rank(j.locTags) === r).slice(0, r === 0 ? 25 : 15);
             if (!list.length) return null;

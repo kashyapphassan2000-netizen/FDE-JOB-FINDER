@@ -3,6 +3,8 @@ import { useState } from 'react';
 import type { TrackEntry, TrackStatus } from '@/lib/types';
 import { ago, setTrack, STATUS_LABEL, type JobsPayload } from './api';
 import ExportButton from './ExportButton';
+import SourceFilter, { useSourceFilter } from './SourceFilter';
+import { srcKeys } from '@/lib/sourcetype';
 
 const ORDER: TrackStatus[] = ['saved', 'applied', 'referral', 'interview', 'offer', 'rejected', 'ignored'];
 
@@ -10,6 +12,7 @@ export default function TrackerTab({ data, reload, toast }: { data: JobsPayload 
   const [editing, setEditing] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const entries = Object.values(data?.track || {}) as TrackEntry[];
+  const sf = useSourceFilter(entries, (e) => srcKeys(e.job.url, e.job.sources));
 
   async function update(e: TrackEntry, status: TrackStatus | 'none', n?: string) {
     try {
@@ -31,9 +34,10 @@ export default function TrackerTab({ data, reload, toast }: { data: JobsPayload 
             { header: 'Location', get: (e) => e.job.location, width: 90 }, { header: 'Updated', get: (e) => new Date(e.updatedAt).toLocaleDateString('en-IN'), width: 55 }, { header: 'Notes', get: (e) => e.notes || '', width: 150 }]}
           rows={[...entries].sort((a, b) => ORDER.indexOf(a.status) - ORDER.indexOf(b.status) || b.updatedAt.localeCompare(a.updatedAt))} />
       </div>
+      <SourceFilter counts={sf.counts} hidden={sf.hidden} setHidden={sf.setHidden} />
       <div className="kanban">
         {ORDER.map((st) => {
-          const list = entries.filter((e) => e.status === st).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+          const list = sf.visible.filter((e) => e.status === st).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
           return (
             <div key={st}>
               <h3 style={{ margin: '4px 0 8px', fontSize: 14 }}>{STATUS_LABEL[st]} <span className="muted">({list.length})</span></h3>

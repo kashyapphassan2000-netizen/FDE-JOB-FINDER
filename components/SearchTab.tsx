@@ -3,7 +3,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { ago, api, setTrack } from './api';
 import ExportButton from './ExportButton';
 import { ReachButton, SaveButton } from './ReachButton';
-import { SOURCE_ICON, SOURCE_TYPES, sourceType } from '@/lib/sourcetype';
+import { SOURCE_ICON, SOURCE_TYPES, sourceType, srcKeys } from '@/lib/sourcetype';
+import SourceFilter, { useSourceFilter } from './SourceFilter';
 
 type Hit = { title: string; company: string; location: string; url: string; postedAt?: string | null; salary?: string; source: string; text?: string };
 type Res = { q: string; parsed?: { role: string; location: string; remote: boolean }; ms: number; total: number; hits: Hit[]; bySource: { source: string; n: number }[]; boardsSearched: number; errors: string[]; captureLinks: { label: string; url: string }[]; stripped: number };
@@ -28,7 +29,9 @@ export default function SearchTab({ q, toast, onOutreach }: { q: string; toast: 
     return () => { alive = false; clearInterval(iv); };
   }, [q, any, toast]);
 
-  const shown = useMemo(() => (res?.hits || []).filter((h) => (!src || h.source === src) && (!stype || sourceType(h.url) === stype)), [res, src, stype]);
+  const shown0 = useMemo(() => (res?.hits || []).filter((h) => (!src || h.source === src) && (!stype || sourceType(h.url) === stype)), [res, src, stype]);
+  const sf = useSourceFilter(shown0, (h) => srcKeys(h.url));
+  const shown = sf.visible;
   if (!q) return <div className="empty">Type any role in the search bar at the top — e.g. “MLOps engineer”, “solutions architect”, “AI product manager”, “computer vision”.</div>;
 
   return (
@@ -58,6 +61,7 @@ export default function SearchTab({ q, toast, onOutreach }: { q: string; toast: 
             <div className="row" style={{ marginTop: 6 }}>{res.captureLinks.map((l) => <a key={l.url} className="pill link-pill" href={l.url} target="_blank" rel="noreferrer">{l.label} ↗</a>)}</div>
           </div>
           {res.errors.length > 0 && <div className="small muted" style={{ marginBottom: 8 }}>Skipped: {res.errors.join(' · ')}</div>}
+          <SourceFilter counts={sf.counts} hidden={sf.hidden} setHidden={sf.setHidden} />
           <div className="finds">
             {shown.map((h) => (
               <div key={h.url} className="find">

@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ago, api, dateLabel, isStale } from './api';
 import ExportButton from './ExportButton';
+import SourceFilter, { Filtered, useSourceFilter } from './SourceFilter';
+import { srcKeys, sourceLabel } from '@/lib/sourcetype';
 
 type Co = {
   key: string; name: string; website?: string; location: string; region: string[]; source: string; sourceUrl?: string; tags: string[];
@@ -48,10 +50,12 @@ export default function DiscoverTab({ toast }: { toast: (s: string) => void }) {
     load();
   }
 
-  const list = useMemo(() => (d?.companies || []).filter((c) =>
+  const list0 = useMemo(() => (d?.companies || []).filter((c) =>
     (status === 'all' || c.status === status) && (!region || c.region.includes(region)) && (!onlyRoles || c.roles.length > 0) &&
     (!src || (src === 'yc' ? c.source.startsWith('YC') : c.source.startsWith('Funding'))) &&
     (!q || `${c.name} ${c.tags.join(' ')} ${c.location}`.toLowerCase().includes(q.toLowerCase()))), [d, region, onlyRoles, src, status, q]);
+  const sf = useSourceFilter(list0, (c) => [sourceLabel(c.source)]);
+  const list = sf.visible;
 
   if (!d) return <div className="panel muted">Loading…</div>;
   return (
@@ -78,6 +82,7 @@ export default function DiscoverTab({ toast }: { toast: (s: string) => void }) {
       </div>
       <div className="small muted" style={{ marginBottom: 6 }}>{list.length} companies</div>
       <div className="grid2">
+        <SourceFilter counts={sf.counts} hidden={sf.hidden} setHidden={sf.setHidden} />
         {list.slice(0, 200).map((c) => (
           <div key={c.key} className="card">
             <div className="row" style={{ justifyContent: 'space-between' }}>

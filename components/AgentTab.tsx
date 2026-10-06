@@ -1,7 +1,8 @@
 'use client';
 import FeedPanel, { hasFeed } from './FeedPanel';
 import { ReachButton, SaveButton } from './ReachButton';
-import { SOURCE_ICON, SOURCE_TYPES, sourceType } from '@/lib/sourcetype';
+import { SOURCE_ICON, SOURCE_TYPES, sourceType, srcKeys } from '@/lib/sourcetype';
+import SourceFilter, { useSourceFilter } from './SourceFilter';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ago, api, setTrack } from './api';
 import FitDrawer, { type FitJob } from './FitDrawer';
@@ -125,12 +126,14 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
     return !age || Date.now() - when(f) < age * 36e5;
   }), [scoped, age]);
   const pool = freshFinds;
-  const finds = useMemo(
+  const finds0 = useMemo(
     () => pool
       .filter((f) => (!kind || f.kind === kind) && (!stype || sourceType(f.url) === stype) && (view === 'run' || status === 'all' || (status === 'open' ? f.status === 'new' : f.status === status)))
       .sort((a, b) => when(b) - when(a) || (a.confidence === 'maybe' ? 1 : 0) - (b.confidence === 'maybe' ? 1 : 0)),
     [pool, kind, stype, status, view],
   );
+  const sf = useSourceFilter(finds0, (f) => srcKeys(f.url));
+  const finds = sf.visible;
   const olderHidden = scoped.length - freshFinds.length;
   const AGE_LABEL: Record<number, string> = { 24: 'last 24 h', 72: 'last 3 days', 168: 'last 7 days', 720: 'last 30 days', 0: 'any time' };
   const counts = useMemo(() => pool.reduce<Record<string, number>>((c, f) => ((c[f.kind] = (c[f.kind] || 0) + 1), c), {}), [pool]);
@@ -279,6 +282,7 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
       )}
       {view === 'run' && lastRun && !lastRun.findIds && <div className="empty">This run is from before the upgrade. Run a mission or a search to see its results here.</div>}
 
+      <SourceFilter counts={sf.counts} hidden={sf.hidden} setHidden={sf.setHidden} />
       <div className="finds">
         {finds.slice(0, 400).map((f) => <FindCard key={f.id} f={f} onStat={setStat} onWatch={watch} onFit={() => setFit({ id: f.id, title: f.title, company: f.company, location: f.location, url: f.url, description: f.snippet })} onOutreach={onOutreach} toast={toast} />)}
         {olderHidden > 0 && <div className="small muted" style={{ margin: '4px 0 8px' }}>{olderHidden} result{olderHidden > 1 ? 's' : ''} hidden (LinkedIn / X older than 24 h or with no provable date, or others outside “{AGE_LABEL[age]}”).</div>}

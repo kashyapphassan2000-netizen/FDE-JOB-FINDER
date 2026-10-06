@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ago, api } from './api';
 import ExportButton from './ExportButton';
+import SourceFilter, { Filtered, useSourceFilter } from './SourceFilter';
+import { srcKeys, sourceLabel } from '@/lib/sourcetype';
 
 type W = {
   id: string; name: string; kind: 'ats' | 'page'; ats?: string; url: string; locations: string[]; status: 'ok' | 'readable' | 'unreadable' | 'pending'; note: string;
@@ -104,7 +106,7 @@ export default function WatchTab({ toast }: { toast: (s: string) => void }) {
           <div className="row" style={{ justifyContent: 'space-between' }}><h3 style={{ margin: 0 }}>🔔 New AI / FDE roles at your companies</h3>
             <ExportButton title="New AI / FDE roles at watched companies" filename="watch-new-roles" cols={[{ header: 'Found', get: (h: Hit) => new Date(h.foundAt).toLocaleString('en-IN'), width: 80 }, { header: 'Company', get: (h) => h.company, width: 90 }, { header: 'Role', get: (h) => h.title, link: (h) => h.url }, { header: 'Location', get: (h) => h.location, width: 110 }, { header: 'Why', get: (h) => h.why, width: 110 }]} rows={d.hits} />
           </div>
-          {d.hits.slice(0, 40).map((h) => <div key={h.id + h.foundAt} className="tline"><span className="badge b-date">{ago(h.foundAt)} ago</span> <b>{h.company}</b> · <a href={h.url} target="_blank" rel="noreferrer">{h.title}</a> <span className="small muted">· {h.location} · {h.why}{h.emailed ? ' · ✉ emailed' : ''}</span></div>)}
+          <Filtered items={d.hits} keys={(h) => srcKeys(h.url)}>{(hits) => hits.slice(0, 40).map((h) => <div key={h.id + h.foundAt} className="tline"><span className="badge b-date">{ago(h.foundAt)} ago</span> <b>{h.company}</b> · <a href={h.url} target="_blank" rel="noreferrer">{h.title}</a> <span className="small muted">· {h.location} · {h.why}{h.emailed ? ' · ✉ emailed' : ''}</span></div>)}</Filtered>
         </div>
       )}
 

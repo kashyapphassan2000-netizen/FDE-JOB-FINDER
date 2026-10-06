@@ -20,3 +20,27 @@ export function sourceType(url: string, sources: string[] = []): SourceType {
   if (sources.some((s) => BOARD_SOURCES.test(s))) return 'Job board';
   return 'Web / other';
 }
+
+/** Friendly names for the job-feed source ids. */
+export const SOURCE_LABEL: Record<string, string> = {
+  greenhouse: 'Greenhouse (company boards)', lever: 'Lever (company boards)', ashby: 'Ashby (company boards)', workable: 'Workable (company boards)',
+  smartrecruiters: 'SmartRecruiters (company boards)', workday: 'Workday (company boards)', careerpages: 'Company career pages', amazon: 'Amazon jobs', microsoft: 'Microsoft careers',
+  jpmc: 'JPMorgan careers', yc_jobs: 'Y Combinator / Work at a Startup', instahyre: 'Instahyre', remotive: 'Remotive', remoteok: 'Remote OK', himalayas: 'Himalayas', jobicy: 'Jobicy',
+  themuse: 'The Muse', weworkremotely: 'We Work Remotely', hn: 'Hacker News (Who is hiring)', reddit: 'Reddit', telegram: 'Telegram channels', unstop: 'Unstop', mercor: 'Mercor',
+  eightyk: '80,000 Hours', internshala: 'Internshala', jsearch: 'JSearch (Google Jobs)', serpapi: 'Google Jobs (SerpApi)', adzuna: 'Adzuna', jooble: 'Jooble', capture: 'Captured by you', watch: 'Watched companies',
+};
+export const sourceLabel = (id: string) => SOURCE_LABEL[id] || SOURCE_LABEL[id.split(':')[0]] || id.replace(/^agent:/, 'Agent: ').replace(/_/g, ' ');
+
+const ATS_HOST: [RegExp, string][] = [
+  [/greenhouse\.io/, 'Greenhouse (company boards)'], [/lever\.co/, 'Lever (company boards)'], [/ashbyhq\.com/, 'Ashby (company boards)'], [/workable\.com/, 'Workable (company boards)'],
+  [/smartrecruiters\.com/, 'SmartRecruiters (company boards)'], [/myworkdayjobs\.com|workday/, 'Workday (company boards)'], [/oraclecloud\.com/, 'Oracle HCM (company boards)'],
+  [/amazon\.jobs/, 'Amazon jobs'], [/careers\.microsoft|jobs\.careers\.microsoft/, 'Microsoft careers'], [/news\.ycombinator\.com|hn\.algolia/, 'Hacker News (Who is hiring)'],
+  [/reddit\.com/, 'Reddit'], [/t\.me\//, 'Telegram channels'], [/ycombinator\.com|workatastartup\.com/, 'Y Combinator / Work at a Startup'],
+];
+/** The source name(s) of any item on any page: its feed source ids if known, else the job board / company site it links to. */
+export function srcKeys(url: string, sources?: string[]): string[] {
+  if (sources?.length) return Array.from(new Set(sources.map(sourceLabel)));
+  const u = (url || '').toLowerCase();
+  for (const [rx, l] of ATS_HOST) if (rx.test(u)) return [l];
+  try { return [new URL(url).hostname.replace(/^www\./, '')]; } catch { return []; }
+}

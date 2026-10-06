@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ago, api, dateLabel } from './api';
 import ExportButton from './ExportButton';
+import SourceFilter, { Filtered, useSourceFilter } from './SourceFilter';
+import { srcKeys, sourceLabel } from '@/lib/sourcetype';
 
 type Opp = { id: string; kind: 'hackathon' | 'hiring_challenge' | 'contract'; title: string; org: string; url: string; deadline?: string | null; posted?: string | null; prize?: string; eligibility: string; openToYou: boolean; tags: string[]; ppi?: boolean; pay?: string };
 type Payload = { at: string; items: Opp[]; errors: string[]; programs: { group: string; items: { name: string; what: string; url: string; note?: string }[] }[] };
@@ -20,7 +22,9 @@ export default function OpportunitiesTab({ toast }: { toast: (s: string) => void
   const [busy, setBusy] = useState(false);
   const load = useCallback((force = false) => { setBusy(true); return api<Payload>(`/api/opportunities${force ? '?force=1' : ''}`).then(setD).catch((e) => toast(e.message)).finally(() => setBusy(false)); }, [toast]);
   useEffect(() => { load(); }, [load]);
-  const items = useMemo(() => (d?.items || []).filter((o) => (!kind || o.kind === kind) && (!onlyMine || o.openToYou)).sort((a, b) => Number(b.ppi || 0) - Number(a.ppi || 0) || (a.kind === 'contract' ? 1 : 0) - (b.kind === 'contract' ? 1 : 0) || Date.parse(a.deadline || '2100-01-01') - Date.parse(b.deadline || '2100-01-01')), [d, kind, onlyMine]);
+  const items0 = useMemo(() => (d?.items || []).filter((o) => (!kind || o.kind === kind) && (!onlyMine || o.openToYou)).sort((a, b) => Number(b.ppi || 0) - Number(a.ppi || 0) || (a.kind === 'contract' ? 1 : 0) - (b.kind === 'contract' ? 1 : 0) || Date.parse(a.deadline || '2100-01-01') - Date.parse(b.deadline || '2100-01-01')), [d, kind, onlyMine]);
+  const sf = useSourceFilter(items0, (o) => srcKeys(o.url));
+  const items = sf.visible;
   if (!d) return <div className="panel muted">Loading opportunities…</div>;
   const n = (k: Opp['kind']) => d.items.filter((o) => o.kind === k && (!onlyMine || o.openToYou)).length;
   return (
@@ -51,6 +55,7 @@ export default function OpportunitiesTab({ toast }: { toast: (s: string) => void
       </div>
       {d.errors.length > 0 && <div className="notice warn small">{d.errors.join(' · ')}</div>}
       <div className="opps">
+        <SourceFilter counts={sf.counts} hidden={sf.hidden} setHidden={sf.setHidden} />
         {items.slice(0, 200).map((o) => (
           <a key={o.id} className="opp" href={o.url} target="_blank" rel="noreferrer">
             <div className="row" style={{ justifyContent: 'space-between' }}>

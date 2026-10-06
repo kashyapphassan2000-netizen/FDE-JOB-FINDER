@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import { ago, api, type JobsPayload } from './api';
 import type { Job } from '@/lib/types';
 import ExportButton from './ExportButton';
+import SourceFilter, { Filtered, useSourceFilter } from './SourceFilter';
+import { srcKeys, sourceLabel } from '@/lib/sourcetype';
 import { ReachButton, SaveButton } from './ReachButton';
 
 /** Live jobs for an agent tab, straight from the job feed (every ATS board + LinkedIn, refreshed hourly) — no web search needed. */
@@ -41,7 +43,7 @@ export default function FeedPanel({ missionId, toast = () => {} }: { missionId: 
       {!d && <div className="small muted">Loading…</div>}
       {d && !jobs.length && <div className="small muted">No open roles of this kind in the last {maxH / 24} days right now.</div>}
       {older > 0 && <div className="small muted">{older} older item{older > 1 ? 's' : ''} (over {maxH / 24} days) hidden to keep this fresh.</div>}
-      {shown.map((j) => <div key={j.id} className="tline"><b><a href={j.url} target="_blank" rel="noreferrer">{j.title} ↗</a></b> — {j.company} <span className="small muted">· {j.location} · {j.postedAt ? `posted ${ago(j.postedAt)} ago` : `seen ${ago(j.firstSeen)} ago`} · {j.sources.join('/')}</span> <span className="row" style={{ gap: 6, display: 'inline-flex' }}><ReachButton item={{ title: j.title, company: j.company, url: j.url, location: j.location, text: j.description?.slice(0, 1500) }} toast={toast} /><SaveButton item={{ title: j.title, company: j.company, url: j.url, location: j.location, text: j.description?.slice(0, 1500) }} toast={toast} folder={missionId === 'communities' ? 'Saved posts' : 'Saved jobs'} /></span></div>)}
+      <Filtered items={shown} keys={(j) => srcKeys(j.url, j.sources)}>{(vis) => vis.map((j) => <div key={j.id} className="tline"><b><a href={j.url} target="_blank" rel="noreferrer">{j.title} ↗</a></b> — {j.company} <span className="small muted">· {j.location} · {j.postedAt ? `posted ${ago(j.postedAt)} ago` : `seen ${ago(j.firstSeen)} ago`} · {j.sources.join('/')}</span> <span className="row" style={{ gap: 6, display: 'inline-flex' }}><ReachButton item={{ title: j.title, company: j.company, url: j.url, location: j.location, text: j.description?.slice(0, 1500) }} toast={toast} /><SaveButton item={{ title: j.title, company: j.company, url: j.url, location: j.location, text: j.description?.slice(0, 1500) }} toast={toast} folder={missionId === 'communities' ? 'Saved posts' : 'Saved jobs'} /></span></div>)}</Filtered>
       {jobs.length > 25 && <button className="small-btn" onClick={() => setAll(!all)}>{all ? 'Show less' : `Show all ${jobs.length}`}</button>}
     </div>
   );

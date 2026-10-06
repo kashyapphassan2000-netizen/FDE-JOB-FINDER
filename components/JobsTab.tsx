@@ -5,7 +5,8 @@ import { ago, api, setTrack, STATUS_LABEL, type JobsPayload } from './api';
 import { scoreJob, type Profile } from '@/lib/relevance';
 import FitDrawer from './FitDrawer';
 import { ReachButton } from './ReachButton';
-import { SOURCE_ICON, SOURCE_TYPES, sourceType } from '@/lib/sourcetype';
+import { SOURCE_ICON, SOURCE_TYPES, sourceType, srcKeys } from '@/lib/sourcetype';
+import SourceFilter, { useSourceFilter } from './SourceFilter';
 import ExportButton from './ExportButton';
 
 const rank = (tags: string[]) => (tags.includes('BLR') ? 0 : tags.includes('REMOTE_IN') ? 1 : tags.includes('UNSTATED') ? 2 : 3);
@@ -73,7 +74,7 @@ export default function JobsTab({ data, reload, toast, onOutreach, onApply }: { 
   const track = data?.track || {};
   const sources = useMemo(() => Array.from(new Set(jobs.flatMap((j) => j.sources))).sort(), [jobs]);
 
-  const filtered = useMemo(() => {
+  const filtered0 = useMemo(() => {
     const needle = q.trim().toLowerCase();
     const maxH = Number(win);
     let out = jobs.filter((j) => {
@@ -106,6 +107,8 @@ export default function JobsTab({ data, reload, toast, onOutreach, onApply }: { 
     if (sort === 'ai') { const S = data?.sem || {}; const v = (id: string) => (S[id]?.r ?? -1) * 10 + (S[id]?.s ?? 0); out = [...out].sort((a, b) => v(b.id) - v(a.id)); }
     return out;
   }, [jobs, track, q, roles, domains, regions, win, src, stype, sen, sort, hideTracked, onlyNew, lastVisit, hiddenOnly, salaryOnly, exp, quick, profile, onlyPrio]);
+  const sf = useSourceFilter(filtered0, (j) => srcKeys(j.url, j.sources));
+  const filtered = sf.visible;
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { new24: 0, hidden: 0 };
@@ -194,6 +197,7 @@ export default function JobsTab({ data, reload, toast, onOutreach, onApply }: { 
         )}
       </div>
 
+      <SourceFilter counts={sf.counts} hidden={sf.hidden} setHidden={sf.setHidden} />
       <div className="row" style={{ marginBottom: 8, justifyContent: 'space-between' }}>
         <span className="muted small">{filtered.length} matching · Bengaluru office first, then remote open to India</span>
         <ExportButton title="Jobs" subtitle={`Filters: ${[q && `search “${q}”`, win !== '0' && `posted within ${win}h`, exp && `${exp} yrs experience`, roles.join('/'), regions.join('/')].filter(Boolean).join(' · ') || 'none'} · sorted ${sort}`}

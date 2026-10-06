@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ago, api, dateLabel } from './api';
 import ExportButton from './ExportButton';
+import SourceFilter, { Filtered, useSourceFilter } from './SourceFilter';
+import { srcKeys, sourceLabel } from '@/lib/sourcetype';
 
 type Role = { title: string; url: string; location: string; posted: string | null; fde: boolean };
 type Co = {
@@ -25,7 +27,7 @@ export default function DirectoryTab({ toast, onOutreach }: { toast: (s: string)
   const load = useCallback(() => api<Payload>('/api/directory').then(setD).catch((e) => toast(e.message)), [toast]);
   useEffect(() => { load(); }, [load]);
 
-  const list = useMemo(() => (d?.companies || []).filter((c) => {
+  const list0 = useMemo(() => (d?.companies || []).filter((c) => {
     const F = scope === 'world' ? c.fdeWorld : c.fde, A = scope === 'world' ? c.aiWorld : c.aiml;
     if (role === 'fde' && F === 0) return false;
     if (role === 'fdeEver' && !c.hiresFde) return false;
@@ -40,6 +42,8 @@ export default function DirectoryTab({ toast, onOutreach }: { toast: (s: string)
     : sort === 'name' ? a.name.localeCompare(b.name)
     : sort === 'startup' ? Date.parse(b.fundedAt || b.firstSeen) - Date.parse(a.fundedAt || a.firstSeen)
     : scope === 'world' ? b.fdeWorld - a.fdeWorld || b.aiWorld - a.aiWorld : b.fde - a.fde || b.new24h - a.new24h || b.aiml - a.aiml), [d, role, region, onlyNew, fresh, q, sort, scope]);
+  const sf = useSourceFilter(list0, (c) => [sourceLabel(c.source)]);
+  const list = sf.visible;
 
   if (!d) return <div className="panel muted">Building the company directory…</div>;
   const c = d.counts;
@@ -80,6 +84,7 @@ export default function DirectoryTab({ toast, onOutreach }: { toast: (s: string)
 
       <div className="small muted" style={{ marginBottom: 8 }}>{list.length} companies · {c.hiresFde} have hired FDEs · {c.blr} with Bengaluru roles · {c.newStartups} new startups</div>
       <div className="grid2">
+        <SourceFilter counts={sf.counts} hidden={sf.hidden} setHidden={sf.setHidden} />
         {list.slice(0, 300).map((x) => (
           <div key={x.key} className="card">
             <div className="row" style={{ justifyContent: 'space-between' }}>

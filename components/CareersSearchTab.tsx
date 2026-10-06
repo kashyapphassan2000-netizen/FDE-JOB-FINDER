@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ago, api, dateLabel } from './api';
 import ExportButton from './ExportButton';
+import SourceFilter, { Filtered, useSourceFilter } from './SourceFilter';
+import { srcKeys, sourceLabel } from '@/lib/sourcetype';
 import type { Profile } from '@/lib/relevance';
 
 type Hit = { title: string; company: string; location: string; url: string; postedAt: string | null; score: number; roleRank: number; locRank: number; why: string[] };
@@ -49,7 +51,9 @@ export default function CareersSearchTab({ toast, onAnalyze }: { toast: (s: stri
     catch (e) { toast((e as Error).message); } finally { setBusy(''); }
   }
 
-  const shown = useMemo(() => (r?.hits || []).filter((h) => (!fresh || (h.postedAt && Date.now() - Date.parse(h.postedAt) <= fresh * 864e5)) && (!noUnstated || h.locRank < (r?.profile.locations.length || 0)) && (!co || h.company === co)), [r, fresh, noUnstated, co]);
+  const shown0 = useMemo(() => (r?.hits || []).filter((h) => (!fresh || (h.postedAt && Date.now() - Date.parse(h.postedAt) <= fresh * 864e5)) && (!noUnstated || h.locRank < (r?.profile.locations.length || 0)) && (!co || h.company === co)), [r, fresh, noUnstated, co]);
+  const sf = useSourceFilter(shown0, (h) => srcKeys(h.url));
+  const shown = sf.visible;
   const companies = useMemo(() => Array.from(new Set((r?.hits || []).map((h) => h.company))).sort(), [r]);
 
   return (
@@ -106,7 +110,8 @@ export default function CareersSearchTab({ toast, onAnalyze }: { toast: (s: stri
               cols={[{ header: 'Score', get: (h: Hit) => h.score, width: 32 }, { header: 'Role', get: (h) => h.title, link: (h) => h.url }, { header: 'Company', get: (h) => h.company, width: 90 }, { header: 'Location', get: (h) => h.location || 'not stated', width: 120 }, { header: 'Posted', get: (h) => (h.postedAt ? dateLabel(h.postedAt) : ''), width: 70 }, { header: 'Why', get: (h) => h.why.join(' · '), width: 150 }]} rows={shown} />
           </div>
           <div className="jobs">
-            {shown.slice(0, 400).map((h) => (
+            <SourceFilter counts={sf.counts} hidden={sf.hidden} setHidden={sf.setHidden} />
+        {shown.slice(0, 400).map((h) => (
               <div key={h.url} className="jr-card cs-card">
                 <div className="jr-body">
                   <div className="jr-top">{h.postedAt && <span className="jr-when">{ago(h.postedAt)} ago</span>}{h.postedAt && Date.now() - Date.parse(h.postedAt) < 864e5 && <span className="jr-pill early">⚡ Be an early applicant</span>}{h.why.map((w) => <span key={w} className="jr-pill gem">{w}</span>)}</div>
