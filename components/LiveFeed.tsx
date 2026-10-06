@@ -7,7 +7,7 @@ import { ReachButton, SaveButton } from './ReachButton';
 type Job = { title: string; company: string; location: string; url: string; postedAt?: string | null; salary?: string; via?: string };
 type Post = { text: string; url: string; author: string; postedAt: string | null; likes?: number };
 type JobsRes = { jobs?: Job[]; recent?: Job[]; blocked?: boolean; at: string; cached: boolean; error?: string; queries?: string[]; where?: string[] };
-type PostsRes = { posts?: Post[]; recent?: Post[]; undated?: Post[]; needsKey?: boolean; free?: boolean; at: string; cached: boolean; error?: string; queries?: string[]; engines?: string[] };
+type PostsRes = { posts?: Post[]; recent?: Post[]; undated?: Post[]; other?: Post[]; needsKey?: boolean; free?: boolean; at: string; cached: boolean; error?: string; queries?: string[]; engines?: string[] };
 
 /** Live, straight-from-the-platform results: LinkedIn jobs + LinkedIn posts, or X posts. Your words, as typed. 24 h first, then 1–7 days. */
 export default function LiveFeed({ kind, query, toast }: { kind: 'li' | 'x'; query: string; toast: (s: string) => void }) {
@@ -78,7 +78,8 @@ export default function LiveFeed({ kind, query, toast }: { kind: 'li' | 'x'; que
             {(posts.posts || []).map(postRow)}
             {!posts.posts?.length && !busy && <div className="small muted">No matching post from the last 24 h has been indexed yet{posts.recent?.length ? ' — the latest ones are right below' : ''}.</div>}
             {!!posts.recent?.length && <><h4 style={{ margin: '10px 0 4px' }}>Posts — last 1–7 days ({posts.recent.length})</h4>{posts.recent.map(postRow)}</>}
-            {!!posts.undated?.length && <details style={{ marginTop: 8 }}><summary className="small muted">{posts.undated.length} more without a provable date</summary>{posts.undated.map(postRow)}</details>}
+            {!!posts.other?.length && <details style={{ marginTop: 8 }}><summary className="small muted">{posts.other.length} more matching posts without a hiring signal (news, opinions)</summary>{posts.other.map(postRow)}</details>}
+            {!!posts.undated?.length && <details style={{ marginTop: 8 }}><summary className="small muted">{posts.undated.length} more that could not be verified (no provable date, or the post could not be opened)</summary>{posts.undated.map(postRow)}</details>}
           </>}
         </>
       )}

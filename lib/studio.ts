@@ -1,6 +1,6 @@
 import { track } from './obs';
 import { randomBytes } from 'node:crypto';
-import { aiConfigured, allProfiles, chatJson, listModels } from './llm';
+import { aiConfigured, allProfiles, chat, chatJson, listModels } from './llm';
 import { readPage, webSearch } from './search';
 import { newsSearch } from './news';
 import { getJSON, hdel, hgetall, hset, setJSON } from './store';
@@ -607,7 +607,7 @@ export async function modelFromText(text: string): Promise<{ ref?: ModelRef; not
   const m = t.match(/\b(use|using|with|via|on|through|switch to|run (?:it )?(?:on|with)|model)\s*[:=]?\s*((?:claude code|cc|fcc)\s*(?:\+|and|with|using|on)?\s*)?([a-z0-9][a-z0-9._/:-]{1,60}(?:[ -][a-z0-9.]{1,12})?)/);
   if (!m && !/claude code|\bfcc\b/.test(t)) return { clean: text };
   const profs = (await allProfiles()).filter((p) => p.enabled && p.key);
-  const want = (m?.[3] || '').trim();
+  const want = (m?.[3] || '').trim().replace(/[:,.;!?]+$/, '').replace(/[:,;].*$/, '');
   const strongVerb = /^(use|using|switch to|model)$/.test(m?.[1] || '');
   const wantsCC = /claude code|\bfcc\b/.test(t);
   let note = '';
@@ -629,9 +629,13 @@ export async function modelFromText(text: string): Promise<{ ref?: ModelRef; not
     const key = fam || want;
     const exact = profs.find((p) => p.model.toLowerCase().includes(key));
     if (exact) return { ref: { profileId: exact.id, model: exact.model, strict: false }, clean: text, note };
-    for (const p of [...(byProv ? [byProv] : []), ...profs.filter((x) => x !== byProv)]) {
+    // first provider that lists it AND actually answers (a 1-token test) — so "use kimi" really runs on Kimi
+    const order = [...(byProv ? [byProv] : []), ...profs.filter((x) => x !== byProv).sort((a, b) => Number(/nvidia|openrouter|groq/.test(b.preset)) - Number(/nvidia|openrouter|groq/.test(a.preset)))];
+    for (const p of order) {
       const mdl = await bestModel(p, key);
-      if (mdl) return { ref: { profileId: p.id, model: mdl, strict: false }, clean: text, note };
+      if (!mdl) continue;
+      const ok = await chat('Reply OK.', 'OK?', { profileId: p.id, model: mdl, strict: true, maxTokens: 8, timeoutMs: 15000 }).then(() => true).catch(() => false);
+      if (ok) return { ref: { profileId: p.id, model: mdl, strict: true }, clean: text, note };
     }
     return { clean: text, note: `${note ? `${note}\n` : ''}No provider you added serves "${key}" — add one in AI & Keys (NVIDIA / OpenRouter host most open models free). Answered with the default model.` };
   }
@@ -641,7 +645,7 @@ const familyCache = new Map<string, string[]>();
 async function bestModel(p: { id: string; wire: 'openai' | 'anthropic' | 'gemini'; baseUrl: string; key: string }, key: string): Promise<string> {
   let ms = familyCache.get(p.id);
   if (!ms) { ms = await Promise.race([listModels(p as never).catch(() => [] as string[]), new Promise<string[]>((r) => setTimeout(() => r([]), 6000))]); familyCache.set(p.id, ms); }
-  const hits = ms.filter((x) => x.toLowerCase().includes(key) && !/embed|guard|reward|vision|tts|whisper|audio|image/i.test(x));
+  const hits = ms.filter((x) => x.toLowerCase().includes(key) && !/embed|guard|reward|vision|tts|whisper|audio|image|coder-6|1\.3b|7b/i.test(x));
   return hits.sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))[0] || '';
 }
 

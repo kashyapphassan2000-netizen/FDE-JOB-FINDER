@@ -9,7 +9,7 @@ import { getSettings } from './settings';
 import { track } from './obs';
 import type { RawJob } from './types';
 import { matchesQuery, parseQuery } from './nlq';
-import { webSearchAll, type Recency } from './search';
+import { readPage, webSearchAll, type Recency } from './search';
 import { dateFromUrl } from './postdate';
 import { fetchTweet, tweetIdFromUrl } from './xposts';
 
@@ -71,8 +71,8 @@ export async function linkedinLive(q: string): Promise<{ jobs: RawJob[]; recent:
  * (SearXNG + the rest), real post time from the post ID (X snowflake / LinkedIn activity id — exact, not a crawl date),
  * X posts read in full through the public embed API. Split into last 24 h and the last 7 days so it is never a silent 0.
  */
-export async function postsLive(kind: 'x' | 'li', q: string): Promise<{ posts: LivePost[]; recent: LivePost[]; undated: LivePost[]; at: string; cached: boolean; queries: string[]; engines: string[]; error?: string }> {
-  const ck = key(`p${kind}`, q);
+export async function postsLive(kind: 'x' | 'li', q: string): Promise<{ posts: LivePost[]; recent: LivePost[]; undated: LivePost[]; other?: LivePost[]; at: string; cached: boolean; queries: string[]; engines: string[]; error?: string }> {
+  const ck = key(`p2${kind}`, q);
   const hit = await getJSON<{ posts: LivePost[]; recent: LivePost[]; undated: LivePost[]; at: string; queries: string[]; engines: string[] } | null>(ck, null);
   if (hit && Date.now() - Date.parse(hit.at) < CACHE_MS) return { ...hit, cached: true };
   const nlq = parseQuery(q);
@@ -95,6 +95,17 @@ export async function postsLive(kind: 'x' | 'li', q: string): Promise<{ posts: L
     r.engines.forEach((e) => engines.add(e));
     raw.push(...r.results);
   })));
+  // thin? widen: simpler phrasing + a month index window (post age is still checked from the post ID below)
+  const isPostUrl = (u: string) => (kind === 'x' ? Boolean(tweetIdFromUrl(u)) : /linkedin\.com\/(posts|feed\/update)\//i.test(u));
+  if (raw.filter((r) => isPostUrl(r.url)).length < 6) {
+    const t = nlq.terms.filter((w) => !/^(founders?|people|someone|anyone|companies|startups?)$/.test(w));
+    const more = Array.from(new Set([`${site} ${t.join(' ')} hiring`, `${site} ${t.slice(-2).join(' ')} ${loc}`.trim(), `${site} "${t.slice(-2).join(' ')}" job`])).filter((x) => !queries.includes(x)).slice(0, 3);
+    queries.push(...more);
+    await Promise.all(more.flatMap((qq) => (['week', 'month'] as Recency[]).map(async (rec) => {
+      const r = await Promise.race([webSearchAll(qq, 20, rec), new Promise<null>((res) => setTimeout(() => res(null), 25000))]).catch(() => null);
+      if (r) { r.engines.forEach((e) => engines.add(e)); raw.push(...r.results); }
+    })));
+  }
   const seen = new Set<string>();
   const items: LivePost[] = [];
   for (const r of raw) {
@@ -108,22 +119,40 @@ export async function postsLive(kind: 'x' | 'li', q: string): Promise<{ posts: L
     const author = kind === 'x' ? (url.match(/x\.com\/([^/]+)\//)?.[1] || '') : (r.title.match(/^(.+?)\s+(?:on|posted on) LinkedIn/i)?.[1] || url.match(/\/posts\/([a-z0-9-]+?)_/i)?.[1]?.replace(/-/g, ' ') || '');
     items.push({ text: `${r.title}\n${r.snippet}`.trim(), url, author, postedAt: dateFromUrl(url) });
   }
-  // X: read each post in full (exact text + time) — free public embed endpoint
+  // ACCURACY: every post is opened at the source. X → public embed API (exact text, author, time; a post that cannot be
+  // opened is deleted/protected → kept out of the main list). LinkedIn → the public post page (full text + real author).
+  const verified = new Set<string>();
   if (kind === 'x') {
     await Promise.all(items.slice(0, 60).map(async (p) => {
       const t = await fetchTweet(tweetIdFromUrl(p.url)!, 8000).catch(() => null);
-      if (t) { p.text = `${t.text}${t.links.length ? `\n${t.links.join(' ')}` : ''}`; p.author = t.handle || p.author; p.postedAt = t.createdAt ? toIso(t.createdAt) || p.postedAt : p.postedAt; p.likes = t.likes; }
+      if (t) { verified.add(p.url); p.text = `${t.text}${t.links.length ? `\n${t.links.join(' ')}` : ''}`; p.author = t.handle || p.author; p.postedAt = t.createdAt ? toIso(t.createdAt) || p.postedAt : p.postedAt; p.likes = t.likes; }
     }));
+  } else {
+    const byAge = [...items].sort((a, b) => (b.postedAt || '').localeCompare(a.postedAt || '')).slice(0, 14);
+    await Promise.race([Promise.all(byAge.map(async (p) => {
+      const md = await readPage(p.url, 8000).catch(() => '');
+      if (!md || /sign in to view|authwall|join linkedin/i.test(md.slice(0, 400)) && md.length < 600) return;
+      const who = md.match(/^Title:\s*(.+?)\s+on LinkedIn/im)?.[1];
+      const body = md.replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[([^\]]*)\]\((https?:[^)]*)\)/g, '$1 $2').split('\n').map((l) => l.trim())
+        .filter((l) => l && !/^(sign in|join now|agree & join|skip to main|report this|like|comment|repost|send|see more|show more|cookie|user agreement|privacy policy|©|linkedin corporation|url source|markdown content|title:)/i.test(l)).join('\n');
+      if (body.length > p.text.length) { p.text = body.slice(0, 2500); verified.add(p.url); }
+      if (who) p.author = who.trim().slice(0, 80);
+    })), new Promise((r) => setTimeout(r, 22000))]);
+    for (const p of items) if (p.postedAt) verified.add(p.url); // the activity id in the URL proves the post exists and its time
   }
+  const unverified = items.filter((p) => !verified.has(p.url));
+  items.splice(0, items.length, ...items.filter((p) => verified.has(p.url)));
   const relevant = items.filter((p) => matchesQuery(`${p.text} ${p.author}`, nlq) || !nlq.terms.length);
   const pool = relevant.length >= 3 ? relevant : items; // a too-strict word match never hides everything
   const age = (p: LivePost) => (p.postedAt ? Date.now() - Date.parse(p.postedAt) : Infinity);
-  const hiring = (p: LivePost) => (/hiring|we're hiring|join (us|our)|looking for|open role|apply|dm me|send (your )?(cv|resume)|vacanc|opening/i.test(p.text) ? 0 : 1);
+  const hiring = (p: LivePost) => (/\bhiring\b|we'?re hiring|join (us|our team)|looking for (an?|our)|open (role|position)|\bapply\b|dm me|send (your |me your )?(cv|resume)|vacanc|\bopenings?\b|job opening|we are looking|referral|#hiring/i.test(p.text) ? 0 : 1);
   const sort = (a: LivePost, b: LivePost) => hiring(a) - hiring(b) || age(a) - age(b);
   const res = {
-    posts: pool.filter((p) => age(p) <= 864e5).sort(sort),
-    recent: pool.filter((p) => age(p) > 864e5 && age(p) <= 7 * 864e5).sort(sort),
-    undated: pool.filter((p) => !p.postedAt).slice(0, 15),
+    // main lists = real hiring posts only (role + a hiring signal); everything else matching your words is kept separately
+    posts: pool.filter((p) => hiring(p) === 0 && age(p) <= 864e5).sort(sort),
+    recent: pool.filter((p) => hiring(p) === 0 && age(p) > 864e5 && age(p) <= 7 * 864e5).sort(sort),
+    other: pool.filter((p) => hiring(p) === 1 && age(p) <= 7 * 864e5).sort(sort).slice(0, 20),
+    undated: [...pool.filter((p) => !p.postedAt), ...unverified].slice(0, 15),
     at: new Date().toISOString(), queries, engines: [...engines],
     ...(errors.length && !items.length ? { error: errors[0].slice(0, 200) } : {}),
   };
