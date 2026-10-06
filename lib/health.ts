@@ -26,7 +26,7 @@ export async function runHealthCheck(): Promise<{ at: string; checks: Check[] }>
   const profs = (await allProfiles()).filter((x) => x.enabled && x.key);
   for (const pr of profs) {
     const [r, ms, err] = await timed(() => chat('Reply with the single word OK.', 'Say OK', { profileId: pr.id, strict: true, maxTokens: 50, timeoutMs: 25000 }));
-    C.push({ group: 'AI models', name: pr.label, status: r ? 'ok' : pr.key === 'keyless' ? 'warn' : 'fail', detail: r ? `answered via ${r.model} in ${ms} ms` : err, ms, fix: r ? undefined : /429|quota|rate|resting/i.test(err) ? 'Free quota used up for now — it rotates to the next provider automatically; add another free key (Groq / Cerebras / OpenRouter) for headroom' : 'Check the key in AI & Keys (Test button) or disable this provider' });
+    C.push({ group: 'AI models', name: pr.label, status: r ? 'ok' : pr.key === 'keyless' || /429|quota|rate|resting/i.test(err) ? 'warn' : 'fail', detail: r ? `answered via ${r.model} in ${ms} ms` : err, ms, fix: r ? undefined : /429|quota|rate|resting/i.test(err) ? 'Free quota used up for now — it rotates to the next provider automatically; add another free key (Groq / Cerebras / OpenRouter) for headroom' : 'Check the key in AI & Keys (Test button) or disable this provider' });
   }
   if (!profs.length) C.push({ group: 'AI models', name: 'AI providers', status: 'fail', detail: 'none configured', fix: 'AI & Keys → add Gemini or Groq (free)' });
   const eng = await embedder();
@@ -35,10 +35,17 @@ export async function runHealthCheck(): Promise<{ at: string; checks: Check[] }>
   // search / reading
   const engs = availableEngines();
   // a never-cached query, so this tests the engine itself (not yesterday's cache)
-  const [ws, wms, werr] = await timed(() => webSearch(`forward deployed engineer ${['bengaluru', 'india', 'remote', 'hiring', 'startup'][new Date().getMinutes() % 5]} ${new Date().toISOString().slice(0, 16)}`, 3, 'week'));
+  // test every live engine for real (a natural query — nonsense tokens make engines return nothing and caused false alarms)
+  const { liveEngines, testEngine } = await import('./search');
+  const live = await liveEngines();
+  const per = await Promise.all(live.map(async (e) => ({ id: e.id, r: await testEngine(e.id).catch((x) => ({ ok: false, n: 0, ms: 0, sample: [], error: (x as Error).message })) })));
+  const good = per.filter((p) => p.r.ok);
+  const ws = good.length ? { results: new Array(good.reduce((n, p) => n + p.r.n, 0)), engine: good.map((p) => `${p.id} (${p.r.n} in ${p.r.ms} ms)`).join(', '), errors: per.filter((p) => !p.r.ok).map((p) => `${p.id}: ${p.r.error || 'no results'}`) } : { results: [], engine: '', errors: per.map((p) => `${p.id}: ${p.r.error || 'no results'}`) };
+  const wms = Math.max(0, ...good.map((p) => p.r.ms));
+  const werr = good.length ? '' : ws.errors.join(' · ');
   const ss = await searchStatus();
   const u = await searchUsage();
-  C.push({ group: 'Search & reading', name: `Web search (${engs.map((e) => e.label.split(' (')[0]).join(', ') || 'none'})`, status: ws?.results.length ? (u.used / Math.max(1, u.limit) > 0.85 ? 'warn' : 'ok') : 'fail', detail: (ws?.results.length ? `${ws.results.length} results via ${ws.engine} in ${wms} ms · ${u.used}/${u.limit} free searches counted this month` : `${werr || ws?.errors.join(' · ') || 'no results'}`) + (ss.parked.length ? ` · QUOTA USED UP: ${ss.parked.map((p) => `${p.id} until ${new Date(p.until).toISOString().slice(0, 10)}`).join(', ')}` : ''), fix: ws?.results.length && u.used / Math.max(1, u.limit) <= 0.85 ? undefined : 'Add more free search keys (Serper 2,500, Brave 2,000/mo, Firecrawl, Exa) in AI & Keys' });
+  C.push({ group: 'Search & reading', name: `Web search (${engs.map((e) => e.label.split(' (')[0]).join(', ') || 'none'})`, status: ws?.results.length ? (u.used / Math.max(1, u.limit) > 0.85 ? 'warn' : 'ok') : 'fail', detail: (ws?.results.length ? `${good.length}/${live.length} engines answering: ${ws.engine}${ws.errors.length ? ` · failing: ${ws.errors.join(' · ')}` : ''} · ${u.used}/${u.limit} free searches counted this month` : `${werr || ws?.errors.join(' · ') || 'no results'}`) + (ss.parked.length ? ` · QUOTA USED UP: ${ss.parked.map((p) => `${p.id} until ${new Date(p.until).toISOString().slice(0, 10)}`).join(', ')}` : ''), fix: ws?.results.length && u.used / Math.max(1, u.limit) <= 0.85 ? undefined : 'Add more free search keys (Serper 2,500, Brave 2,000/mo, Firecrawl, Exa) in AI & Keys' });
   const [pg, pms, perr] = await timed(() => readPage('https://example.com', 2000));
   C.push({ group: 'Search & reading', name: 'Page reader (Jina)', status: pg && pg.length > 50 ? 'ok' : 'fail', detail: pg ? `${pg.length} chars in ${pms} ms` : perr, fix: pg ? undefined : 'Add a free JINA_API_KEY for higher limits' });
   // messaging

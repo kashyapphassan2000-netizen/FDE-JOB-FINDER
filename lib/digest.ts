@@ -159,17 +159,14 @@ function renderHtml(picks: DigestPick[], appUrl: string, note: string): string {
 }
 
 export function emailConfigured() {
-  return { resend: Boolean(secret('RESEND_API_KEY')), to: secret('DIGEST_TO') };
+  const can = Boolean(secret('RESEND_API_KEY') || (secret('GMAIL_USER') && secret('GMAIL_APP_PASSWORD')) || (secret('BREVO_API_KEY') && secret('BREVO_SENDER')));
+  return { resend: can, to: secret('DIGEST_TO') };
 }
 
+// one sender for the whole app (Gmail → Brevo → Resend) — Resend's test sender only reaches the Resend account owner
 async function sendEmail(to: string, subject: string, html: string): Promise<void> {
-  const from = secret('DIGEST_FROM') || 'FDE Job Finder <onboarding@resend.dev>';
-  const r = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${secret('RESEND_API_KEY')}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from, to: to.split(/[,;\s]+/).filter(Boolean), subject, html }),
-  });
-  if (!r.ok) throw new Error(`Resend ${r.status}: ${(await r.text()).slice(0, 200)}`);
+  const { sendMail } = await import('./mailer');
+  for (const t of to.split(/[,;\s]+/).filter(Boolean)) await sendMail(t, subject, html);
 }
 
 export interface DigestResult { sent: boolean; count: number; to?: string; skipped?: string; ai?: string; picks: { id: string; title: string; company: string; total: number; cv: number; pay: string; url: string }[] }
@@ -189,7 +186,7 @@ export async function runDigest(opts: { force?: boolean; dryRun?: boolean } = {}
   const summary = top.map((p) => ({ id: p.job.id, title: p.job.title, company: p.job.company, total: p.total, cv: p.cv, pay: p.payLabel, url: p.job.url }));
   if (opts.dryRun) return { sent: false, count: top.length, ai: re.ai, picks: summary };
   const { resend, to } = emailConfigured();
-  if (!resend || !to) return { sent: false, count: top.length, skipped: 'Set RESEND_API_KEY and DIGEST_TO (AI & Keys tab or Vercel env)', ai: re.ai, picks: summary };
+  if (!resend || !to) return { sent: false, count: top.length, skipped: 'Set up email (Gmail app password) and DIGEST_TO in AI & Keys', ai: re.ai, picks: summary };
   if (!top.length) return { sent: false, count: 0, skipped: 'no new matching jobs in the last 48 h', picks: [] };
   const appUrl = process.env.APP_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : '');
   const day = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' });

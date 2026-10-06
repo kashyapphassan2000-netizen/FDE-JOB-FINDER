@@ -145,7 +145,7 @@ export async function searchStatus(): Promise<{ configured: string[]; live: stri
   const parked = conf.filter((e) => dead[e.id] && dead[e.id].until > Date.now()).map((e) => ({ id: e.id, until: dead[e.id].until, reason: dead[e.id].reason }));
   return { configured: conf.map((e) => e.id), live: conf.filter((e) => !parked.some((p) => p.id === e.id)).map((e) => e.id), parked };
 }
-async function liveEngines(): Promise<Engine[]> {
+export async function liveEngines(): Promise<Engine[]> {
   const st = await searchStatus();
   return availableEngines().filter((e) => st.live.includes(e.id));
 }
