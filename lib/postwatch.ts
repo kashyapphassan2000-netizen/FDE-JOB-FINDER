@@ -72,7 +72,25 @@ export async function savePwConfig(p: Partial<PwConfig>): Promise<PwConfig> {
 }
 
 /** LinkedIn public post page → just the post text (drops the sign-in wall, menus, reactions, comments chrome). */
+export function linkedInPost(md: string): { author: string; text: string } | null {
+  // reader output: "## Name’s Post" → profile link → "1d" → THE POST → "See more comments" / "## Explore …"
+  const m = md.match(/^##\s*(.+?)[’']s Post\s*$/m);
+  if (!m) return null;
+  const after = md.slice((m.index || 0) + m[0].length).split('\n');
+  const out: string[] = [];
+  for (const raw of after) {
+    const l = raw.trim();
+    if (/^##\s|^\[?see more comments|^\[?like\]?$|^\d+\s*(reactions?|comments?)|^to view or add a comment|^more relevant posts/i.test(l)) { if (out.length) break; else continue; }
+    if (!l || /^\[!\[image/i.test(l) || /^\d+[smhdwy]o?$/.test(l) || /^(edited|follow)$/i.test(l)) continue;
+    out.push(l.replace(/\[([^\]]*)\]\((https?:[^)]*)\)/g, (_, t, u) => { if (/linkedin\.com\/(company|in|feed\/hashtag|signup)/.test(u)) return ` ${t} `; const red = u.match(/redir\/redirect\?url=([^&]+)/); if (red) return ` ${decodeURIComponent(red[1])} `; return /^https?:/.test(t) ? ` ${t} ` : ` ${t} ${u.replace(/[?&]trk=.*$/, '')} `; }));
+  }
+  const text = out.join('\n').trim();
+  return text.length > 30 ? { author: m[1].trim(), text } : null;
+}
+
 function cleanLinkedIn(md: string, snippet: string): string {
+  const exact = linkedInPost(md);
+  if (exact) return exact.text;
   const JUNK = /^(published time|url source|markdown content|title:|by clicking continue|sign in|join now|agree & join|skip to|report this|like$|comment$|repost$|send$|see more|show more|cookie|user agreement|privacy policy|copyright policy|community guidelines|©|linkedin corporation|\d+ (reactions?|comments?|reposts?)|follow$|connect$|explore (topics|more)|more relevant posts|to view or add a comment|new to linkedin|forgot password|email or phone|password|show$|continue with google|accessibility|brand policy|guest controls|language)/i;
   const lines = md.replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[([^\]]*)\]\((https?:[^)]*)\)/g, '$1 $2').split('\n').map((l) => l.replace(/^[#>*\-\s]+/, '').trim())
     .filter((l) => l.length > 1 && !JUNK.test(l) && !/^(https?:\/\/)?(www\.)?linkedin\.com\/(signup|login|legal|help|feed|uas)/i.test(l) && !/^={3,}|^-{3,}$/.test(l));
@@ -108,6 +126,7 @@ async function search(q: string, rec: Recency): Promise<WebResult[]> {
 function judge(text: string, c: PwConfig): { ok: boolean; roles: string[]; place: string; why?: string } {
   const t = text.toLowerCase();
   if (SEEKER.test(text)) return { ok: false, roles: [], place: '', why: 'job seeker' };
+  if (/^\s*@\w/.test(text) && !/we'?re hiring|is hiring|are hiring|hiring for|join (us|our team)|send (me )?your (cv|resume)/i.test(text)) return { ok: false, roles: [], place: '', why: 'reply, not a hiring post' };
   if (!HIRING.test(text)) return { ok: false, roles: [], place: '', why: 'no hiring signal' };
   if (c.exclude.some((x) => x && new RegExp(`\\b${x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(t))) return { ok: false, roles: [], place: '', why: 'excluded word' };
   const roles = [...c.roles, ...c.keywords].filter((r) => {
@@ -173,13 +192,14 @@ export async function runRadar(opts: { budgetMs?: number; maxQueries?: number } 
       author = r.title.match(/^(.+?)\s+(?:on|posted on) LinkedIn/i)?.[1] || (r.url.match(/\/posts\/([a-z0-9-]+?)_/i)?.[1] || '').split('-').filter((w) => !/\d/.test(w)).join(' ').replace(/\b\w/g, (x) => x.toUpperCase());
       verified = Boolean(postedAt);
       if (HIRING.test(text) || /hir|job|role|opening/i.test(text)) {
-        const md = await readPage(r.url, 8000).catch(() => '');
+        const md = await readPage(r.url, 25000).catch(() => '');
         const pub = md.match(/Published Time:\s*(\S+)/i)?.[1];
         if (!postedAt && pub && !Number.isNaN(Date.parse(pub))) postedAt = new Date(pub).toISOString();
         const body = cleanLinkedIn(md, r.snippet);
         if (body.length > 80 && body.length > r.snippet.length * 0.8) { text = body.slice(0, 3000); verified = true; }
-        const who = md.match(/^Title:\s*(.+?)\s+on LinkedIn/im)?.[1] || md.match(/^Title:\s*(.+?)\s*[|–-]/im)?.[1];
+        const who = linkedInPost(md)?.author || md.match(/^Title:\s*(.+?)\s+on LinkedIn/im)?.[1];
         if (who && who.length < 60) author = who.trim();
+        else if (!linkedInPost(md)) verified = Boolean(postedAt) && body.length > 80; // no clean post block → keep only with a proven date
         links = Array.from(new Set(text.match(/https?:\/\/[^\s)]+/g) || [])).filter((u) => !/linkedin\.com\/(feed|in|company|signup|login|legal)/i.test(u)).slice(0, 8);
       }
     }
@@ -191,6 +211,10 @@ export async function runRadar(opts: { budgetMs?: number; maxQueries?: number } 
     fresh.push({ id, platform: r.platform, url: r.url, author: author.slice(0, 100), text: text.slice(0, 3000), postedAt, foundAt: new Date().toISOString(), roles: j.roles.slice(0, 4), place: j.place, emails, links, sent: false, verified });
   });
   for (const p of fresh) await hset('pw:posts', p.id, p);
+  // settings changed or rules got stricter → re-check what has not been emailed yet
+  let rejudged = 0;
+  for (const p of Object.values(have)) if (!p.sent && !judge(`${p.text} ${p.author}`, c).ok) { await hdel('pw:posts', p.id); rejudged++; }
+  if (rejudged) log.push(`${rejudged} earlier posts removed by the current rules`);
   let contacts = 0;
   const known = await hgetall<PwContact>('pw:contacts');
   for (const p of fresh) for (const e of p.emails) {
