@@ -13,7 +13,6 @@ import DirectoryTab from '@/components/DirectoryTab';
 import WatchTab from '@/components/WatchTab';
 import MentorTab from '@/components/MentorTab';
 import StudioTab from '@/components/StudioTab';
-import RadarTab from '@/components/RadarTab';
 import AutopilotPanel from '@/components/AutopilotPanel';
 import ObservabilityTab from '@/components/ObservabilityTab';
 import NotepadTab from '@/components/NotepadTab';
@@ -38,9 +37,9 @@ import { ago, api, type JobsPayload } from '@/components/api';
 const NAV = [
   { group: 'Agents', items: [['Agent studio', '🤖']] },
   { group: 'Life', items: [['Life mentor', '🧭'], ['Knowledge graph', '🕸️']] },
-  { group: 'Companies', items: [['Zero-day radar', '🛰️'], ['Careers search', '🎯'], ['Global companies hiring', '🌍'], ['Watch companies', '👁️']] },
+  { group: 'Companies', items: [['Careers search', '🎯'], ['Global companies hiring', '🌍'], ['Watch companies', '👁️']] },
   { group: 'Get the job', items: [['Auto-apply', '⚡'], ['Job analyzer & prep', '🔬'], ['Recruiters & referrals', '🤝'], ['My job alerts', '🔔'], ['Job alerts for others', '📬']] },
-  { group: 'Find', items: [['My dashboard', '🏠'], ['Search any role', '🔍'], ['Jobs', '💼'], ['AI Agent', '🤖'], ['Trends', '📈'], ['Hiring radar', '📡'], ['Layoffs', '📉'], ['Hidden jobs & startups', '💎'], ['Outreach', '✉️'], ['Opportunities', '🏆']] },
+  { group: 'Find', items: [['My dashboard', '🏠'], ['Search any role', '🔍'], ['Jobs', '💼'], ['AI Agent', '🤖'], ['Trends', '📈'], ['Layoffs', '📉'], ['Hidden jobs & startups', '💎'], ['Outreach', '✉️'], ['Opportunities', '🏆']] },
   { group: 'Agent searches', items: [['Hidden Bengaluru', '📍'], ['Remote India', '🏠'], ['US / EU remote', '🌍'], ['Semi & Embedded AI', '🔧'], ['New startups', '🚀'], ['Communities', '👥']] },
   { group: 'Track', items: [['Tracker', '📌'], ['CV', '📄'], ['Notepad', '📝']] },
   { group: 'Library', items: [['Excel sheets', '📊'], ['Excel coverage map', '🗺️']] },
@@ -169,7 +168,7 @@ export default function Home() {
           </div>
         </header>
         {me?.search && me.search.live === 0 && (
-          <div className="notice err"><b>🔍 Web search is OFF — {me.search.configured ? `free quota used up (${me.search.parked.join(', ')})` : 'no search key'}.</b> Everything that searches the web is paused: X / LinkedIn <i>posts</i>, agent tabs, deep research, job analyzer research, referrals, “Search any role”. Still LIVE without search: Jobs (all ATS + LinkedIn jobs), LinkedIn live panel, careers search, radar, trends, layoffs. {isOwner ? <>Fix: open <button className="small-btn primary" onClick={() => go('Unlimited setup')}>🔓 Unlimited setup</button> — your own SearXNG (unlimited), Linkup (~4,000/month free), Exa, Firecrawl, Serper… each with steps and a Save &amp; test box. Tavily resets on the 1st.</> : 'Ask the owner to add a free search key.'}</div>
+          <div className="notice err"><b>🔍 Web search is OFF — {me.search.configured ? `free quota used up (${me.search.parked.join(', ')})` : 'no search key'}.</b> Everything that searches the web is paused: agent tabs, deep research, job analyzer research, referrals, “Search any role”. Still LIVE without search: Jobs (all company boards), careers search, trends, layoffs. {isOwner ? <>Fix: open <button className="small-btn primary" onClick={() => go('Unlimited setup')}>🔓 Unlimited setup</button> — your own SearXNG (unlimited), Linkup (~4,000/month free), Exa, Firecrawl, Serper… each with steps and a Save &amp; test box. Tavily resets on the 1st.</> : 'Ask the owner to add a free search key.'}</div>
         )}
         {me && !isOwner && !me.profileSet && tab !== 'Careers search' && (
           <Onboarding toast={setToast} onMentor={(q) => { setMentorSeed({ q, n: Date.now() }); go('Life mentor'); }} onSearch={(q) => { setSqInput(q); setSq(q); go('Search any role'); }} />
@@ -187,7 +186,6 @@ export default function Home() {
         {tab === 'Auto-apply' && <ApplyTab toast={setToast} seedUrl={applySeed} />}
         {tab === 'Observability' && <ObservabilityTab toast={setToast} onOpenAgent={() => go('Agent studio')} />}
         {tab === 'Notepad' && <NotepadTab toast={setToast} onUse={(text, where) => { if (where === 'mentor') { setMentorSeed({ q: text, n: Date.now() }); go('Life mentor'); } else if (where === 'analyze') { setAnaSeed({ url: /^https?:\/\//.test(text.trim()) ? text.trim() : '', company: '', n: Date.now() }); go('Job analyzer & prep'); } else { navigator.clipboard.writeText(text).then(() => setToast('Copied — paste it into any agent chat')); go('Agent studio'); } }} />}
-        {tab === 'Zero-day radar' && <RadarTab toast={setToast} isOwner={isOwner} onWatch={(c) => api('/api/watch', { method: 'POST', body: JSON.stringify({ input: c }) }).then(() => setToast(`Watching ${c} — see Watch companies`)).catch((e) => setToast((e as Error).message))} />}
         {tab === 'Careers search' && <CareersSearchTab toast={setToast} onAnalyze={(url, company) => { setAnaSeed({ url, company, n: Date.now() }); go('Job analyzer & prep'); }} />}
         {tab === 'Watch companies' && <WatchTab toast={setToast} />}
         {tab === 'Job analyzer & prep' && <AnalyzerTab toast={setToast} seed={anaSeed} onReferrals={(company, role) => { setRefSeed({ company, role, n: Date.now() }); go('Recruiters & referrals'); }} />}
@@ -203,7 +201,7 @@ export default function Home() {
         {tab === 'Excel coverage map' && <PlatformsTab toast={setToast} />}
         {tab === 'My dashboard' && <DashboardTab toast={setToast} />}
         {tab === 'Trends' && <TrendsTab toast={setToast} />}
-        {(tab === 'Hiring radar' || tab === 'Layoffs') && <IntelTab key={tab} mode={tab === 'Layoffs' ? 'layoffs' : 'hiring'} toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}
+        {tab === 'Layoffs' && <IntelTab key={tab} mode="layoffs" toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}
         {tab === 'Search any role' && <SearchTab q={sq} toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}
         {MISSION_TABS[tab] && <AgentTab key={tab} missionId={MISSION_TABS[tab]} toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}
         {isOwner && tab === 'Sources & APIs' && <SourcesTab toast={setToast} reload={load} />}

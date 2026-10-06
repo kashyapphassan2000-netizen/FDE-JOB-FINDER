@@ -33,7 +33,6 @@ export default function DashboardTab({ toast }: { toast: (s: string) => void }) 
 
   const sections = [
     { title: 'Summary', text: `${d.jobs.length} jobs tracked (${fde} FDE). Recommendations for ${role === 'FDE' ? 'FDE' : 'FDE + AI/ML'} roles, ${minY}-${maxY} years experience, posted in the last ${fresh} days: ${recs.length} (${blr} Bengaluru, ${rem} remote). Applications: ${Object.entries(d.funnel).map(([k, v]) => `${k} ${v}`).join(', ') || 'none yet'}. Outreach: ${d.outreach.sent} emails sent, ${d.outreach.replied} replies.` },
-    { title: 'Hiring radar (likely to hire next)', headers: ['Company', 'Date', 'Signal', 'Region', 'Confidence', 'Link'], rows: d.radar.map((r) => [r.name, r.date || '', r.signal || '', r.region || '', r.confidence || '', r.url || '']) },
     { title: 'Layoffs to watch', headers: ['Company', 'Date', 'Cuts', 'Why', 'Next', 'In your tracker', 'Link'], rows: d.layoffs.map((l) => [l.name, l.date || '', l.count || '', l.reason || '', l.next || '', l.inYourTracker ? 'YES' : '', l.url || '']) },
     { title: 'Skills employers ask for', text: d.trends.skills.map((s) => `${s.key} (${s.n})`).join(', ') + (d.trends.yourSkills.cvUploaded ? `\nMissing from your CV: ${d.trends.yourSkills.missing.join(', ')}` : '') },
     ...(d.report ? [{ title: 'Market this week', text: d.report.summary || '' }, { title: 'Market headlines', headers: ['Region', 'Headline', 'Summary', 'Link'], rows: d.report.headlines.map((h) => [h.region, h.title, h.summary, h.url]) }, { title: 'Your next moves', text: d.report.moves.map((m, i) => `${i + 1}. ${m}`).join('\n') }] : []),
@@ -98,10 +97,6 @@ export default function DashboardTab({ toast }: { toast: (s: string) => void }) 
           })}
           {!recs.length && <div className="empty small">Nothing in this range — widen the years or the date window.</div>}
           <div className="small muted">* experience estimated from seniority when the post doesn’t say.</div>
-        </div>
-        <div className="panel">
-          <h3 style={{ marginTop: 0 }}>📡 Likely to hire next</h3>
-          {d.radar.map((r) => <div key={r.name} className="tline"><b>{r.name}</b> <span className="badge b-dom">{r.region}</span>{r.date && <span className="badge b-date">{dateLabel(r.date)}</span>}<div className="small muted">{r.signal} {r.url && <a href={r.url} target="_blank" rel="noreferrer">source</a>}</div></div>)}
         </div>
         <div className="panel">
           <h3 style={{ marginTop: 0 }}>📉 Layoffs to watch</h3>

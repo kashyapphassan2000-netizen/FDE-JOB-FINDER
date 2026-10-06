@@ -42,10 +42,6 @@
       "schedule": "50 20 * * *"
     },
     {
-      "path": "/api/cron/intel?task=hiring",
-      "schedule": "25 23 * * *"
-    },
-    {
       "path": "/api/cron/intel?task=layoffs",
       "schedule": "50 23 * * *"
     },
@@ -228,14 +224,6 @@
     {
       "path": "/api/cron/studio",
       "schedule": "5 23 * * *"
-    },
-    {
-      "path": "/api/cron?task=radar",
-      "schedule": "20 3 * * *"
-    },
-    {
-      "path": "/api/cron?task=radar",
-      "schedule": "20 15 * * *"
     },
     {
       "path": "/api/cron?task=health",

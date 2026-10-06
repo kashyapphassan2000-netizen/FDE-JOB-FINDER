@@ -69,13 +69,13 @@ export async function runHealthCheck(): Promise<{ at: string; checks: Check[] }>
   C.push({ group: 'Pipelines', name: 'Job sources', status: broken.length ? 'warn' : 'ok', detail: broken.length ? `failing: ${broken.map((s) => `${s.id} (${(h[s.id].error || '').slice(0, 50)})`).join(', ')}` : `${Object.values(h).filter((x) => x.ok).length} healthy`, fix: broken.length ? 'See Sources & APIs for each error' : undefined });
   const sem = await getJSON<{ at: string; pending: number } | null>('sem:meta', null);
   C.push({ group: 'Pipelines', name: 'AI ranking (semantic)', status: sem ? (sem.pending > 50 ? 'warn' : 'ok') : 'warn', detail: sem ? `last ${ago(sem.at)} · ${sem.pending} jobs waiting` : 'never ran', fix: sem && sem.pending <= 50 ? undefined : 'Runs after each refresh; free embedding quota limits how many per minute' });
-  for (const [label, rx] of [['Custom agents (hourly)', /^studio/], ['Watched companies', /^watch/], ['Mentor daily brief', /^mentor/], ['Daily digest', /digest/], ['Zero-day radar', /radar/], ['Alerts', /^alerts/]] as [string, RegExp][]) {
+  for (const [label, rx] of [['Custom agents (hourly)', /^studio/], ['Watched companies', /^watch/], ['Mentor daily brief', /^mentor/], ['Daily digest', /digest/], ['Alerts', /^alerts/]] as [string, RegExp][]) {
     const e = lastOf(rx);
     C.push({ group: 'Pipelines', name: label, status: !e ? 'warn' : e.status === 'ok' ? 'ok' : 'fail', detail: e ? `last ${ago(e.at)} · ${e.detail.slice(0, 140)}` : 'no run recorded yet (logging started with this version)' });
   }
   const subs = Object.values(await hgetall<{ email: string; lastResult?: string; active: boolean }>('subs'));
   C.push({ group: 'Pipelines', name: 'Job alerts for others', status: !subs.length ? 'ok' : subs.some((s) => /fail/i.test(s.lastResult || '')) ? 'fail' : 'ok', detail: subs.length ? subs.map((s) => `${s.email}: ${s.lastResult || 'not sent yet'}`).join(' · ').slice(0, 300) : 'no subscribers', fix: subs.some((s) => /fail/i.test(s.lastResult || '')) ? 'Needs email to other people — see Messaging above' : undefined });
-  const ext: [string, string][] = [['GitHub API (radar)', 'https://api.github.com/rate_limit'], ['SEC EDGAR (funding radar)', 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=D&count=1&output=atom']];
+  const ext: [string, string][] = [];
   for (const [name, url] of ext) {
     const [r, t, err] = await timed(() => fetch(url, { headers: { 'User-Agent': `FDE-Job-Finder health ${secret('SEC_CONTACT_EMAIL') || secret('DIGEST_TO') || 'admin@fde-job-finder.vercel.app'}`, ...(url.includes('github') && secret('GITHUB_TOKEN') ? { Authorization: `Bearer ${secret('GITHUB_TOKEN')}` } : {}) }, signal: AbortSignal.timeout(10000) }));
     let extra = '';
