@@ -37,7 +37,7 @@ export default function DashboardTab({ toast }: { toast: (s: string) => void }) 
     { title: 'Layoffs to watch', headers: ['Company', 'Date', 'Cuts', 'Why', 'Next', 'In your tracker', 'Link'], rows: d.layoffs.map((l) => [l.name, l.date || '', l.count || '', l.reason || '', l.next || '', l.inYourTracker ? 'YES' : '', l.url || '']) },
     { title: 'Skills employers ask for', text: d.trends.skills.map((s) => `${s.key} (${s.n})`).join(', ') + (d.trends.yourSkills.cvUploaded ? `\nMissing from your CV: ${d.trends.yourSkills.missing.join(', ')}` : '') },
     ...(d.report ? [{ title: 'Market this week', text: d.report.summary || '' }, { title: 'Market headlines', headers: ['Region', 'Headline', 'Summary', 'Link'], rows: d.report.headlines.map((h) => [h.region, h.title, h.summary, h.url]) }, { title: 'Your next moves', text: d.report.moves.map((m, i) => `${i + 1}. ${m}`).join('\n') }] : []),
-    { title: 'Latest hiring posts (X / LinkedIn)', headers: ['Role', 'Author / company', 'Posted', 'How to apply', 'Link'], rows: d.posts.slice(0, 25).map((p) => [p.title, p.author || p.company, (p.postedAt || p.foundAt).slice(0, 10), p.applyHow || '', p.url]) },
+    { title: 'Latest hiring posts (communities)', headers: ['Role', 'Author / company', 'Posted', 'How to apply', 'Link'], rows: d.posts.slice(0, 25).map((p) => [p.title, p.author || p.company, (p.postedAt || p.foundAt).slice(0, 10), p.applyHow || '', p.url]) },
   ];
 
   return (

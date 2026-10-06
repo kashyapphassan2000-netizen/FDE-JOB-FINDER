@@ -48,19 +48,6 @@ export const CATALOG: Capability[] = [
     ],
   },
   {
-    id: 'x', title: '𝕏 X / Twitter live', unlocks: 'the live X panel: every hiring tweet from the last 24 h, instantly',
-    options: [
-      { id: 'twitterapi', name: 'twitterapi.io', tier: 'paid', free: '$0.10 free credit, then $0.15 per 1,000 tweets (≈ ₹13) — no subscription', keys: ['TWITTERAPI_IO_KEY'], url: 'https://twitterapi.io/', steps: ['twitterapi.io → Sign up (no card for the free credit)', 'Dashboard → copy API key → paste below', 'Top up $5 = ~33,000 tweets (months of use)'], note: 'X has no free search API at all; the official API starts at $200/month.' },
-    ],
-  },
-  {
-    id: 'linkedin', title: '🔗 LinkedIn', unlocks: 'LinkedIn jobs (live) and heavy LinkedIn scraping',
-    options: [
-      { id: 'liguest', name: 'LinkedIn public job search', tier: 'unlimited', free: 'No key — already live (last 24 h jobs panel + every refresh)', keys: [], url: 'https://www.linkedin.com/jobs', steps: ['Nothing to do — LinkedIn may briefly rate-limit the server; it recovers on its own'] },
-      { id: 'apify', name: 'Apify — LIVE X + LinkedIn posts (minutes old)', tier: 'monthly', free: '$5 credit every month, no card needed — X every 6 h + LinkedIn every 12 h ≈ $4.2/month fits inside it', keys: ['APIFY_TOKEN'], url: 'https://console.apify.com/settings/integrations', steps: ['apify.com → Sign up free (Google login works, no card)', 'Console → Settings → API & Integrations → copy “Personal API token”', 'Paste below → Save & test. The Hiring post radar then fetches live X + LinkedIn posts every few hours by itself'] },
-    ],
-  },
-  {
     id: 'email', title: '✉ Email to anyone', unlocks: 'users’ sign-in codes, Job alerts for others, agent reports to other people',
     options: [
       { id: 'gmail', name: 'Gmail app password', tier: 'monthly', free: '500 emails / day', keys: ['GMAIL_USER', 'GMAIL_APP_PASSWORD'], url: 'https://myaccount.google.com/apppasswords', steps: ['myaccount.google.com → Security → turn ON 2-Step Verification', 'Open myaccount.google.com/apppasswords → name it “FDE” → Create → copy the 16 letters', 'Paste GMAIL_USER = your Gmail, GMAIL_APP_PASSWORD = the 16 letters → Test'] },

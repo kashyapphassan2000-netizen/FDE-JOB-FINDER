@@ -1,5 +1,4 @@
 'use client';
-import LiveFeed from './LiveFeed';
 import FeedPanel, { hasFeed } from './FeedPanel';
 import { ReachButton, SaveButton } from './ReachButton';
 import { SOURCE_ICON, SOURCE_TYPES, sourceType } from '@/lib/sourcetype';
@@ -21,8 +20,6 @@ type Payload = { missions: Mission[]; runs: Run[]; finds: Find[]; engines: strin
 
 const KIND: Record<Find['kind'], [string, string]> = { post: ['📣', 'Hiring post'], job: ['💼', 'Job'], careers_page: ['🏢', 'Careers page'], company: ['🔎', 'New company board'] };
 const EXAMPLES = [
-  'X / Twitter posts from founders hiring forward deployed or AI engineers, remote or Bengaluru, this week',
-  'LinkedIn posts: Bengaluru AI startups hiring GenAI / LLM engineers, DM or email to apply',
   'Forward deployed engineer roles at Bengaluru AI startups that raised money this year',
   'Remote AI engineer jobs open to candidates in India, LLM / agents, posted this week',
   'AI/ML roles at semiconductor or edge-AI companies in Bengaluru',
@@ -32,7 +29,6 @@ const EXAMPLES = [
 export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: string) => void; onOutreach?: (company: string, role: string) => void; missionId?: string }) {
   const [d, setD] = useState<Payload | null>(null);
   const [prompt, setPrompt] = useState('');
-  const [liveQ, setLiveQ] = useState('');
   const [depth, setDepth] = useState<'deep' | 'quick'>('deep');
   const [busy, setBusy] = useState('');
   const [secs, setSecs] = useState(0);
@@ -59,12 +55,11 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
   useEffect(() => { load(); }, [load]);
 
   async function run(body: { missionId?: string; prompt?: string }) {
-    if (body.missionId === 'li-posts' || body.missionId === 'x-posts') setLiveQ(body.prompt || ''); // live panel answers in seconds while the deep search runs // live panel follows your search
     setBusy(body.missionId || 'custom');
     if (body.prompt && body.missionId) setView('run');
     setSecs(0);
     timer.current = setInterval(() => setSecs((s) => s + 1), 1000);
-    toast(depth === 'deep' ? 'Deep search running: many queries on every engine, reading every X post, checking career boards (2–4 min)…' : 'Quick search running (≈40 s)…');
+    toast(depth === 'deep' ? 'Deep search running: many queries on every engine, checking career boards and company pages (2–4 min)…' : 'Quick search running (≈40 s)…');
     try {
       const st = await api<{ id: string }>('/api/agent', { method: 'POST', body: JSON.stringify({ ...body, depth }) });
       // the search runs in the background on the server (no 504); poll for it
@@ -157,7 +152,7 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
             <h2>{cur.title}</h2>
             <p>{cur.desc}</p>
             {cur.rule && <div className="small" style={{ color: 'var(--mint)', marginTop: 6, fontWeight: 600 }}>🔒 This tab searches and shows only: {cur.rule.label}</div>}
-            <textarea className="prompt tabprompt" placeholder={`Ask in plain English — searched only inside “${cur.title}”. e.g. ${cur.id === 'x-posts' ? '“founders hiring AI agent engineers who DM, remote, this week”' : cur.id === 'blr-hidden' ? '“seed-stage voice-AI startups in Bengaluru hiring FDEs”' : '“LLM / agent roles posted this week”'}`} value={prompt} onChange={(e) => setPrompt(e.target.value)} />
+            <textarea className="prompt tabprompt" placeholder={`Ask in plain English — searched only inside “${cur.title}”. e.g. ${cur.id === 'blr-hidden' ? '“seed-stage voice-AI startups in Bengaluru hiring FDEs”' : '“LLM / agent roles posted this week”'}`} value={prompt} onChange={(e) => setPrompt(e.target.value)} />
             <div className="row" style={{ marginTop: 10 }}>
               {prompt.trim() && <button className="primary" disabled={!!busy} onClick={() => run({ missionId: cur.id, prompt })}>{busy === cur.id ? `Searching… ${secs}s` : '🔎 Search my request'}</button>}
               <button className={prompt.trim() ? '' : 'primary'} disabled={!!busy} onClick={() => run({ missionId: cur.id })}>{busy === cur.id && !prompt.trim() ? `Searching… ${secs}s` : depth === 'deep' ? 'Full sweep of this tab' : 'Quick sweep'}</button>
@@ -173,8 +168,6 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
         </div>
       )}
       {cur && hasFeed(cur.id) && <FeedPanel missionId={cur.id} toast={toast} />}
-      {cur && (cur.id === 'li-posts' || cur.id === 'x-posts') && <LiveFeed kind={cur.id === 'li-posts' ? 'li' : 'x'} query={liveQ} toast={toast} />}
-      {cur && (cur.id === 'li-posts' || cur.id === 'x-posts') && <div className="small muted" style={{ margin: '4px 2px 8px' }}>Below: hiring <b>posts</b> found through web search (last 24 h only, date proven from the post id). Search engines index posts with a delay, so this list is smaller than the live panel — that is normal, not a fault.</div>}
       {!cur && <>
       <div className="panel">
         <div className="row" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
@@ -183,7 +176,7 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
             Engines: <b>{d.engines.join(', ') || 'none'}</b> · searches this month {u.used}/{u.limit} · today {u.usedToday} (auto budget {u.dailyBudget}/day)
           </span>
         </div>
-        <textarea className="prompt" placeholder="Describe exactly what you want, e.g. “X posts from founders hiring FDEs, remote or Bengaluru, this week”" value={prompt} onChange={(e) => setPrompt(e.target.value)} />
+        <textarea className="prompt" placeholder="Describe exactly what you want, e.g. “Bengaluru AI startups hiring FDEs, remote or Bengaluru, this week”" value={prompt} onChange={(e) => setPrompt(e.target.value)} />
         <div className="row" style={{ marginTop: 8 }}>
           <button className="primary" disabled={!!busy || !prompt.trim()} onClick={() => run({ prompt })}>{busy === 'custom' ? `Searching… ${secs}s` : depth === 'deep' ? '🔎 Deep search' : 'Quick search'}</button>
           <span className="seg">

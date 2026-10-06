@@ -1,6 +1,6 @@
 /** Where a job / post came from, in plain words — used for the "Source" filter everywhere. Pure (client + server). */
-export const SOURCE_TYPES = ['Company website', 'LinkedIn post', 'X post', 'Community', 'Job board', 'Web / other'] as const;
-export type SourceType = (typeof SOURCE_TYPES)[number];
+export const SOURCE_TYPES = ['Company website', 'Community', 'Job board', 'Web / other'] as const;
+export type SourceType = (typeof SOURCE_TYPES)[number] | 'LinkedIn post' | 'X post';
 export const SOURCE_ICON: Record<SourceType, string> = { 'Company website': '🏢', 'LinkedIn post': 'in', 'X post': '𝕏', Community: '👥', 'Job board': '📋', 'Web / other': '🌐' };
 
 const ATS = /greenhouse\.io|lever\.co|ashbyhq\.com|workable\.com|smartrecruiters\.com|myworkdayjobs\.com|workday|recruitee\.com|bamboohr\.com|personio|teamtailor|jobvite|icims|successfactors|oraclecloud\.com|taleo|breezy\.hr|rippling|keka\.com|zohorecruit|darwinbox|freshteam|careers?\.|\/careers?\b|jobs\.[a-z0-9-]+\.(com|ai|io)|amazon\.jobs|careers\.microsoft|google\.com\/about\/careers|metacareers|apple\.com\/careers/i;

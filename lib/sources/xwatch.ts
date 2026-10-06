@@ -33,7 +33,7 @@ async function timeline(handle: string, signal: AbortSignal): Promise<{ id: stri
 
 export const X_WATCH_SOURCE: SourceDef = {
   id: 'x_watch',
-  retired: 'Retired: X’s public endpoint rate-limits unauthenticated calls (HTTP 429). For reliable X coverage add TWITTERAPI_IO_KEY (twitterapi.io source); X hiring posts are also found by the X / Twitter agent tab via search',
+  retired: 'Off by owner: X / LinkedIn posts are checked manually',
   name: 'X accounts watch (free, no API)',
   group: 'Community & social',
   keyless: true,

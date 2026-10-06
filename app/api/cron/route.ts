@@ -62,11 +62,6 @@ async function handle(req: Request): Promise<Response> {
       }));
       return Response.json({ ok: true, task, started: true });
     }
-    if (task === 'postwatch') {
-      // hourly: every user's hiring-post radar (X + LinkedIn), batched emails at 100 posts
-      const { runAllRadars } = await import('@/lib/postwatch');
-      return Response.json({ ok: true, task, ...(await runAs(OWNER, () => runAllRadars(270000))) });
-    }
     if (task === 'semantic') return Response.json({ ok: true, task, ...(await semanticPass(await getJobs(), { budgetMs: 240000 })) });
     const r = await refresh({ trigger: req.headers.get('user-agent')?.includes('vercel-cron') ? 'vercel-cron' : 'cron' });
     const { health, ...meta } = r;

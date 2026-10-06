@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 
-type Res = { radar?: { got: number; dropped: Record<string, number>; pending: number; emailed?: string }; host: string; jobs: number; posts: number; added: number; items: { kind: string; title: string; company: string; location: string; url: string }[]; note?: string; error?: string };
+type Res = { host: string; jobs: number; posts: number; added: number; items: { kind: string; title: string; company: string; location: string; url: string }[]; note?: string; error?: string };
 
 export default function Capture() {
   const [state, setState] = useState<'waiting' | 'reading' | 'done' | 'error'>('waiting');
@@ -46,7 +46,6 @@ export default function Capture() {
         {state === 'done' && res && (
           <>
             <div className="notice ok"><b>{res.jobs}</b> jobs and <b>{res.posts}</b> hiring posts found on {res.host} · <b>{res.added}</b> new jobs added to your list (Bengaluru / remote-India rule applied). Posts are in AI Agent → All saved finds.</div>
-            {res.radar && <div className="notice small">🎯 Hiring post radar: read <b>{res.radar.got}</b> posts on this page → <b>{res.added}</b> new real openings (AI-checked, last 24 h){Object.keys(res.radar.dropped).length ? <> · skipped: {Object.entries(res.radar.dropped).map(([k, v]) => `${v} ${k}`).join(', ')}</> : null} · <b>{res.radar.pending}</b> waiting for your next email{res.radar.emailed ? ` · ${res.radar.emailed}` : ''}. Scroll further and click 📥 again for more.</div>}
             {res.note && <div className="notice warn">{res.note}</div>}
             <ol className="small">{res.items.map((i) => <li key={i.url + i.title}><span className="badge b-skip">{i.kind}</span> <a href={i.url} target="_blank" rel="noreferrer">{i.title}</a> — {i.company} {i.location && <span className="muted">· {i.location}</span>}</li>)}</ol>
             <div className="row"><button className="primary" onClick={() => window.close()}>Close</button><a className="btn" href="/">Open my job portal</a></div>

@@ -156,7 +156,7 @@ export const KEYED_SOURCES: SourceDef[] = [
   },
   {
     id: 'apify_linkedin',
-    retired: 'Off by owner: LinkedIn JOB listings are crowded — the app uses LinkedIn POSTS only (Hiring post radar, LinkedIn posts tab)',
+    retired: 'Off by owner: no LinkedIn job listings',
     name: 'Apify LinkedIn Jobs (curious_coder) — reliable LinkedIn',
     group: 'Aggregators (API key)',
     keyless: false,
@@ -198,6 +198,7 @@ export const KEYED_SOURCES: SourceDef[] = [
   },
   {
     id: 'x_official',
+    retired: 'Off by owner: X / LinkedIn posts are checked manually',
     name: 'X (Twitter) official API v2 — recent search',
     group: 'Social (API key)',
     keyless: false,
@@ -227,6 +228,7 @@ export const KEYED_SOURCES: SourceDef[] = [
   },
   {
     id: 'twitterapi_io',
+    retired: 'Off by owner: X / LinkedIn posts are checked manually',
     name: 'twitterapi.io — cheap X search (alternative to official API)',
     group: 'Social (API key)',
     keyless: false,

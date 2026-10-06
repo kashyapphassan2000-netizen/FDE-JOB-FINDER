@@ -37,7 +37,7 @@ export default function SearchTab({ q, toast, onOutreach }: { q: string; toast: 
         <div>
           <h2>“{q}”</h2>
           {res?.parsed && <p className="small" style={{ margin: '2px 0' }}>Role: <b>{res.parsed.role}</b> · Where: <b>{res.parsed.location || (any ? 'anywhere' : 'your locations')}{res.parsed.remote ? ' + remote' : ''}</b> — type any role in any city/country, e.g. “data engineer in Berlin”, “AI PM remote”.</p>}
-          <p>{busy ? `Searching every source… ${secs}s (your list, agent finds, ~230 company boards, LinkedIn, Amazon, Microsoft, Unstop, Remotive, 80,000 Hours, Mercor, JPMorgan, X & LinkedIn posts)` : res ? `${res.total} results from ${res.bySource.length} sources in ${(res.ms / 1000).toFixed(0)}s · ${res.boardsSearched} sources searched${res.stripped ? ` · ${res.stripped} hidden by your Bengaluru/remote rule` : ''}` : ''}</p>
+          <p>{busy ? `Searching every source… ${secs}s (your list, agent finds, ~230 company boards, Amazon, Microsoft, Unstop, Remotive, 80,000 Hours, Mercor, JPMorgan)` : res ? `${res.total} results from ${res.bySource.length} sources in ${(res.ms / 1000).toFixed(0)}s · ${res.boardsSearched} sources searched${res.stripped ? ` · ${res.stripped} hidden by your Bengaluru/remote rule` : ''}` : ''}</p>
         </div>
         <label className="small" style={{ color: '#fff' }}><input type="checkbox" checked={any} onChange={(e) => setAny(e.target.checked)} /> ignore my location rule</label>
       </div>

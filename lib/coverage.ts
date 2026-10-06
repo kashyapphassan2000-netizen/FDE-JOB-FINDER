@@ -22,7 +22,7 @@ type P = { id: string; name: string; url: string; host: string; mapping: string;
 // connectors added after the first map was built (host → connector ids)
 const EXTRA: [RegExp, string[]][] = [
   [/(^|\.)internshala\.com$/, ['internshala']], [/(^|\.)nodesk\.co$/, ['nodesk']], [/80000hours\.org$/, ['eightyk']], [/(^|\.)unstop\.com$/, ['unstop', 'opps']],
-  [/mercor\.com$/, ['mercor']], [/jpmc\.fa\.oraclecloud\.com$|jpmorgan/, ['jpmc']], [/razorpay\.com$/, ['greenhouse:razorpaysoftwareprivatelimited']], [/browserstack\.com$/, ['workday:browserstack|wd3|External']], [/^(x|twitter)\.com$/, ['x_watch', 'agent:x-posts']], [/(^|\.)devpost\.com$/, ['opps']], [/(^|\.)t\.me$/, ['telegram']],
+  [/mercor\.com$/, ['mercor']], [/jpmc\.fa\.oraclecloud\.com$|jpmorgan/, ['jpmc']], [/razorpay\.com$/, ['greenhouse:razorpaysoftwareprivatelimited']], [/browserstack\.com$/, ['workday:browserstack|wd3|External']], [/(^|\.)devpost\.com$/, ['opps']], [/(^|\.)t\.me$/, ['telegram']],
   [/(^|\.)reddit\.com$/, ['reddit']], [/news\.ycombinator\.com|hn\.hiring-search\.com/, ['hn']],
   [/yourstory\.com$|inc42\.com$|economictimes|techcrunch\.com$|news\.crunchbase\.com$/, ['discover']], [/ycombinator\.com$|workatastartup\.com$/, ['yc_jobs', 'discover']],
 ];
@@ -71,7 +71,8 @@ export function coverage(health: Record<string, SourceHealth>, extraCompanies: {
     const needKey = st.filter((x) => x.s === 'needs_key').map((x) => SOURCES.find((s) => s.id === x.c)?.envKeys.join(' + ') || x.c);
     let eff: Eff;
     let detail: string;
-    if (p.mapping === 'excluded') { eff = 'excluded'; detail = 'Defunct or not worth your time (per your Excel).'; }
+    if (/^(x|twitter|linkedin)\.com$|\.linkedin\.com$/.test(p.host || '')) { eff = 'action'; detail = 'X / LinkedIn: removed from the app by you — check it yourself (the link opens it).'; }
+    else if (p.mapping === 'excluded') { eff = 'excluded'; detail = 'Defunct or not worth your time (per your Excel).'; }
     else if (p.kind === 'relocation') { eff = 'out_of_rule'; detail = 'Relocation board — outside your rule (Bengaluru office or remote only). Open it only if you change the rule.'; }
     else if (FEEDLESS_KINDS.has(p.kind) || p.mapping === 'resource' || (p.kind === 'funding' && /linkedin\.com$/.test(p.host)) || /premium|sales navigator|course|certificat|^note|cross-reference|^companies hiring/i.test(p.name) || p.sheets.every((x) => /Scam_Red_Flags|Caveats|ATS_Guide|Skills_That_Pay|Dashboard/.test(x))) { eff = 'action'; detail = p.kind === 'staffing' ? 'Agency: register your CV once; they contact you. No public job feed.' : 'Not a job feed — a step to do (join, sign up, learn, use the tool).'; }
     else if (['job_board', 'talent_marketplace', 'gig_rlhf', 'freelance', 'social', 'company', 'community', 'competition', 'funding'].includes(p.kind)) {

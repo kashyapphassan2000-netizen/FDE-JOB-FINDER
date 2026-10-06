@@ -9,7 +9,6 @@ import { getSettings } from './settings';
 import { DEFAULT_COMPANIES } from './companies';
 import { delKey, getJSON, hdel, hgetall, hset, setJSON } from './store';
 import { parseQuery } from './nlq';
-import { findPosts } from './postsources';
 import { loadVault } from './secrets';
 import { pool } from './http';
 import { fetchTweet, tweetIdFromUrl } from './xposts';
@@ -33,8 +32,6 @@ export interface Mission { id: string; title: string; desc: string; queries: str
 
 /** What each tab is allowed to search when you type a plain-English request inside it. */
 export const SCOPE: Record<string, string> = {
-  'x-posts': 'ONLY X/Twitter posts: every query must start with site:x.com and contain a hiring phrase (hiring, "we\'re hiring", "join us", "DM me", "looking for").',
-  'li-posts': 'ONLY LinkedIn posts: every query must start with site:linkedin.com/posts and contain a hiring phrase.',
   'blr-hidden': 'ONLY Bengaluru roles at startups and lesser-known companies: company career boards (site:jobs.ashbyhq.com, site:jobs.lever.co, site:job-boards.greenhouse.io, site:apply.workable.com) and careers pages, always with Bengaluru OR Bangalore.',
   'remote-india': 'ONLY remote roles open to people in India (remote India, APAC, worldwide, anywhere) — boards, careers pages and posts.',
   'global-remote': 'ONLY US/EU/global companies hiring fully remote worldwide or from India (contractor/EOR welcome).',
@@ -49,8 +46,6 @@ export const SCOPE: Record<string, string> = {
 export interface MissionRule { label: string; site?: string; only?: string; exclude?: string; kinds: Find['kind'][]; boards: boolean; careers: boolean; where?: 'blr' | 'remote' }
 const SOCIAL = '//(www\\.|mobile\\.)?(x|twitter|linkedin)\\.com/';
 export const RULES: Record<string, MissionRule> = {
-  'x-posts': { label: 'X / Twitter posts only', site: 'site:x.com', only: '//(www\\.|mobile\\.)?(x|twitter)\\.com/[^/]+/status/', kinds: ['post'], boards: false, careers: false },
-  'li-posts': { label: 'LinkedIn posts only', site: 'site:linkedin.com/posts', only: 'linkedin\\.com/(posts|feed/update)/', kinds: ['post'], boards: false, careers: false },
   'blr-hidden': { label: 'Bengaluru jobs at startups (job boards & careers pages)', exclude: SOCIAL, kinds: ['job', 'company', 'careers_page'], boards: true, careers: true, where: 'blr' },
   'remote-india': { label: 'Remote jobs open to India', exclude: SOCIAL, kinds: ['job'], boards: true, careers: false, where: 'remote' },
   'global-remote': { label: 'US / EU companies hiring remote worldwide', exclude: SOCIAL, kinds: ['job'], boards: true, careers: false, where: 'remote' },
@@ -78,25 +73,6 @@ const ROLE = '("forward deployed" OR "applied AI" OR "AI engineer" OR "ML engine
 const HIRE = '(hiring OR "we\'re hiring" OR "join us" OR "we\'re looking" OR "DM me")';
 
 export const MISSIONS: Mission[] = [
-  {
-    id: 'x-posts', title: 'X / Twitter hiring posts', desc: 'Founders & AI teams tweeting roles (Excel formula: hiring × AI/FDE × remote/India/Bangalore, last 24 h). Every post is read in full.', recency: 'day',
-    queries: [
-      `site:x.com ${HIRE} "forward deployed"`, `site:x.com hiring "forward deployed engineer" remote`, `site:x.com hiring "forward deployed" (India OR Bangalore OR Bengaluru)`,
-      `site:x.com ${HIRE} ("AI engineer" OR "ML engineer" OR "LLM engineer") remote`, `site:x.com ${HIRE} ("AI engineer" OR "ML engineer") (Bangalore OR Bengaluru OR India)`,
-      `site:x.com "we're hiring" "founding engineer" AI`, `site:x.com hiring "applied AI" engineer`, `site:x.com hiring (GenAI OR LLM OR agents) engineer "DM"`,
-      `site:x.com hiring "AI engineer" remote worldwide OR anywhere`, `site:x.com hiring "solutions engineer" OR "deployment engineer" AI`,
-      `site:x.com "is hiring" "forward deployed"`, `site:x.com "join our team" AI engineer startup`,
-    ],
-  },
-  {
-    id: 'li-posts', title: 'LinkedIn hiring posts', desc: 'Founders / hiring managers posting FDE & AI roles in their feed (often never on job boards)', recency: 'day',
-    queries: [
-      `site:linkedin.com/posts "forward deployed engineer" hiring`, `site:linkedin.com/posts hiring "forward deployed" (Bengaluru OR Bangalore OR remote)`,
-      `site:linkedin.com/posts "we are hiring" ("AI engineer" OR "ML engineer" OR "GenAI") Bengaluru`, `site:linkedin.com/posts hiring "AI engineer" remote India`,
-      `site:linkedin.com/posts hiring ("applied AI" OR "founding AI engineer") India`, `site:linkedin.com/posts "DM me" hiring ("LLM" OR "GenAI" OR "AI engineer")`,
-      `site:linkedin.com/posts "comment interested" OR "drop your CV" AI engineer Bangalore`, `site:linkedin.com/posts hiring "solutions engineer" OR "deployment engineer" AI India`,
-    ],
-  },
   { id: 'blr-hidden', title: 'Hidden Bengaluru AI startups', desc: 'Startup career boards (Ashby/Lever/Greenhouse/Workable) with Bengaluru FDE & AI roles',
     queries: [`site:jobs.ashbyhq.com (Bengaluru OR Bangalore) ${ROLE}`, `site:jobs.lever.co (Bengaluru OR Bangalore) ("AI" OR "machine learning" OR "forward deployed")`, `site:job-boards.greenhouse.io (Bengaluru OR Bangalore) ("AI engineer" OR "machine learning" OR "forward deployed")`, `site:apply.workable.com Bangalore ("AI engineer" OR "machine learning")`, `Bengaluru AI startup careers "founding" ("AI engineer" OR "forward deployed")`, `site:jobs.ashbyhq.com "Bengaluru" "LLM"`, `site:jobs.lever.co Bengaluru ("GenAI" OR "LLM" OR "agentic")`, `site:job-boards.greenhouse.io Bengaluru ("applied AI" OR "solutions engineer" OR "deployment")`, `site:wellfound.com Bengaluru AI engineer startup`, `site:ycombinator.com/companies India AI hiring`, `Bengaluru seed startup "AI engineer" careers apply`] },
   { id: 'remote-india', title: 'Remote roles open to India', desc: 'Worldwide / APAC remote FDE & AI roles Indians can take',
@@ -274,7 +250,7 @@ export async function runAgent(opts: { missionId?: string; prompt?: string; budg
         const real = dateFromUrl(x.url);
         if (real) x.date = real;
         else if (isSocialPost(x.url)) x.date = undefined;
-        if (/(?:x|twitter)\.com\/[A-Za-z0-9_]+\/?(?:all|reposts|with_replies|media|likes)?\/?(?:\?.*)?$/i.test(x.url) && !tid) continue; // a profile page, not a post
+        if (isSocialPost(x.url) || /linkedin\.com\//i.test(x.url)) continue; // X / LinkedIn removed by the owner (checked manually)
         if (real && Date.now() - Date.parse(real) > windowDays(rec) * 864e5) { (x as Hit).stale = true; oldDropped++; }
         if (!seen.has(k)) { seen.add(k); out.push(x); }
       }
@@ -399,14 +375,13 @@ Results:\n${JSON.stringify(items)}\nJSON: {"items":[{"i":0,"relevant":"yes|maybe
     let rec: Recency = opts.recency || mission?.recency || 'month';
     if (opts.prompt) {
       const scope = mission ? SCOPE[mission.id] : '';
-      const wantsPosts = !mission && /twitter|\bx\b|tweet|post|linkedin/i.test(opts.prompt);
       // LinkedIn / X post tabs are strictly last-24-h: a typed request may only narrow, never widen, the window
-      rec = mission?.recency === 'day' ? 'day' : /today|24 ?h|last day/i.test(opts.prompt) ? 'day' : /week|7 days|recent|latest|new/i.test(opts.prompt) || wantsPosts ? 'week' : 'month';
+      rec = mission?.recency === 'day' ? 'day' : /today|24 ?h|last day/i.test(opts.prompt) ? 'day' : /week|7 days|recent|latest|new/i.test(opts.prompt) ? 'week' : 'month';
       if (hasAI) {
         try {
           const { data, meta } = await chatJson<{ queries: string[] }>(SYSTEM,
             `Turn this request into ${rec === 'day' ? (depth === 'deep' ? 8 : 5) : depth === 'deep' ? 16 : 8} precise, DIFFERENT web-search queries (Google syntax: quotes, OR, site:) that together leave nothing out.
-Cover every angle that fits the request: X/Twitter posts (site:x.com with hiring phrases like hiring, "we're hiring", "join us", "DM me"), LinkedIn posts (site:linkedin.com/posts), company boards (site:jobs.ashbyhq.com, site:jobs.lever.co, site:job-boards.greenhouse.io, site:apply.workable.com), careers pages, startup/funding news, communities (news.ycombinator.com, reddit).
+Cover every angle that fits the request (NEVER X/Twitter or LinkedIn — they are excluded): company boards (site:jobs.ashbyhq.com, site:jobs.lever.co, site:job-boards.greenhouse.io, site:apply.workable.com), careers pages, startup/funding news, communities (news.ycombinator.com, reddit).
 Vary role wording (forward deployed / applied AI / AI engineer / ML engineer / LLM / GenAI / founding engineer) and location wording (Bengaluru, Bangalore, remote India, remote worldwide). Never put date words like "past week" in queries.
 ${scope ? `SCOPE (strict): ${scope}\n` : ''}Request: ${opts.prompt}\nJSON: {"queries":["..."]}`, { maxTokens: 1500 });
           run.ai = `${meta.provider} · ${meta.model}`;
@@ -418,7 +393,6 @@ ${scope ? `SCOPE (strict): ${scope}\n` : ''}Request: ${opts.prompt}\nJSON: {"que
       }
       if (!queries.length || queries === mission?.queries) queries = mission ? mission.queries.map((q) => `${q} ${opts.prompt}`.slice(0, 250)) : fallbackPlan(opts.prompt);
       else if (mission && depth === 'deep') queries = [...queries, ...mission.queries.slice(0, rec === 'day' ? 3 : 6)]; // your request + the tab's standard sweep
-      if (wantsPosts && !queries.some((q) => q.includes('site:x.com'))) queries.push(...MISSIONS[0].queries.slice(0, 4));
       // ALWAYS search the user's own words too (exactly as typed, and as keywords + place) — the AI plan is extra, never instead
       const nl = parseQuery(opts.prompt);
       queries = [opts.prompt.trim(), `${nl.keywords} ${nl.location}${nl.remote ? ' remote' : ''}`.trim(), ...queries].filter(Boolean);
@@ -428,25 +402,6 @@ ${scope ? `SCOPE (strict): ${scope}\n` : ''}Request: ${opts.prompt}\nJSON: {"que
 
     // 2. SEARCH
     const results = onlyMine(await searchAll(queries, rec));
-    // X / LinkedIn post tabs: also every free door (SearXNG + Bing RSS + Linkup on the platform only) for your words
-    if (mission && (mission.id === 'x-posts' || mission.id === 'li-posts')) {
-      const kind = mission.id === 'x-posts' ? 'x' : 'li';
-      const nl = opts.prompt ? parseQuery(opts.prompt) : null;
-      const words = nl?.keywords ? [nl.keywords] : ['forward deployed engineer', 'AI engineer', 'ML engineer'];
-      const more = await Promise.all(words.map((w) => findPosts(kind, w, { days: 7, place: nl?.location || undefined }).catch(() => ({ results: [], doors: {} }))));
-      let added = 0;
-      for (const m of more) for (const x of m.results) {
-        const tid = tweetIdFromUrl(x.url);
-        if (tid) x.url = `https://x.com/i/status/${tid}`;
-        const k = tid ? `x:${tid}` : x.url.split('#')[0].replace(/\?.*$/, '');
-        if (seen.has(k)) continue;
-        seen.add(k);
-        const real = dateFromUrl(x.url);
-        x.date = real || undefined;
-        results.push(x as Hit); added++;
-      }
-      log(`post doors (SearXNG + Bing RSS + Linkup): +${added} posts · ${more.map((m) => Object.entries(m.doors).map(([d, n]) => `${d} ${n}`).join(', ')).join(' | ')}`);
-    }
     log(`search: ${results.length} unique results from ${queries.length} queries (${run.searches} engine calls, freshness: ${rec})`);
 
     // 3. READ X posts in full
@@ -511,7 +466,7 @@ ${scope ? `SCOPE (strict): ${scope}\n` : ''}Request: ${opts.prompt}\nJSON: {"que
     let skippedOld = 0, offTab = 0;
     for (const f of finds) {
       if (ids.has(f.id)) continue;
-      if (isLinkedInJob(f.url)) continue; // LinkedIn posts only
+      if (isLinkedInJob(f.url) || isSocialPost(f.url)) continue; // no LinkedIn jobs, no X / LinkedIn posts
       if (mission && !fitsMission(f, mission.id)) { offTab++; continue; } // STRICT: only what this tab is for
       if (!isFreshFind(f)) { skippedOld++; continue; } // LinkedIn / X: proven date in the last 24 h only; others: not older than 30 days
       if (f.kind !== 'company' && !f.role.length) continue;
@@ -565,13 +520,8 @@ export async function runDueMission(): Promise<AgentRun | { skipped: string }> {
   const u = await searchUsage();
   if (u.usedToday >= u.dailyBudget) return { skipped: `daily search budget used (${u.usedToday}/${u.dailyBudget}) — protects your free monthly quota (${u.used}/${u.limit})` };
   const lastRunOf = (id: string) => Date.parse(runs.find((r) => r.mission === id)?.startedAt || '1970-01-01');
-  // X + LinkedIn posts go stale fastest → every other slot is a posts mission
-  const postsDue = ['x-posts', 'li-posts'].sort((a, b) => lastRunOf(a) - lastRunOf(b))[0];
-  const other = MISSIONS.filter((m) => !['x-posts', 'li-posts'].includes(m.id)).sort((a, b) => lastRunOf(a.id) - lastRunOf(b.id))[0];
-  const lastWasPosts = last && ['x-posts', 'li-posts'].includes(last.mission);
-  const next = lastWasPosts ? other.id : postsDue;
-  // posts: last 24 h only (freshest first); the other tabs keep their own window
-  return runAgent({ missionId: next, budgetMs: 250000, depth: u.dailyBudget - u.usedToday > 25 ? 'deep' : 'quick', recency: ['x-posts', 'li-posts'].includes(next) ? 'day' : undefined });
+  const next = [...MISSIONS].sort((a, b) => lastRunOf(a.id) - lastRunOf(b.id))[0].id;
+  return runAgent({ missionId: next, budgetMs: 250000, depth: u.dailyBudget - u.usedToday > 25 ? 'deep' : 'quick' });
 }
 
 /** Personal AI analysis of one job vs your CV. */

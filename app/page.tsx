@@ -24,7 +24,6 @@ import CareersSearchTab from '@/components/CareersSearchTab';
 import AnalyzerTab from '@/components/AnalyzerTab';
 import ReferralsTab from '@/components/ReferralsTab';
 import Onboarding from '@/components/Onboarding';
-import PostRadarTab from '@/components/PostRadarTab';
 import AlertsTab from '@/components/AlertsTab';
 import DashboardTab from '@/components/DashboardTab';
 import AiKeysTab from '@/components/AiKeysTab';
@@ -42,7 +41,7 @@ const NAV = [
   { group: 'Companies', items: [['Zero-day radar', '🛰️'], ['Careers search', '🎯'], ['Global companies hiring', '🌍'], ['Watch companies', '👁️']] },
   { group: 'Get the job', items: [['Auto-apply', '⚡'], ['Job analyzer & prep', '🔬'], ['Recruiters & referrals', '🤝'], ['My job alerts', '🔔'], ['Job alerts for others', '📬']] },
   { group: 'Find', items: [['My dashboard', '🏠'], ['Search any role', '🔍'], ['Jobs', '💼'], ['AI Agent', '🤖'], ['Trends', '📈'], ['Hiring radar', '📡'], ['Layoffs', '📉'], ['Hidden jobs & startups', '💎'], ['Outreach', '✉️'], ['Opportunities', '🏆']] },
-  { group: 'Agent searches', items: [['Hiring post radar', '🎯'], ['X / Twitter', '𝕏'], ['LinkedIn posts', '🔗'], ['Hidden Bengaluru', '📍'], ['Remote India', '🏠'], ['US / EU remote', '🌍'], ['Semi & Embedded AI', '🔧'], ['New startups', '🚀'], ['Communities', '👥']] },
+  { group: 'Agent searches', items: [['Hidden Bengaluru', '📍'], ['Remote India', '🏠'], ['US / EU remote', '🌍'], ['Semi & Embedded AI', '🔧'], ['New startups', '🚀'], ['Communities', '👥']] },
   { group: 'Track', items: [['Tracker', '📌'], ['CV', '📄'], ['Notepad', '📝']] },
   { group: 'Library', items: [['Excel sheets', '📊'], ['Excel coverage map', '🗺️']] },
   { group: 'Setup', items: [['Unlimited setup', '🔓'], ['Observability', '🩺'], ['Sources & APIs', '🔌'], ['AI & Keys', '🔑'], ['Settings', '⚙️']] },
@@ -51,7 +50,7 @@ type Tab = (typeof NAV)[number]['items'][number][0];
 const ALL: Tab[] = NAV.flatMap((g) => g.items.map((i) => i[0] as Tab));
 const MEMBER_HIDDEN = ['Sources & APIs', 'AI & Keys', 'Settings', 'Job alerts for others', 'Unlimited setup'] as const;
 const MISSION_TABS: Record<string, string> = {
-  'X / Twitter': 'x-posts', 'LinkedIn posts': 'li-posts', 'Hidden Bengaluru': 'blr-hidden', 'Remote India': 'remote-india',
+  'Hidden Bengaluru': 'blr-hidden', 'Remote India': 'remote-india',
   'US / EU remote': 'global-remote', 'Semi & Embedded AI': 'domains', 'New startups': 'new-startups', Communities: 'communities',
 };
 
@@ -195,7 +194,6 @@ export default function Home() {
         {tab === 'Recruiters & referrals' && <ReferralsTab toast={setToast} seed={refSeed} />}
         {isOwner && tab === 'Job alerts for others' && <AlertsTab toast={setToast} />}
         {tab === 'My job alerts' && <AlertsTab toast={setToast} mine />}
-        {tab === 'Hiring post radar' && <PostRadarTab toast={setToast} />}
         {tab === 'Global companies hiring' && <DirectoryTab toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}
         {tab === 'Outreach' && <OutreachTab toast={setToast} seed={seed} />}
         {tab === 'Opportunities' && <OpportunitiesTab toast={setToast} />}

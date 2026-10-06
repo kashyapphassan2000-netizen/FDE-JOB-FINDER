@@ -94,7 +94,7 @@ export async function universalSearch(q: string, opts: { ignoreLocation?: boolea
     const place = nlq.location ? `"${nlq.location}"${nlq.remote ? ' OR remote' : ''}` : nlq.remote ? 'remote' : '(Bengaluru OR Bangalore OR remote)';
     const webQueries = engines ? [
       `"${role}" (site:jobs.ashbyhq.com OR site:jobs.lever.co OR site:job-boards.greenhouse.io OR site:apply.workable.com) ${place}`,
-      `site:x.com hiring "${role}"${nlq.location ? ` ${nlq.location}` : ''}`, `site:linkedin.com/posts hiring "${role}" ${nlq.location ? place : '(Bengaluru OR remote OR India)'}`, `"${role}" hiring ${nlq.location ? place : 'Bengaluru OR "remote India"'} careers`,
+`"${role}" hiring ${nlq.location ? place : 'Bengaluru OR "remote India"'} careers`,
     ] : [];
     await Promise.all([
       pool(LIVE, 8, async ([name, fn]) => { try { add(name, await fn(role, ctrl.signal)); } catch (e) { errors.push(`${name}: ${(e as Error).message.slice(0, 60)}`); } }),
@@ -124,7 +124,7 @@ export async function universalSearch(q: string, opts: { ignoreLocation?: boolea
     const k = h.url.split('?')[0];
     if (seen.has(k)) return false;
     seen.add(k);
-    if (isLinkedInJob(h.url)) return false; // LinkedIn posts yes, LinkedIn job listings never
+    if (isLinkedInJob(h.url) || isSocialPost(h.url) || /linkedin\.com\//i.test(h.url)) return false; // X / LinkedIn removed by the owner
     if (/\/\/(?:[a-z]+\.)?(?:x|twitter|linkedin)\.com\//i.test(h.url)) { const t = Date.parse(h.postedAt || '') || Date.parse(dateFromText(`${h.title} ${h.text || ''}`) || ''); if (!t || Date.now() - t > FRESH_HOURS * 36e5) return false; } // LinkedIn / X: STRICT 24 h, proven date
     else if (h.postedAt && Date.now() - Date.parse(h.postedAt) > 60 * 864e5) return false;
     if (opts.ignoreLocation || !h.location) return true;

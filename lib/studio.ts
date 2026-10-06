@@ -219,7 +219,8 @@ async function runTool(ctx: Ctx, tool: string, args: Record<string, unknown>): P
   switch (tool as ToolId) {
     case 'web_search': {
       const r = await webSearch(String(args.query || ''), 8, (['day', 'week', 'month', 'any'].includes(String(args.recency)) ? args.recency : 'month') as 'week');
-      return r.results.map((x, i) => `[${i + 1}] ${x.title}\n${x.url}\n${(x.date || '').slice(0, 10)} ${x.snippet.slice(0, 300)}`).join('\n\n') || `no results ${r.errors.join(' ')}`;
+      const res = r.results.filter((x) => !/\/\/(?:[a-z]+\.)?(?:x|twitter|linkedin)\.com\//i.test(x.url)); // X / LinkedIn removed by the owner
+      return res.map((x, i) => `[${i + 1}] ${x.title}\n${x.url}\n${(x.date || '').slice(0, 10)} ${x.snippet.slice(0, 300)}`).join('\n\n') || `no results ${r.errors.join(' ')}`;
     }
     case 'read_page': { const u = String(args.url || ''); if (!/^https?:\/\//.test(u)) return 'url must start with http'; return trim(await readPage(u, 7000), 7000); }
     case 'news': { const r = await newsSearch([String(args.query || '')], Math.max(1, Math.min(60, Number(args.days) || 7)), { perQuery: 10 }); return r.items.slice(0, 12).map((n) => `${(n.date || '').slice(0, 10)} ${n.title} (${n.source}) ${n.url}`).join('\n') || 'no news'; }

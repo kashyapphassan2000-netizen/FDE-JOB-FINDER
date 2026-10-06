@@ -1,5 +1,4 @@
-import { linkedinLive, postsLive, xLive } from '@/lib/live';
-import { isLinkedInJob } from '@/lib/postdate';
+import { isLinkedInJob, isSocialPost } from '@/lib/postdate';
 import { after } from 'next/server';
 import { runAs, tenant } from '@/lib/tenant';
 import { bindTenant } from '@/lib/auth';
@@ -30,12 +29,6 @@ export async function GET(req: Request) {
   if (g) return g;
   bindTenant(req);
   await loadVault();
-  // live platform feeds for the LinkedIn / X tabs (?live=li|x&q=…)
-  const live = new URL(req.url).searchParams.get('live');
-  if (live) {
-    const q = (new URL(req.url).searchParams.get('q') || '').slice(0, 120);
-    return Response.json(live === 'x' ? await xLive(q) : live === 'lip' ? await postsLive('li', q) : await linkedinLive(q));
-  }
   // a background run: poll until it lands in the run list
   const runId = new URL(req.url).searchParams.get('run');
   if (runId) {
@@ -50,7 +43,7 @@ export async function GET(req: Request) {
     runs: runs.slice(0, 20),
     finds: Object.values(finds)
       .filter(isFreshFind)
-      .filter((f) => !isLinkedInJob(f.url))
+      .filter((f) => !isLinkedInJob(f.url) && !isSocialPost(f.url)) // no LinkedIn jobs, no X / LinkedIn posts (owner checks those manually)
       .map(withRealDate)
       // a find shows on EVERY tab whose rule it satisfies (not only the tab that happened to find it)
       .map((f) => ({ ...f, fits: MISSIONS.map((m) => m.id).filter((m) => (m === f.mission || (f.missions || []).includes(m) || crossOk(f, m)) && fitsMission(f, m)) }))

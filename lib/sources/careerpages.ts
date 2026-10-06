@@ -82,7 +82,7 @@ export async function readRoles(name: string, url: string): Promise<{ jobs: RawJ
 
 
 /** Verified by hand: these "custom" careers sites are really public ATS boards → exact JSON, no AI reading needed. */
-const KNOWN: Record<string, [RawAts, string]> = { Outlier: ['greenhouse', 'scaleai'], Turing: ['greenhouse', 'turing'], Alignerr: ['greenhouse', 'labelbox'], Mindrift: ['greenhouse', 'toloka'], 'Handshake AI': ['greenhouse', 'handshake'], PhonePe: ['smartrecruiters', 'PHONEPELIMITED'] };
+const KNOWN: Record<string, [RawAts, string]> = { Outlier: ['greenhouse', 'scaleai'], Turing: ['greenhouse', 'turing'], Alignerr: ['greenhouse', 'labelbox'], Mindrift: ['greenhouse', 'toloka'], 'Handshake AI': ['greenhouse', 'handshake'], PhonePe: ['smartrecruiters', 'PHONEPELIMITED'], Automattic: ['greenhouse', 'automatticcareers'], 'Weights & Biases': ['greenhouse', 'coreweave'] };
 
 /** One-time mapping per company (re-checked every 14 days): its ATS JSON board if it has one, else the real listing page. */
 type CpMap = { kind: 'ats'; ats: RawAts; slug: string; at: string } | { kind: 'page'; url: string; at: string } | { kind: 'none'; at: string; why: string };

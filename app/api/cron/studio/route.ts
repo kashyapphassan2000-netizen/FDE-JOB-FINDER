@@ -7,18 +7,13 @@ import { loadVault } from '@/lib/secrets';
 
 export const maxDuration = 300;
 
-// Vercel Cron (every hour): run every custom agent whose schedule is due, then every user's hiring-post radar.
+// Vercel Cron (every hour): run every custom agent whose schedule is due.
 async function handle(req: Request): Promise<Response> {
   if (!isCron(req)) return unauthorized();
   if (!(await acquireLock('studio:run', 295))) return Response.json({ ok: true, skipped: 'already running' });
   await loadVault();
   try {
-    const t0 = Date.now();
-    const agents = await runDueAgents(140000);
-    // same hourly slot: every user's hiring-post radar (X + LinkedIn) — no extra cron needed on Vercel Hobby
-    const { runAllRadars } = await import('@/lib/postwatch');
-    const radar = await runAllRadars(Math.max(60000, 280000 - (Date.now() - t0))).catch((e) => ({ log: [`radar failed: ${(e as Error).message}`] }));
-    return Response.json({ ok: true, ...agents, radar: radar.log });
+    return Response.json({ ok: true, ...(await runDueAgents(270000)) });
   } finally { await releaseLock('studio:run'); }
 }
 

@@ -18,7 +18,7 @@ export async function GET(req: Request) {
   const [jobs, meta, finds, track, leads, intel, trends, report] = await Promise.all([
     getJobs(), getMeta(), hgetall<Find>('agent:finds'), hgetall<TrackEntry>('track'), hgetall<Lead>('outreach:leads'), getIntel(), computeTrends(), getJSON<MarketReport | null>('trends:report', null),
   ]);
-  const posts = Object.values(finds).filter((f) => f.kind === 'post' && f.status !== 'dismissed' && isFreshFind(f)).map(withRealDate).sort((a, b) => (findTime(b) || 0) - (findTime(a) || 0)).slice(0, 40);
+  const posts = Object.values(finds).filter((f) => f.kind === 'post' && f.status !== 'dismissed' && isFreshFind(f) && !/\/\/(?:[a-z]+\.)?(?:x|twitter|linkedin)\.com\//i.test(f.url)).map(withRealDate).sort((a, b) => (findTime(b) || 0) - (findTime(a) || 0)).slice(0, 40);
   const funnel: Record<string, number> = {};
   for (const t of Object.values(track)) funnel[t.status] = (funnel[t.status] || 0) + 1;
   const contacts = Object.values(leads).flatMap((l) => l.contacts);
