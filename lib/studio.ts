@@ -631,12 +631,11 @@ export async function modelFromText(text: string): Promise<{ ref?: ModelRef; not
     if (exact) return { ref: { profileId: exact.id, model: exact.model, strict: false }, clean: text, note };
     // first provider that lists it AND actually answers (a 1-token test) — so "use kimi" really runs on Kimi
     const order = [...(byProv ? [byProv] : []), ...profs.filter((x) => x !== byProv).sort((a, b) => Number(/nvidia|openrouter|groq/.test(b.preset)) - Number(/nvidia|openrouter|groq/.test(a.preset)))];
-    for (const p of order) {
-      const mdl = await bestModel(p, key);
-      if (!mdl) continue;
-      const ok = await chat('Reply OK.', 'OK?', { profileId: p.id, model: mdl, strict: true, maxTokens: 8, timeoutMs: 15000 }).then(() => true).catch(() => false);
-      if (ok) return { ref: { profileId: p.id, model: mdl, strict: true }, clean: text, note };
-    }
+    const cands = (await Promise.all(order.map(async (p) => ({ p, mdl: await bestModel(p, key) })))).filter((c) => c.mdl);
+    const tested = await Promise.all(cands.map((c) => chat('Reply OK.', 'OK?', { profileId: c.p.id, model: c.mdl, strict: true, maxTokens: 16, timeoutMs: 40000 }).then(() => true).catch(() => false)));
+    const win = cands.find((_, i) => tested[i]);
+    if (win) return { ref: { profileId: win.p.id, model: win.mdl, strict: true }, clean: text, note };
+    if (cands.length) return { clean: text, note: `${note ? `${note}\n` : ''}"${key}" is listed by ${cands.map((c) => `${c.p.label} (${c.mdl})`).join(', ')} but did not answer right now (busy / free quota). Answered with the default model — try again in a few minutes.` };
     return { clean: text, note: `${note ? `${note}\n` : ''}No provider you added serves "${key}" — add one in AI & Keys (NVIDIA / OpenRouter host most open models free). Answered with the default model.` };
   }
   return { clean: text, note };
@@ -645,7 +644,7 @@ const familyCache = new Map<string, string[]>();
 async function bestModel(p: { id: string; wire: 'openai' | 'anthropic' | 'gemini'; baseUrl: string; key: string }, key: string): Promise<string> {
   let ms = familyCache.get(p.id);
   if (!ms) { ms = await Promise.race([listModels(p as never).catch(() => [] as string[]), new Promise<string[]>((r) => setTimeout(() => r([]), 6000))]); familyCache.set(p.id, ms); }
-  const hits = ms.filter((x) => x.toLowerCase().includes(key) && !/embed|guard|reward|vision|tts|whisper|audio|image|coder-6|1\.3b|7b/i.test(x));
+  const hits = ms.filter((x) => x.toLowerCase().includes(key) && !/embed|guard|reward|vision|tts|whisper|audio|image|coder|1\.3b|7b|:|^~|batch|thinking/i.test(x));
   return hits.sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))[0] || '';
 }
 
