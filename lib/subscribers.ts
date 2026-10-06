@@ -52,7 +52,7 @@ function whereOk(h: Hit, s: Subscriber): boolean {
   if (s.where === 'remote') return remote && !tags.includes('REMOTE_FOREIGN');
   const city = (s.city || '').toLowerCase().trim();
   const alias: Record<string, string> = { bengaluru: 'bangalore', bangalore: 'bengaluru', gurugram: 'gurgaon', gurgaon: 'gurugram', mumbai: 'bombay' };
-  return !loc || remote || Boolean(city && (loc.toLowerCase().includes(city) || (alias[city] && loc.toLowerCase().includes(alias[city]))));
+  return remote || Boolean(city && (`${loc} ${h.title}`.toLowerCase().includes(city) || (alias[city] && loc.toLowerCase().includes(alias[city]))));
 }
 
 const when = (h: Hit) => Date.parse(h.postedAt || '') || Date.parse(dateFromUrl(h.url) || dateFromText(`${h.title} ${h.text || ''}`) || '') || 0;

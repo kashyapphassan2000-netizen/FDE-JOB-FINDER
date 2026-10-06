@@ -1,4 +1,5 @@
-import { findContacts, type Contact } from './outreach';
+import { findContacts, personFromResult, type Contact } from './outreach';
+import { webSearch, type WebResult } from './search';
 import { chatJson, aiConfigured } from './llm';
 import { getCv } from './cv';
 import { hashId } from './classify';
@@ -47,9 +48,23 @@ export async function reachPlan(input: ReachInput): Promise<ReachPlan> {
   let people: { name: string; role: string; url: string }[] = [];
   let domain = '';
   if (company && !/^(not stated|unknown|confidential|stealth)$/i.test(company)) {
-    const lead = await Promise.race([findContacts({ company, hiringFor: role, mode: 'hiring' }).catch((e) => { warnings.push(`people search: ${(e as Error).message.slice(0, 120)}`); return null; }), new Promise<null>((r) => setTimeout(() => r(null), 45000))]);
+    // fast LinkedIn X-ray (≈10 s) in parallel with the full contact finder (website, Hunter, emails; capped at 50 s)
+    const xray = Promise.all([
+      `site:linkedin.com/in "${company}" ("engineering manager" OR "head of engineering" OR "head of AI" OR "head of data" OR "VP engineering" OR CTO OR founder OR "hiring manager")`,
+      `site:linkedin.com/in "${company}" (recruiter OR "talent acquisition" OR "technical recruiter")`,
+    ].map((qq) => webSearch(qq, 10, 'any').then((r) => r.results).catch(() => [] as WebResult[])));
+    const [hits, lead] = await Promise.all([
+      Promise.race([xray, new Promise<WebResult[][]>((r) => setTimeout(() => r([]), 20000))]),
+      Promise.race([findContacts({ company, hiringFor: role, mode: 'hiring' }).catch((e) => { warnings.push(`contact finder: ${(e as Error).message.slice(0, 120)}`); return null; }), new Promise<null>((r) => setTimeout(() => r(null), 50000))]),
+    ]);
     if (lead) { contacts = lead.contacts; people = lead.people; domain = lead.domain; }
-    else if (!warnings.length) warnings.push('people search took too long — use the search links below');
+    const known = new Set(people.map((p) => p.name.toLowerCase()));
+    for (const r of hits.flat()) {
+      const p = personFromResult(r, company);
+      // keep only profiles whose result actually names this company (no look-alikes)
+      if (p && !known.has(p.name.toLowerCase()) && `${r.title} ${r.snippet}`.toLowerCase().includes(company.toLowerCase().split(/\s+/)[0])) { known.add(p.name.toLowerCase()); people.push(p); }
+    }
+    if (!lead && !people.length) warnings.push('no public profiles found quickly — use the one-click searches below');
   } else warnings.push('company not stated in the posting — the poster is your only direct route');
 
   const q = encodeURIComponent;
