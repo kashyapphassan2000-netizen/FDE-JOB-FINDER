@@ -71,6 +71,18 @@ export async function savePwConfig(p: Partial<PwConfig>): Promise<PwConfig> {
   return next;
 }
 
+/** LinkedIn public post page → just the post text (drops the sign-in wall, menus, reactions, comments chrome). */
+function cleanLinkedIn(md: string, snippet: string): string {
+  const JUNK = /^(published time|url source|markdown content|title:|by clicking continue|sign in|join now|agree & join|skip to|report this|like$|comment$|repost$|send$|see more|show more|cookie|user agreement|privacy policy|copyright policy|community guidelines|©|linkedin corporation|\d+ (reactions?|comments?|reposts?)|follow$|connect$|explore (topics|more)|more relevant posts|to view or add a comment|new to linkedin|forgot password|email or phone|password|show$|continue with google|accessibility|brand policy|guest controls|language)/i;
+  const lines = md.replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[([^\]]*)\]\((https?:[^)]*)\)/g, '$1 $2').split('\n').map((l) => l.replace(/^[#>*\-\s]+/, '').trim())
+    .filter((l) => l.length > 1 && !JUNK.test(l) && !/^(https?:\/\/)?(www\.)?linkedin\.com\/(signup|login|legal|help|feed|uas)/i.test(l) && !/^={3,}|^-{3,}$/.test(l));
+  let text = lines.join('\n');
+  const head = (snippet || '').replace(/\s+/g, ' ').slice(0, 40).toLowerCase();
+  const i = head.length > 15 ? text.toLowerCase().replace(/\s+/g, ' ').indexOf(head) : -1;
+  if (i > 0) text = text.replace(/\s+/g, ' ').slice(i);
+  return text.trim();
+}
+
 /** Query plan: every role × platform, rotated across runs (cursor) so all combinations get covered within a few hours. */
 function plan(c: PwConfig, cursor: number, max: number): { q: string; platform: 'x' | 'li' }[] {
   const placeQ = c.places.length ? `(${c.places.slice(0, 5).map((p) => (/\s/.test(p) ? `"${p}"` : p)).join(' OR ')})` : '';
@@ -97,7 +109,7 @@ function judge(text: string, c: PwConfig): { ok: boolean; roles: string[]; place
   const t = text.toLowerCase();
   if (SEEKER.test(text)) return { ok: false, roles: [], place: '', why: 'job seeker' };
   if (!HIRING.test(text)) return { ok: false, roles: [], place: '', why: 'no hiring signal' };
-  if (c.exclude.some((x) => x && t.includes(x))) return { ok: false, roles: [], place: '', why: 'excluded word' };
+  if (c.exclude.some((x) => x && new RegExp(`\\b${x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(t))) return { ok: false, roles: [], place: '', why: 'excluded word' };
   const roles = [...c.roles, ...c.keywords].filter((r) => {
     const w = r.toLowerCase();
     if (w === 'fde') return /\bfde\b|forward[- ]deployed/.test(t);
@@ -156,15 +168,16 @@ export async function runRadar(opts: { budgetMs?: number; maxQueries?: number } 
       if (!tw) { reasons['could not open'] = (reasons['could not open'] || 0) + 1; return; } // deleted / protected → never shown
       text = tw.text; author = `${tw.author} (@${tw.handle})`; postedAt = tw.createdAt ? toIso(tw.createdAt) || postedAt : postedAt; links = tw.links; verified = true;
     } else {
-      author = r.title.match(/^(.+?)\s+(?:on|posted on) LinkedIn/i)?.[1] || r.url.match(/\/posts\/([a-z0-9-]+?)_/i)?.[1]?.replace(/-/g, ' ') || '';
+      author = r.title.match(/^(.+?)\s+(?:on|posted on) LinkedIn/i)?.[1] || (r.url.match(/\/posts\/([a-z0-9-]+?)_/i)?.[1] || '').split('-').filter((w) => !/\d/.test(w)).join(' ').replace(/\b\w/g, (x) => x.toUpperCase());
       verified = Boolean(postedAt);
       if (HIRING.test(text) || /hir|job|role|opening/i.test(text)) {
         const md = await readPage(r.url, 8000).catch(() => '');
-        const body = md.replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[([^\]]*)\]\((https?:[^)]*)\)/g, '$1 $2').split('\n').map((l) => l.trim())
-          .filter((l) => l && !/^(sign in|join now|agree & join|skip to main|report this|like|comment|repost|send|see more|show more|cookie|user agreement|privacy policy|©|linkedin corporation|url source|markdown content|title:)/i.test(l)).join('\n');
-        if (body.length > text.length) { text = body.slice(0, 3000); verified = true; }
-        const who = md.match(/^Title:\s*(.+?)\s+on LinkedIn/im)?.[1];
-        if (who) author = who.trim();
+        const pub = md.match(/Published Time:\s*(\S+)/i)?.[1];
+        if (!postedAt && pub && !Number.isNaN(Date.parse(pub))) postedAt = new Date(pub).toISOString();
+        const body = cleanLinkedIn(md, r.snippet);
+        if (body.length > 80 && body.length > r.snippet.length * 0.8) { text = body.slice(0, 3000); verified = true; }
+        const who = md.match(/^Title:\s*(.+?)\s+on LinkedIn/im)?.[1] || md.match(/^Title:\s*(.+?)\s*[|–-]/im)?.[1];
+        if (who && who.length < 60) author = who.trim();
         links = Array.from(new Set(text.match(/https?:\/\/[^\s)]+/g) || [])).filter((u) => !/linkedin\.com\/(feed|in|company|signup|login|legal)/i.test(u)).slice(0, 8);
       }
     }
