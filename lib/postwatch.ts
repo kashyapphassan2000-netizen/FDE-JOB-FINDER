@@ -258,6 +258,11 @@ JSON: {"items":[{"i":0,"hiring":true,"matches_roles":true,"place_ok":true,"role"
       const p = batch[it.i];
       if (!p) continue;
       if (!it.hiring || !it.matches_roles || it.place_ok === false) { dropped++; continue; }
+      // hard check on the extracted location (e.g. "Abu Dhabi" from a post that also says "across India")
+      const L = (it.location || '').toLowerCase();
+      const alias = (x: string) => (x === 'bangalore' ? 'bengaluru' : x === 'bengaluru' ? 'bangalore' : x);
+      const okLoc = !L || /not stated|unspecified|n\/a/.test(L) || c.places.some((pl) => { const w = pl.toLowerCase(); return L.includes(w) || L.includes(alias(w)); }) || (c.places.some((pl) => /remote/i.test(pl)) && /remote|anywhere|worldwide|wfh/.test(L));
+      if (!okLoc) { dropped++; continue; }
       keep.push({ ...p, ai: { role: it.role || '', company: it.company || '', location: it.location || '', mode: it.work_mode || '', experience: it.experience || '', salary: it.salary || '', apply: it.apply_how || '', summary: it.summary || '', model } });
     }
   };
