@@ -39,7 +39,7 @@ export const DEFAULT_PW: PwConfig = {
 
 const HIRING = /\b(hiring|we'?re hiring|we are hiring|now hiring|is hiring|join (us|our team|my team)|looking for (an?|our|talented|strong|experienced)|open (role|position)s?|job opening|openings?\b|vacanc|apply (here|now|at|via|using)|dm (me|us)|send (your |me your )?(cv|resume)|share (your )?(cv|resume)|referrals? (open|available)|#hiring|#wearehiring|we'?re looking for|building (a|our) team)/i;
 const SEEKER = /#opentowork|open to work|i'?m (actively )?looking for (a |new )?(job|role|opportunit)|seeking (a |new )?(job|role|opportunit)|need a job|laid off.*looking|my resume|hire me/i;
-const OTHER_PLACES = /\b(hyderabad|pune|mumbai|delhi|gurgaon|gurugram|noida|chennai|kolkata|ahmedabad|kochi|jaipur|san francisco|new york|nyc|london|berlin|seattle|toronto|singapore|dubai|austin|paris|amsterdam|sydney|tokyo)\b/i;
+const OTHER_PLACES = /\b(columbus|ohio|chicago|boston|atlanta|denver|dallas|houston|los angeles|california|texas|virginia|new jersey|hyderabad|pune|mumbai|delhi|gurgaon|gurugram|noida|chennai|kolkata|ahmedabad|kochi|jaipur|san francisco|new york|nyc|london|berlin|seattle|toronto|singapore|dubai|austin|paris|amsterdam|sydney|tokyo)\b/i;
 const EMAIL_RX = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
 const BAD_EMAIL = /noreply|no-reply|example\.|@x\.com|@twitter\.com|@linkedin\.com|\.(png|jpg|gif|webp)$|sentry|wixpress/i;
 
@@ -81,7 +81,7 @@ export function linkedInPost(md: string): { author: string; text: string } | nul
   for (const raw of after) {
     const l = raw.trim();
     if (/^#{1,3}\s|^\[?see more comments|^\[like\]|^like$|^\d+\s*(reactions?|comments?)|^to view or add a comment|^more relevant posts|^share$/i.test(l)) { if (out.length) break; else continue; }
-    if (!l || /^\[!\[image/i.test(l) || /^\d+[smhdwy]o?$/.test(l) || /^(edited|follow|copy)$/i.test(l) || /^\*\s+\[report this/i.test(l) || /trk=public_post_feed-actor-name|trk=public_post_feed-actor-image/.test(l)) continue;
+    if (!l || /^\[!\[image/i.test(l) || /^\d+[smhdwy]o?$/.test(l) || /^(edited|follow|copy)$/i.test(l) || /^\d+[smhdwy]o?\s+edited$/i.test(l) || /^[\d,.]+k?\s+followers$/i.test(l) || /^\*\s+\[report this/i.test(l) || /trk=public_post_feed-actor-name|trk=public_post_feed-actor-image/.test(l)) continue;
     out.push(l.replace(/\[([^\]]*)\]\((https?:[^)]*)\)/g, (_, t, u) => { if (/linkedin\.com\/(company|in|feed\/hashtag|signup)/.test(u)) return ` ${t} `; const red = u.match(/redir\/redirect\?url=([^&]+)/); if (red) return ` ${decodeURIComponent(red[1])} `; return /^https?:/.test(t) ? ` ${t} ` : ` ${t} ${u.replace(/[?&]trk=.*$/, '')} `; }));
   }
   const text = out.join('\n').trim();
@@ -142,6 +142,7 @@ function judge(text: string, c: PwConfig): { ok: boolean; roles: string[]; place
   const place = c.places.find((p) => t.includes(p.toLowerCase())) || (/\bremote\b|work from home|wfh|anywhere/.test(t) && c.places.some((p) => /remote/i.test(p)) ? 'remote' : '');
   // "remote" that is really US / EU / UK only is not OK for someone in India (strict)
   if (place === 'remote' && /\b(us|usa|u\.s\.|eu|europe|uk|canada|latam|emea)[- ]?(only|based|residents?|citizens?)\b|\bremote[- ](us|usa|eu|uk|europe|canada)\b|- (eu|us|uk)!?\b|within the (us|eu|uk)|must (be|reside) in the (us|eu|uk)/i.test(text) && !/india|apac|asia|worldwide|anywhere|global/i.test(text)) return { ok: false, roles, place: '', why: 'remote but US/EU/UK only' };
+  if (/\b(w2|c2c|corp[- ]to[- ]corp|green card|us citizens?|usc only|h1b|security clearance|ts\/sci)\b/i.test(text) && !/india|bengaluru|bangalore/i.test(text)) return { ok: false, roles, place: '', why: 'US-only (W2 / visa / clearance)' };
   if (place === 'remote' && /(usd|us\$|\$\s?\d{2,3}[,k]|£\s?\d|€\s?\d|\d\s?(gbp|eur)\b)/i.test(text) && !/india|inr|lpa|₹|apac|asia|worldwide|anywhere|global/i.test(text)) return { ok: false, roles, place: '', why: 'remote abroad (pay in USD/GBP/EUR, India not mentioned)' };
   if (!place) {
     const other = text.match(OTHER_PLACES)?.[1];
@@ -200,7 +201,7 @@ export async function runRadar(opts: { budgetMs?: number; maxQueries?: number } 
         const md = await readPage(r.url, 25000).catch(() => '');
         const pub = md.match(/Published Time:\s*(\S+)/i)?.[1];
         if (!postedAt && pub && !Number.isNaN(Date.parse(pub))) postedAt = new Date(pub).toISOString();
-        const body = cleanLinkedIn(md, r.snippet);
+        const body = cleanLinkedIn(md, r.snippet).replace(/^\d+[smhdwy]o?\s+edited\s+/i, '').replace(/^[\d,.]+k?\s+followers\s+/i, '');
         if (body.length > 80 && body.length > r.snippet.length * 0.8) { text = body.slice(0, 3000); verified = true; }
         const who = linkedInPost(md)?.author || md.match(/^Title:\s*(.+?)\s+on LinkedIn/im)?.[1];
         if (who && who.length < 60) author = who.trim();
