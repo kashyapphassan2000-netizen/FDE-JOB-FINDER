@@ -12,7 +12,6 @@ import ExportAllButton from '@/components/ExportAllButton';
 import DirectoryTab from '@/components/DirectoryTab';
 import WatchTab from '@/components/WatchTab';
 import MentorTab from '@/components/MentorTab';
-import StudioTab from '@/components/StudioTab';
 import AutopilotPanel from '@/components/AutopilotPanel';
 import ObservabilityTab from '@/components/ObservabilityTab';
 import NotepadTab from '@/components/NotepadTab';
@@ -35,7 +34,6 @@ import SettingsTab from '@/components/SettingsTab';
 import { ago, api, type JobsPayload } from '@/components/api';
 
 const NAV = [
-  { group: 'Agents', items: [['Agent studio', '🤖']] },
   { group: 'Life', items: [['Life mentor', '🧭'], ['Knowledge graph', '🕸️']] },
   { group: 'Companies', items: [['Careers search', '🎯'], ['Global companies hiring', '🌍'], ['Watch companies', '👁️']] },
   { group: 'Get the job', items: [['Auto-apply', '⚡'], ['Job analyzer & prep', '🔬'], ['Recruiters & referrals', '🤝'], ['My job alerts', '🔔'], ['Job alerts for others', '📬']] },
@@ -179,13 +177,12 @@ export default function Home() {
         {tab === 'Jobs' && <JobsTab onApply={(url, title, company) => { setApplySeed({ url, title, company, n: Date.now() }); go('Auto-apply'); }} data={data} reload={load} toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}
         {tab === 'AI Agent' && <AgentTab toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}
         {tab === 'Hidden jobs & startups' && <DiscoverTab toast={setToast} />}
-        {tab === 'Agent studio' && <StudioTab toast={setToast} />}
         {tab === 'Life mentor' && <MentorTab toast={setToast} seed={mentorSeed} openGraph={() => go('Knowledge graph')} />}
         {tab === 'Knowledge graph' && <KnowledgeGraph toast={setToast} onAsk={(q) => { setMentorSeed({ q, n: Date.now() }); go('Life mentor'); }} />}
         {isOwner && tab === 'Unlimited setup' && <UnlimitedTab toast={setToast} onAiKeys={() => go('AI & Keys')} />}
         {tab === 'Auto-apply' && <ApplyTab toast={setToast} seedUrl={applySeed} />}
-        {tab === 'Observability' && <ObservabilityTab toast={setToast} onOpenAgent={() => go('Agent studio')} />}
-        {tab === 'Notepad' && <NotepadTab toast={setToast} onUse={(text, where) => { if (where === 'mentor') { setMentorSeed({ q: text, n: Date.now() }); go('Life mentor'); } else if (where === 'analyze') { setAnaSeed({ url: /^https?:\/\//.test(text.trim()) ? text.trim() : '', company: '', n: Date.now() }); go('Job analyzer & prep'); } else { navigator.clipboard.writeText(text).then(() => setToast('Copied — paste it into any agent chat')); go('Agent studio'); } }} />}
+        {tab === 'Observability' && <ObservabilityTab toast={setToast} />}
+        {tab === 'Notepad' && <NotepadTab toast={setToast} onUse={(text, where) => { if (where === 'mentor') { setMentorSeed({ q: text, n: Date.now() }); go('Life mentor'); } else if (where === 'analyze') { setAnaSeed({ url: /^https?:\/\//.test(text.trim()) ? text.trim() : '', company: '', n: Date.now() }); go('Job analyzer & prep'); } else { navigator.clipboard.writeText(text).then(() => setToast('Copied — paste it into the AI Agent search box')); go('AI Agent'); } }} />}
         {tab === 'Careers search' && <CareersSearchTab toast={setToast} onAnalyze={(url, company) => { setAnaSeed({ url, company, n: Date.now() }); go('Job analyzer & prep'); }} />}
         {tab === 'Watch companies' && <WatchTab toast={setToast} />}
         {tab === 'Job analyzer & prep' && <AnalyzerTab toast={setToast} seed={anaSeed} onReferrals={(company, role) => { setRefSeed({ company, role, n: Date.now() }); go('Recruiters & referrals'); }} />}

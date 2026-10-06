@@ -153,7 +153,7 @@ export const CAREER_PAGE_SOURCE: SourceDef = {
     const r1 = await pool(atsCos, 6, async ([n]) => { const m = map[n] as Extract<CpMap, { kind: 'ats' }>; const p = await probe(m.ats, m.slug, n); return { n, jobs: p?.jobs || [] }; });
     for (const r of r1) if (r.status === 'fulfilled') await hset('cp:status', r.value.n, { at, ok: true, via: 'ats', roles: r.value.jobs.length, mine: keep(r.value.n, r.value.jobs) });
     // 2) map up to 2 unmapped / stale companies this run (rotating)
-    const todo = ctx.signal.aborted ? [] : all.filter(([n]) => !fresh(map[n])).slice(0, 2);
+    const todo = ctx.signal.aborted ? [] : all.filter(([n]) => !fresh(map[n])).slice(0, 4);
     const r2 = await pool(todo, 2, async ([n, u]) => ({ n, m: await mapCompany(n, u) }));
     for (const r of r2) {
       if (r.status !== 'fulfilled') continue;

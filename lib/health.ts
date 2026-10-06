@@ -69,7 +69,7 @@ export async function runHealthCheck(): Promise<{ at: string; checks: Check[] }>
   C.push({ group: 'Pipelines', name: 'Job sources', status: broken.length ? 'warn' : 'ok', detail: broken.length ? `failing: ${broken.map((s) => `${s.id} (${(h[s.id].error || '').slice(0, 50)})`).join(', ')}` : `${Object.values(h).filter((x) => x.ok).length} healthy`, fix: broken.length ? 'See Sources & APIs for each error' : undefined });
   const sem = await getJSON<{ at: string; pending: number } | null>('sem:meta', null);
   C.push({ group: 'Pipelines', name: 'AI ranking (semantic)', status: sem ? (sem.pending > 50 ? 'warn' : 'ok') : 'warn', detail: sem ? `last ${ago(sem.at)} · ${sem.pending} jobs waiting` : 'never ran', fix: sem && sem.pending <= 50 ? undefined : 'Runs after each refresh; free embedding quota limits how many per minute' });
-  for (const [label, rx] of [['Custom agents (hourly)', /^studio/], ['Watched companies', /^watch/], ['Mentor daily brief', /^mentor/], ['Daily digest', /digest/], ['Alerts', /^alerts/]] as [string, RegExp][]) {
+  for (const [label, rx] of [['Watched companies', /^watch/], ['Mentor daily brief', /^mentor/], ['Daily digest', /digest/], ['Alerts', /^alerts/]] as [string, RegExp][]) {
     const e = lastOf(rx);
     C.push({ group: 'Pipelines', name: label, status: !e ? 'warn' : e.status === 'ok' ? 'ok' : 'fail', detail: e ? `last ${ago(e.at)} · ${e.detail.slice(0, 140)}` : 'no run recorded yet (logging started with this version)' });
   }

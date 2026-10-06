@@ -33,7 +33,7 @@ export default function ObservabilityTab({ toast, onOpenAgent }: { toast: (s: st
       <div className="hero">
         <div>
           <h2>{d.owner ? 'Observability — everything the app did, live' : 'My activity'}</h2>
-          <p>{d.owner ? 'Every scheduled run, job source, AI call, email, WhatsApp, agent run (with its reasoning trace in Agent studio), MCP call and sign-in — with status, timing and the exact error. Run a full service check to see what works, what is broken and exactly how to fix it.' : 'Everything the app did for you: agent runs, emails, sign-ins, AI tools.'}</p>
+          <p>{d.owner ? 'Every scheduled run, job source, AI call, email, WhatsApp, agent run, MCP call and sign-in — with status, timing and the exact error. Run a full service check to see what works, what is broken and exactly how to fix it.' : 'Everything the app did for you: agent runs, emails, sign-ins, AI tools.'}</p>
         </div>
         <div className="hero-stats"><div><b>{counts.ok}</b><span>ok</span></div><div><b>{counts.warn}</b><span>warnings</span></div><div><b>{counts.fail}</b><span>failed</span></div></div>
       </div>
@@ -87,7 +87,7 @@ export default function ObservabilityTab({ toast, onOpenAgent }: { toast: (s: st
               {d.owner && e.ns !== 'owner' && <span className="badge b-skip">{e.ns}</span>}
               {e.ms !== undefined && <span className="small muted">{e.ms < 1000 ? `${e.ms} ms` : `${(e.ms / 1000).toFixed(1)} s`}</span>}
               <span className="small muted obs-detail">{open === e.id ? '' : e.detail.slice(0, 110)}</span>
-              {open === e.id && <div className="obs-open small"><pre>{e.detail}</pre><div className="muted">{new Date(e.at).toLocaleString('en-IN')}{e.ref && e.area === 'agent' ? ' · full reasoning trace: Agent studio → this agent → Results' : ''}</div>{e.ref && e.area === 'agent' && onOpenAgent && <button className="small-btn" onClick={onOpenAgent}>Open Agent studio</button>}</div>}
+              {open === e.id && <div className="obs-open small"><pre>{e.detail}</pre><div className="muted">{new Date(e.at).toLocaleString('en-IN')}</div></div>}
             </div>
           ))}
         </div>

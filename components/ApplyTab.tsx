@@ -90,7 +90,7 @@ export default function ApplyTab({ toast, seedUrl }: { toast: (s: string) => voi
         <p className="small">Fills every <b>queued</b> application in a real browser window, attaches your CV and — only if you add <code>--submit</code> — submits it. It stops for captchas and required questions you haven’t answered, and marks each job applied here. Max 10 per run.</p>
         <pre className="st-code">{`git clone <your repo> && cd FDE-JOB-FINDER && npm install
 npm i -D playwright && npx playwright install chromium
-APPLY_TOKEN=${tok || '<token from “Create my autofill button” or Agent studio → Connect Claude Code>'} npm run apply                  # fill, you submit
+APPLY_TOKEN=${tok || '<token from “Create my autofill button”>'} npm run apply                  # fill, you submit
 APPLY_TOKEN=${tok || '<token>'} npm run apply -- --submit --max 5   # fill and submit`}</pre>
       </div>
       <div className="panel">

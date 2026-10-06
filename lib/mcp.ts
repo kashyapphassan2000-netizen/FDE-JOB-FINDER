@@ -15,7 +15,7 @@ import { radarState } from './radar';
 import { getJSON } from './store';
 import { getCv } from './cv';
 import { getWorld } from './mentor';
-import { listAgents, listSkills, runAgentDef, saveAgent, type AgentDef } from './studio';
+import { listAgents, listSkills, runAgentDef, saveAgent, type AgentDef } from './studio'; // the studio ENGINE powers deep research; the Agent studio page itself was removed
 import { spend } from './limits';
 
 /**
@@ -69,10 +69,6 @@ export const MCP_TOOLS: Tool[] = [
     run: async (a) => referralReport(String(a.company), String(a.role || '')) },
   { name: 'deep_research', cost: 2, description: 'Multi-round deep research on any topic: plans sub-questions, searches wide, reads 10-25 sources, follows gaps, returns a long cited markdown report. Takes 2-4 minutes.', inputSchema: obj({ topic: S('the research question') }, ['topic']),
     run: async (a) => { const r = await runAgentDef(await researchAgent(), 'chat', String(a.topic).slice(0, 2000), 270000); return r.report ? { title: r.report.title, report: r.report.body || r.report.summary, sources: r.report.sources, approved: r.approved } : { error: r.error }; } },
-  { name: 'run_agent', cost: 2, description: 'Run one of the user\'s own Agent-studio agents (with its own instructions, rules, tools, skills, model and supervisor) on a task.', inputSchema: obj({ agent: S('agent name (see list_agents)'), task: S('what to do this time (optional)') }, ['agent']),
-    run: async (a) => { const ag = (await listAgents(tenant().ns)).find((x) => x.name.toLowerCase().includes(String(a.agent).toLowerCase())); if (!ag) return { error: 'no such agent — call list_agents' }; const r = await runAgentDef(ag, 'chat', a.task ? String(a.task) : undefined, 270000); return { report: r.report, approved: r.approved, error: r.error }; } },
-  { name: 'list_agents', cost: 0, description: 'List the user\'s Agent-studio agents.', inputSchema: obj({}),
-    run: async () => (await listAgents(tenant().ns)).map((a) => ({ name: a.name, mode: a.type, goal: a.goal.slice(0, 200), schedule: a.schedule, lastRun: a.lastRun })) },
   { name: 'web_search', cost: 0, description: 'Web search (rotating engines). recency: day|week|month|any.', inputSchema: obj({ query: S('query'), recency: S('day|week|month|any') }, ['query']),
     run: async (a) => (await webSearch(String(a.query), 10, (['day', 'week', 'month', 'any'].includes(a.recency) ? a.recency : 'month') as 'month')).results },
   { name: 'read_page', cost: 0, description: 'Read any web page (JS-rendered) as text.', inputSchema: obj({ url: S('https URL') }, ['url']), run: async (a) => (await readPage(String(a.url), 15000)).slice(0, 15000) },
@@ -97,7 +93,7 @@ export async function handleRpc(msg: { jsonrpc?: string; id?: number | string | 
   if (msg.id === undefined || msg.method.startsWith('notifications/')) return null;
   switch (msg.method) {
     case 'initialize':
-      return ok({ protocolVersion: msg.params?.protocolVersion || '2025-06-18', capabilities: { tools: { listChanged: false }, prompts: { listChanged: false } }, serverInfo: { name: 'fde-job-finder', version: '1.0.0' }, instructions: 'Tools for an AI / FDE job hunt: live job feed with AI fit scores, every company job board, job analysis + interview prep, referrals, zero-day hiring signals, deep research, and the user\'s own Agent-studio agents. The user\'s skills are available as prompts.' });
+      return ok({ protocolVersion: msg.params?.protocolVersion || '2025-06-18', capabilities: { tools: { listChanged: false }, prompts: { listChanged: false } }, serverInfo: { name: 'fde-job-finder', version: '1.0.0' }, instructions: 'Tools for an AI / FDE job hunt: live job feed with AI fit scores, every company job board, job analysis + interview prep, referrals, zero-day hiring signals, deep research. The user\'s skills are available as prompts.' });
     case 'ping': return ok({});
     case 'tools/list': return ok({ tools: MCP_TOOLS.map(({ name, description, inputSchema }) => ({ name, description, inputSchema })) });
     case 'tools/call': {
