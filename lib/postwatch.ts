@@ -138,6 +138,7 @@ function judge(text: string, c: PwConfig): { ok: boolean; roles: string[]; place
   const place = c.places.find((p) => t.includes(p.toLowerCase())) || (/\bremote\b|work from home|wfh|anywhere/.test(t) && c.places.some((p) => /remote/i.test(p)) ? 'remote' : '');
   // "remote" that is really US / EU / UK only is not OK for someone in India (strict)
   if (place === 'remote' && /\b(us|usa|u\.s\.|eu|europe|uk|canada|latam|emea)[- ]?(only|based|residents?|citizens?)\b|\bremote[- ](us|usa|eu|uk|europe|canada)\b|- (eu|us|uk)!?\b|within the (us|eu|uk)|must (be|reside) in the (us|eu|uk)/i.test(text) && !/india|apac|asia|worldwide|anywhere|global/i.test(text)) return { ok: false, roles, place: '', why: 'remote but US/EU/UK only' };
+  if (place === 'remote' && /(usd|us\$|\$\s?\d{2,3}[,k]|£\s?\d|€\s?\d|\d\s?(gbp|eur)\b)/i.test(text) && !/india|inr|lpa|₹|apac|asia|worldwide|anywhere|global/i.test(text)) return { ok: false, roles, place: '', why: 'remote abroad (pay in USD/GBP/EUR, India not mentioned)' };
   if (!place) {
     const other = text.match(OTHER_PLACES)?.[1];
     if (other) return { ok: false, roles, place: '', why: `other place only (${other})` };
