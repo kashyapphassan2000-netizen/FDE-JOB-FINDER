@@ -13,6 +13,7 @@ import { readPage, webSearchAll, type Recency } from './search';
 import { dateFromUrl } from './postdate';
 import { fetchTweet, tweetIdFromUrl } from './xposts';
 import { linkedInPost } from './postwatch';
+import { findPosts } from './postsources';
 
 /**
  * LIVE feeds for the LinkedIn / X tabs — straight from the platform, last 24 h, no search-engine delay.
@@ -80,33 +81,14 @@ export async function postsLive(kind: 'x' | 'li', q: string): Promise<{ posts: L
   const kw = nlq.keywords || '"forward deployed" OR "AI engineer" OR "ML engineer"';
   const loc = nlq.location || (nlq.remote ? 'remote' : '');
   const site = kind === 'x' ? 'site:x.com' : 'site:linkedin.com/posts';
-  const queries = Array.from(new Set([
-    `${site} ${q.trim() || kw}`.trim(), // exactly what was typed
-    `${site} ${kw} ${loc} hiring`.replace(/\s+/g, ' ').trim(),
-    `${site} ${kw} ${loc}`.replace(/\s+/g, ' ').trim(),
-    `${site} "${nlq.keywords || 'AI engineer'}" (hiring OR "we're hiring" OR "join us" OR "DM me")${loc ? ` ${loc}` : ''}`,
-  ])).slice(0, 4);
-  const engines = new Set<string>();
-  const errors: string[] = [];
-  const raw: { url: string; title: string; snippet: string }[] = [];
+  // every free door at once: SearXNG + Bing RSS + Linkup (platform-only) + engine rotation when thin
   const t0 = Date.now();
-  await Promise.all(queries.flatMap((qq) => (['day', 'week'] as Recency[]).map(async (rec) => {
-    const r = await Promise.race([webSearchAll(qq, 20, rec), new Promise<null>((res) => setTimeout(() => res(null), 35000))]).catch((e) => { errors.push((e as Error).message); return null; });
-    if (!r) return;
-    r.engines.forEach((e) => engines.add(e));
-    raw.push(...r.results);
-  })));
-  // thin? widen: simpler phrasing + a month index window (post age is still checked from the post ID below)
-  const isPostUrl = (u: string) => (kind === 'x' ? Boolean(tweetIdFromUrl(u)) : /linkedin\.com\/(posts|feed\/update)\//i.test(u));
-  if (raw.filter((r) => isPostUrl(r.url)).length < 6) {
-    const t = nlq.terms.filter((w) => !/^(founders?|people|someone|anyone|companies|startups?)$/.test(w));
-    const more = Array.from(new Set([`${site} ${t.join(' ')} hiring`, `${site} ${t.slice(-2).join(' ')} ${loc}`.trim(), `${site} "${t.slice(-2).join(' ')}" job`])).filter((x) => !queries.includes(x)).slice(0, 3);
-    queries.push(...more);
-    await Promise.all(more.flatMap((qq) => (['week', 'month'] as Recency[]).map(async (rec) => {
-      const r = await Promise.race([webSearchAll(qq, 20, rec), new Promise<null>((res) => setTimeout(() => res(null), 25000))]).catch(() => null);
-      if (r) { r.engines.forEach((e) => engines.add(e)); raw.push(...r.results); }
-    })));
-  }
+  const words = nlq.keywords || 'forward deployed engineer';
+  const found = await findPosts(kind, words, { days: 7, place: loc });
+  const queries = [`${site} ${words}${loc ? ` ${loc}` : ''}`];
+  const engines = new Set<string>(Object.entries(found.doors).filter(([, n]) => n > 0).map(([k, n]) => `${k} (${n})`));
+  const errors: string[] = [];
+  const raw = found.results;
   const seen = new Set<string>();
   const items: LivePost[] = [];
   for (const r of raw) {

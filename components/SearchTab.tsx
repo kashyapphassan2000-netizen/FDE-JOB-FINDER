@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ago, api, setTrack } from './api';
 import ExportButton from './ExportButton';
 import { ReachButton, SaveButton } from './ReachButton';
+import { SOURCE_ICON, SOURCE_TYPES, sourceType } from '@/lib/sourcetype';
 
 type Hit = { title: string; company: string; location: string; url: string; postedAt?: string | null; salary?: string; source: string; text?: string };
 type Res = { q: string; parsed?: { role: string; location: string; remote: boolean }; ms: number; total: number; hits: Hit[]; bySource: { source: string; n: number }[]; boardsSearched: number; errors: string[]; captureLinks: { label: string; url: string }[]; stripped: number };
@@ -12,6 +13,7 @@ export default function SearchTab({ q, toast, onOutreach }: { q: string; toast: 
   const [busy, setBusy] = useState(false);
   const [any, setAny] = useState(false);
   const [src, setSrc] = useState('');
+  const [stype, setStype] = useState('');
   const [secs, setSecs] = useState(0);
 
   useEffect(() => {
@@ -26,7 +28,7 @@ export default function SearchTab({ q, toast, onOutreach }: { q: string; toast: 
     return () => { alive = false; clearInterval(iv); };
   }, [q, any, toast]);
 
-  const shown = useMemo(() => (res?.hits || []).filter((h) => !src || h.source === src), [res, src]);
+  const shown = useMemo(() => (res?.hits || []).filter((h) => (!src || h.source === src) && (!stype || sourceType(h.url) === stype)), [res, src, stype]);
   if (!q) return <div className="empty">Type any role in the search bar at the top — e.g. “MLOps engineer”, “solutions architect”, “AI product manager”, “computer vision”.</div>;
 
   return (
@@ -43,6 +45,7 @@ export default function SearchTab({ q, toast, onOutreach }: { q: string; toast: 
         <>
           <div className="row" style={{ marginBottom: 10 }}>
             <span className={`chip ${!src ? 'on' : ''}`} onClick={() => setSrc('')}>All · {res.total}</span>
+            {SOURCE_TYPES.map((t) => { const n = res.hits.filter((h) => sourceType(h.url) === t).length; return n ? <span key={t} className={`chip ${stype === t ? 'on' : ''}`} onClick={() => setStype(stype === t ? '' : t)}>{SOURCE_ICON[t]} {t} · {n}</span> : null; })}
             {res.bySource.map((s) => <span key={s.source} className={`chip ${src === s.source ? 'on' : ''}`} onClick={() => setSrc(s.source)}>{s.source} · {s.n}</span>)}
             <span className="grow" />
             <ExportButton title={`Search: ${q}`} subtitle={`${shown.length} results${src ? ` from ${src}` : ''} · ${any ? 'location rule ignored' : 'Bengaluru office or remote-from-India only'}`} filename={`search-${q}`}

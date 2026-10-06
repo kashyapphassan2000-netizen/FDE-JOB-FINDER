@@ -32,6 +32,7 @@ export const COMMUNITY_SOURCES: SourceDef[] = [
   {
     id: 'linkedin',
     name: 'LinkedIn Jobs (public guest search)',
+    retired: 'Off by owner: LinkedIn JOB listings are crowded — the app uses LinkedIn POSTS only (Hiring post radar, LinkedIn posts tab)',
     group: 'Community & social',
     keyless: true,
     envKeys: [],

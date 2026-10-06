@@ -1,3 +1,4 @@
+import { isLinkedInJob } from './postdate';
 import { track } from './obs';
 import { GHOST_DAYS, hardNoise, trackGhosts } from './semantic';
 import type { Job, RawJob, SourceHealth } from './types';
@@ -30,7 +31,7 @@ export interface RefreshMeta {
 }
 
 export async function getJobs(): Promise<Job[]> {
-  const jobs = await getJSON<Job[]>('jobs', []);
+  const jobs = (await getJSON<Job[]>('jobs', [])).filter((j) => !isLinkedInJob(j.url)); // LinkedIn posts only, never LinkedIn job listings
   // Local UI testing only: seed from a fixture file when the store is empty (never used on Vercel).
   if (!jobs.length && process.env.FJ_SEED_FILE && !process.env.VERCEL) {
     const fs = await import('node:fs');
@@ -253,6 +254,6 @@ export async function addExternalJobs(raws: RawJob[], source: string): Promise<n
     added++;
   }
   const jobs = [...byId.values()].sort((a, b) => b.score - a.score).slice(0, MAX_JOBS);
-  await setJSON('jobs', jobs);
+  await setJSON('jobs', jobs.filter((j) => !isLinkedInJob(j.url)));
   return added;
 }

@@ -156,6 +156,7 @@ export const KEYED_SOURCES: SourceDef[] = [
   },
   {
     id: 'apify_linkedin',
+    retired: 'Off by owner: LinkedIn JOB listings are crowded — the app uses LinkedIn POSTS only (Hiring post radar, LinkedIn posts tab)',
     name: 'Apify LinkedIn Jobs (curious_coder) — reliable LinkedIn',
     group: 'Aggregators (API key)',
     keyless: false,

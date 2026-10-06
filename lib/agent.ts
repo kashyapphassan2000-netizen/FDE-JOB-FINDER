@@ -1,4 +1,4 @@
-import { dateFromText, dateFromUrl, FRESH_HOURS, isSocialPost } from './postdate';
+import { dateFromText, dateFromUrl, FRESH_HOURS, isLinkedInJob, isSocialPost } from './postdate';
 import type { Category, CompanyEntry, Domain, RawJob } from './types';
 import { classify, domainOf, hashId, isExcluded, locationAllowed, locationTags } from './classify';
 import { atsFromUrl, probe } from './atsdetect';
@@ -9,6 +9,7 @@ import { getSettings } from './settings';
 import { DEFAULT_COMPANIES } from './companies';
 import { delKey, getJSON, hdel, hgetall, hset, setJSON } from './store';
 import { parseQuery } from './nlq';
+import { findPosts } from './postsources';
 import { loadVault } from './secrets';
 import { pool } from './http';
 import { fetchTweet, tweetIdFromUrl } from './xposts';
@@ -148,7 +149,7 @@ export function isFreshFind(f: Find): boolean {
   if (f.status === 'saved' || f.status === 'applied') return true;
   const t = findTime(f);
   if (t === null) return false;
-  if (isLinkedInOrX(f.url)) return Date.now() - t <= FRESH_HOURS * 36e5; // STRICT 24 h, proven date only
+  if (isLinkedInOrX(f.url)) return Date.now() - t <= POST_DAYS * 864e5; // proven post date (from the post ID), last 7 days
   if (f.mission === 'communities' || /reddit\.com|news\.ycombinator\.com|t\.me\//i.test(f.url)) return Date.now() - t < 7 * 864e5; // community threads go stale fast: 7 days
   return Date.now() - t < FIND_FRESH_DAYS * 864e5; // everything else: 30 days
 }
@@ -188,7 +189,8 @@ const isPostUrl = (u: string) => /linkedin\.com\/(posts|feed)|(x|twitter)\.com\/
 const HIRING_RX = /hiring|we('|’)re hiring|we are hiring|join (us|our)|open role|looking for|dm me|send (your )?(cv|resume)|apply|opening/i;
 const MAX_POST_AGE_DAYS = 30;
 /** How old a dated post may be for a search window: last 24 h → 2 days (time zones), week → 8, month/any → 30. */
-const windowDays = (_rec: Recency) => FRESH_HOURS / 24; // used only for X / LinkedIn posts (dated by their URL): STRICT 24 h
+const POST_DAYS = 7;
+const windowDays = (_rec: Recency) => POST_DAYS; // used only for X / LinkedIn posts (dated by their URL): STRICT 24 h
 const isJobLink = (u: string) => !atsFromUrl(u) || /\/(jobs?|j)\/|[0-9a-f-]{20,}/.test(u);
 
 function heuristic(r: Hit): Partial<Find> | null {
@@ -426,6 +428,25 @@ ${scope ? `SCOPE (strict): ${scope}\n` : ''}Request: ${opts.prompt}\nJSON: {"que
 
     // 2. SEARCH
     const results = onlyMine(await searchAll(queries, rec));
+    // X / LinkedIn post tabs: also every free door (SearXNG + Bing RSS + Linkup on the platform only) for your words
+    if (mission && (mission.id === 'x-posts' || mission.id === 'li-posts')) {
+      const kind = mission.id === 'x-posts' ? 'x' : 'li';
+      const nl = opts.prompt ? parseQuery(opts.prompt) : null;
+      const words = nl?.keywords ? [nl.keywords] : ['forward deployed engineer', 'AI engineer', 'ML engineer'];
+      const more = await Promise.all(words.map((w) => findPosts(kind, w, { days: 7, place: nl?.location || undefined }).catch(() => ({ results: [], doors: {} }))));
+      let added = 0;
+      for (const m of more) for (const x of m.results) {
+        const tid = tweetIdFromUrl(x.url);
+        if (tid) x.url = `https://x.com/i/status/${tid}`;
+        const k = tid ? `x:${tid}` : x.url.split('#')[0].replace(/\?.*$/, '');
+        if (seen.has(k)) continue;
+        seen.add(k);
+        const real = dateFromUrl(x.url);
+        x.date = real || undefined;
+        results.push(x as Hit); added++;
+      }
+      log(`post doors (SearXNG + Bing RSS + Linkup): +${added} posts · ${more.map((m) => Object.entries(m.doors).map(([d, n]) => `${d} ${n}`).join(', ')).join(' | ')}`);
+    }
     log(`search: ${results.length} unique results from ${queries.length} queries (${run.searches} engine calls, freshness: ${rec})`);
 
     // 3. READ X posts in full
@@ -490,6 +511,7 @@ ${scope ? `SCOPE (strict): ${scope}\n` : ''}Request: ${opts.prompt}\nJSON: {"que
     let skippedOld = 0, offTab = 0;
     for (const f of finds) {
       if (ids.has(f.id)) continue;
+      if (isLinkedInJob(f.url)) continue; // LinkedIn posts only
       if (mission && !fitsMission(f, mission.id)) { offTab++; continue; } // STRICT: only what this tab is for
       if (!isFreshFind(f)) { skippedOld++; continue; } // LinkedIn / X: proven date in the last 24 h only; others: not older than 30 days
       if (f.kind !== 'company' && !f.role.length) continue;
@@ -509,7 +531,7 @@ ${scope ? `SCOPE (strict): ${scope}\n` : ''}Request: ${opts.prompt}\nJSON: {"que
     run.findIds = [...ids];
     run.total = ids.size;
     run.finds = newOnes.length;
-    log(`saved ${run.total} relevant (${run.finds} new, ${run.total - run.finds} seen before)${oldDropped + skippedOld ? ` · ${oldDropped + skippedOld} skipped as old (LinkedIn / X: older than ${FRESH_HOURS} h or no provable post date)` : ''}${offTab ? ` · ${offTab} off-tab results not saved` : ''}`);
+    log(`saved ${run.total} relevant (${run.finds} new, ${run.total - run.finds} seen before)${oldDropped + skippedOld ? ` · ${oldDropped + skippedOld} skipped as old (LinkedIn / X: older than 7 days or no provable post date)` : ''}${offTab ? ` · ${offTab} off-tab results not saved` : ''}`);
     await purgeOldFinds().catch(() => null);
 
     if (opts.alert !== false && newOnes.length) {

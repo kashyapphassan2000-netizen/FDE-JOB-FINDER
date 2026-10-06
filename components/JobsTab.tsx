@@ -5,6 +5,7 @@ import { ago, api, setTrack, STATUS_LABEL, type JobsPayload } from './api';
 import { scoreJob, type Profile } from '@/lib/relevance';
 import FitDrawer from './FitDrawer';
 import { ReachButton } from './ReachButton';
+import { SOURCE_ICON, SOURCE_TYPES, sourceType } from '@/lib/sourcetype';
 import ExportButton from './ExportButton';
 
 const rank = (tags: string[]) => (tags.includes('BLR') ? 0 : tags.includes('REMOTE_IN') ? 1 : tags.includes('UNSTATED') ? 2 : 3);
@@ -30,6 +31,7 @@ export default function JobsTab({ data, reload, toast, onOutreach, onApply }: { 
   const [win, setWin] = useState('24');
   const [quick, setQuick] = useState<'all' | 'blr' | 'remote' | 'fde' | 'saved'>('all');
   const [src, setSrc] = useState('');
+  const [stype, setStype] = useState('');
   const [sen, setSen] = useState('');
   const [sort, setSort] = useState<'prio' | 'blr' | 'score' | 'new' | 'cv' | 'ai'>('prio');
   const [ranking, setRanking] = useState(false);
@@ -83,6 +85,7 @@ export default function JobsTab({ data, reload, toast, onOutreach, onApply }: { 
       if (domains.length && !domains.includes(j.domain)) return false;
       if (regions.length && !regions.some((l) => j.locTags.includes(l))) return false;
       if (src && !j.sources.includes(src)) return false;
+      if (stype && sourceType(j.url, j.sources) !== stype) return false;
       if (sen && j.seniority !== sen) return false;
       if (hiddenOnly && !j.hidden) return false;
       if (salaryOnly && !j.salary) return false;
@@ -102,7 +105,7 @@ export default function JobsTab({ data, reload, toast, onOutreach, onApply }: { 
     if (sort === 'cv') out = [...out].sort((a, b) => b.cvMatch - a.cvMatch || b.score - a.score);
     if (sort === 'ai') { const S = data?.sem || {}; const v = (id: string) => (S[id]?.r ?? -1) * 10 + (S[id]?.s ?? 0); out = [...out].sort((a, b) => v(b.id) - v(a.id)); }
     return out;
-  }, [jobs, track, q, roles, domains, regions, win, src, sen, sort, hideTracked, onlyNew, lastVisit, hiddenOnly, salaryOnly, exp, quick, profile, onlyPrio]);
+  }, [jobs, track, q, roles, domains, regions, win, src, stype, sen, sort, hideTracked, onlyNew, lastVisit, hiddenOnly, salaryOnly, exp, quick, profile, onlyPrio]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { new24: 0, hidden: 0 };
@@ -115,7 +118,7 @@ export default function JobsTab({ data, reload, toast, onOutreach, onApply }: { 
   }, [jobs]);
 
   const toggle = <T,>(arr: T[], v: T, set: (a: T[]) => void) => set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
-  const clear = () => { setRoles([]); setDomains([]); setRegions([]); setSrc(''); setSen(''); setHiddenOnly(false); setSalaryOnly(false); setQ(''); setWin('24'); };
+  const clear = () => { setRoles([]); setDomains([]); setRegions([]); setSrc(''); setStype(''); setSen(''); setHiddenOnly(false); setSalaryOnly(false); setQ(''); setWin('24'); };
 
   async function mark(job: Job, status: TrackStatus | 'none') {
     try {
@@ -175,6 +178,9 @@ export default function JobsTab({ data, reload, toast, onOutreach, onApply }: { 
               <span className="small muted fl">More</span>
               <select value={sen} onChange={(e) => setSen(e.target.value)}>
                 <option value="">Any level</option><option value="junior">Junior / entry</option><option value="mid">Mid</option><option value="senior">Senior / lead</option>
+              </select>
+              <select value={stype} onChange={(e) => setStype(e.target.value)} title="Where the job came from">
+                <option value="">Every kind of source</option>{SOURCE_TYPES.map((t) => <option key={t} value={t}>{SOURCE_ICON[t]} {t} · {jobs.filter((j) => sourceType(j.url, j.sources) === t).length}</option>)}
               </select>
               <select value={src} onChange={(e) => setSrc(e.target.value)}>
                 <option value="">All sources</option>{sources.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -246,7 +252,7 @@ export default function JobsTab({ data, reload, toast, onOutreach, onApply }: { 
                     <option value="">Track…</option>
                     {(Object.keys(STATUS_LABEL) as TrackStatus[]).map((st) => <option key={st} value={st}>{STATUS_LABEL[st]}</option>)}
                   </select>
-                  <span className="jr-src hide-sm">via {j.sources[0]}{j.sources.length > 1 ? ` +${j.sources.length - 1}` : ''}</span>
+                  <span className="jr-src hide-sm">{SOURCE_ICON[sourceType(j.url, j.sources)]} {sourceType(j.url, j.sources)} · via {j.sources[0]}{j.sources.length > 1 ? ` +${j.sources.length - 1}` : ''}</span>
                 </div>
               </div>
               <div className="jr-match">

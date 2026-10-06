@@ -51,4 +51,7 @@ export function dateFromText(text: string, ref: string | number = Date.now()): s
 }
 
 /** STRICT freshness window for jobs & posts everywhere in the app. */
-export const FRESH_HOURS = Number(process.env.FRESH_HOURS) || 24;
+export const FRESH_HOURS = Number(process.env.FRESH_HOURS) || 168; // X / LinkedIn posts: proven date, last 7 days
+
+/** The owner's rule: no LinkedIn JOB listings anywhere (crowded) — LinkedIn POSTS only. */
+export const isLinkedInJob = (url: string, sources: string[] = []) => /linkedin\.com\/(jobs|comm\/jobs)\//i.test(url || '') || sources.some((s) => s === 'linkedin' || s === 'apify_linkedin');

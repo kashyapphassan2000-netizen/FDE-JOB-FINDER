@@ -1,4 +1,5 @@
 import { linkedinLive, postsLive, xLive } from '@/lib/live';
+import { isLinkedInJob } from '@/lib/postdate';
 import { after } from 'next/server';
 import { runAs, tenant } from '@/lib/tenant';
 import { bindTenant } from '@/lib/auth';
@@ -49,6 +50,7 @@ export async function GET(req: Request) {
     runs: runs.slice(0, 20),
     finds: Object.values(finds)
       .filter(isFreshFind)
+      .filter((f) => !isLinkedInJob(f.url))
       .map(withRealDate)
       // a find shows on EVERY tab whose rule it satisfies (not only the tab that happened to find it)
       .map((f) => ({ ...f, fits: MISSIONS.map((m) => m.id).filter((m) => (m === f.mission || (f.missions || []).includes(m) || crossOk(f, m)) && fitsMission(f, m)) }))

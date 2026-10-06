@@ -21,7 +21,6 @@ export default function LiveFeed({ kind, query, toast }: { kind: 'li' | 'x'; que
     setBusy(true);
     const u = (live: string) => `/api/agent?live=${live}&q=${encodeURIComponent(qq)}`;
     await Promise.all([
-      kind === 'li' ? api<JobsRes>(u('li')).then(setJobs).catch((e) => toast(e.message)) : null,
       api<PostsRes>(u(kind === 'li' ? 'lip' : 'x')).then(setPosts).catch((e) => toast(e.message)),
     ]);
     setBusy(false);
@@ -51,7 +50,7 @@ export default function LiveFeed({ kind, query, toast }: { kind: 'li' | 'x'; que
     <div className="panel live-feed">
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <h3 style={{ margin: 0, cursor: 'pointer' }} onClick={() => setOpen(!open)}>
-          <span className="live-dot" /> {kind === 'li' ? 'LIVE LinkedIn — jobs + posts' : 'LIVE X — posts'} <span className="small muted">· {kind === 'li' ? `${nJobs} jobs · ` : ''}{nPosts} posts{posts && !posts.cached ? ' · just now' : posts ? ` · updated ${ago(posts.at)} ago` : ''}</span>
+          <span className="live-dot" /> {kind === 'li' ? 'LIVE LinkedIn — hiring posts (no job listings)' : 'LIVE X — hiring posts'} <span className="small muted">· {kind === 'li' ? `${nJobs} jobs · ` : ''}{nPosts} posts{posts && !posts.cached ? ' · just now' : posts ? ` · updated ${ago(posts.at)} ago` : ''}</span>
         </h3>
         <span className="row" style={{ gap: 6 }}>
           {all.length ? <ExportButton title={`${kind === 'x' ? 'X' : 'LinkedIn'} posts (live)`} sections={[{ title: 'Posts', headers: ['Posted', 'Author', 'Text', 'Link'], rows: all.map((p) => [(p.postedAt || '').slice(0, 16), p.author, p.text.slice(0, 500), p.url]) }]} /> : null}

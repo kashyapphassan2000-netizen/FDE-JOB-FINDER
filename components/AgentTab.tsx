@@ -2,6 +2,7 @@
 import LiveFeed from './LiveFeed';
 import FeedPanel, { hasFeed } from './FeedPanel';
 import { ReachButton, SaveButton } from './ReachButton';
+import { SOURCE_ICON, SOURCE_TYPES, sourceType } from '@/lib/sourcetype';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ago, api, setTrack } from './api';
 import FitDrawer, { type FitJob } from './FitDrawer';
@@ -39,6 +40,7 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
   const [lastRun, setLastRun] = useState<Run | null>(null);
   const [view, setView] = useState<'run' | 'all'>(missionId ? 'all' : 'run');
   const [kind, setKind] = useState('');
+  const [stype, setStype] = useState('');
   const [status, setStatus] = useState('open');
   const [mission, setMission] = useState(missionId || '');
   const [fit, setFit] = useState<FitJob | null>(null);
@@ -124,15 +126,15 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
   const scoped = useMemo(() => (view === 'run' ? runFinds : d?.finds || []).filter((f) => !mission || inMission(f, mission)), [view, runFinds, d, mission]);
   const freshFinds = useMemo(() => scoped.filter((f) => {
     if (f.status === 'saved' || f.status === 'applied') return true;
-    if (liX(f.url)) return Boolean(f.postedAt) && Date.now() - Date.parse(f.postedAt!) <= 24 * 36e5; // STRICT
+    if (liX(f.url)) return Boolean(f.postedAt) && Date.now() - Date.parse(f.postedAt!) <= 168 * 36e5; // X / LinkedIn posts: proven post date, last 7 days, newest first
     return !age || Date.now() - when(f) < age * 36e5;
   }), [scoped, age]);
   const pool = freshFinds;
   const finds = useMemo(
     () => pool
-      .filter((f) => (!kind || f.kind === kind) && (view === 'run' || status === 'all' || (status === 'open' ? f.status === 'new' : f.status === status)))
+      .filter((f) => (!kind || f.kind === kind) && (!stype || sourceType(f.url) === stype) && (view === 'run' || status === 'all' || (status === 'open' ? f.status === 'new' : f.status === status)))
       .sort((a, b) => when(b) - when(a) || (a.confidence === 'maybe' ? 1 : 0) - (b.confidence === 'maybe' ? 1 : 0)),
-    [pool, kind, status, view],
+    [pool, kind, stype, status, view],
   );
   const olderHidden = scoped.length - freshFinds.length;
   const AGE_LABEL: Record<number, string> = { 24: 'last 24 h', 72: 'last 3 days', 168: 'last 7 days', 720: 'last 30 days', 0: 'any time' };
@@ -245,6 +247,9 @@ export default function AgentTab({ toast, onOutreach, missionId }: { toast: (s: 
           <button className={!kind ? 'on' : ''} onClick={() => setKind('')}>All</button>
           {(['post', 'job', 'company', 'careers_page'] as const).filter((k) => !cur?.rule || cur.rule.kinds.includes(k)).map((k) => <button key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{KIND[k][0]} {KIND[k][1]}s · {counts[k] || 0}</button>)}
         </span>
+        <select value={stype} onChange={(e) => setStype(e.target.value)} title="Where it came from">
+          <option value="">Every source</option>{SOURCE_TYPES.map((t) => <option key={t} value={t}>{SOURCE_ICON[t]} {t} · {pool.filter((f) => sourceType(f.url) === t).length}</option>)}
+        </select>
         <select value={age} onChange={(e) => setAge(Number(e.target.value))} title="Window for results that are NOT from LinkedIn / X">
           {[24, 72, 168, 720, 0].map((h) => <option key={h} value={h}>Other results: {AGE_LABEL[h]}</option>)}
         </select>

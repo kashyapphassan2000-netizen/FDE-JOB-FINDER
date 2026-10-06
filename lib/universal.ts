@@ -1,5 +1,5 @@
 import { parseQuery } from './nlq';
-import { linkedinLive } from './live';
+import { isLinkedInJob } from './postdate';
 import { dateFromText, dateFromUrl, FRESH_HOURS, isSocialPost } from './postdate';
 import type { RawJob } from './types';
 import { DEFAULT_COMPANIES } from './companies';
@@ -28,11 +28,6 @@ const matches = (title: string, ws: string[]) => { const t = title.toLowerCase()
 
 type Src = [string, (q: string, signal: AbortSignal) => Promise<RawJob[]>];
 const LIVE: Src[] = [
-  ['LinkedIn', async (q, signal) => {
-    const plans = [['Bengaluru, Karnataka, India', ''], ['India', '&f_WT=2'], ['Worldwide', '&f_WT=2']];
-    const r = await pool(plans, 3, async ([loc, x]) => parseLinkedInCards(await getText(`https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=${encodeURIComponent(q)}&location=${encodeURIComponent(loc)}&f_TPR=r604800${x}&sortBy=DD&start=0`, { signal, timeoutMs: 12000 })));
-    return r.flatMap((x) => (x.status === 'fulfilled' ? x.value : []));
-  }],
   ['Amazon', async (q, signal) => ((await getJson<any>(`https://www.amazon.jobs/en/search.json?base_query=${encodeURIComponent(q)}&loc_query=India&result_limit=50&sort=recent`, { signal })).jobs || []).map((j: any) => ({ title: j.title, company: 'Amazon', location: j.normalized_location || j.location || '', url: `https://www.amazon.jobs${j.job_path}`, postedAt: toIso(j.posted_date) }))],
   ['Microsoft', async (q, signal) => ((await getJson<any>(`https://apply.careers.microsoft.com/api/pcsx/search?domain=microsoft.com&query=${encodeURIComponent(q)}&location=India&start=0&sort_by=timestamp`, { signal }))?.data?.positions || []).map((p: any) => ({ title: p.name, company: 'Microsoft', location: (p.locations || []).join(' | '), url: `https://apply.careers.microsoft.com${p.positionUrl}`, postedAt: toIso(p.postedTs) }))],
   ['Unstop', async (q, signal) => ((await getJson<any>(`https://unstop.com/api/public/opportunity/search-result?opportunity=jobs&per_page=40&searchTerm=${encodeURIComponent(q)}&oppstatus=open`, { signal }))?.data?.data || []).map((o: any) => ({ title: o.title, company: o.organisation?.name || 'Unstop', location: (o.locations || []).map((l: any) => l.city).join(' | '), url: `https://unstop.com/${o.public_url}`, postedAt: toIso(o.start_date) }))],
@@ -102,8 +97,6 @@ export async function universalSearch(q: string, opts: { ignoreLocation?: boolea
       `site:x.com hiring "${role}"${nlq.location ? ` ${nlq.location}` : ''}`, `site:linkedin.com/posts hiring "${role}" ${nlq.location ? place : '(Bengaluru OR remote OR India)'}`, `"${role}" hiring ${nlq.location ? place : 'Bengaluru OR "remote India"'} careers`,
     ] : [];
     await Promise.all([
-      // LinkedIn's own job search for the exact place asked (last 24 h, then 7 days)
-      linkedinLive(q).then((r) => add('LinkedIn (live)', [...r.jobs, ...r.recent], false)).catch((e) => { errors.push(`LinkedIn: ${(e as Error).message.slice(0, 60)}`); }),
       pool(LIVE, 8, async ([name, fn]) => { try { add(name, await fn(role, ctrl.signal)); } catch (e) { errors.push(`${name}: ${(e as Error).message.slice(0, 60)}`); } }),
       pool(companies, 16, async (c) => {
         if (ctrl.signal.aborted) return;
@@ -131,6 +124,7 @@ export async function universalSearch(q: string, opts: { ignoreLocation?: boolea
     const k = h.url.split('?')[0];
     if (seen.has(k)) return false;
     seen.add(k);
+    if (isLinkedInJob(h.url)) return false; // LinkedIn posts yes, LinkedIn job listings never
     if (/\/\/(?:[a-z]+\.)?(?:x|twitter|linkedin)\.com\//i.test(h.url)) { const t = Date.parse(h.postedAt || '') || Date.parse(dateFromText(`${h.title} ${h.text || ''}`) || ''); if (!t || Date.now() - t > FRESH_HOURS * 36e5) return false; } // LinkedIn / X: STRICT 24 h, proven date
     else if (h.postedAt && Date.now() - Date.parse(h.postedAt) > 60 * 864e5) return false;
     if (opts.ignoreLocation || !h.location) return true;

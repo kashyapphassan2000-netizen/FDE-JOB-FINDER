@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { getJSON, setJSON, hgetall, hset, hdel } from './store';
 import { availableEngines, liveEngines, readPage, runEngine, webSearch, type Recency, type WebResult } from './search';
 import { fetchTweet, tweetIdFromUrl } from './xposts';
+import { findPosts } from './postsources';
 import { dateFromUrl } from './postdate';
 import { toIso, pool } from './http';
 import { esc, sendMail } from './mailer';
@@ -9,6 +10,7 @@ import { tenant, runAs, tenantFor } from './tenant';
 import { ownerEmails, roleOf } from './access';
 import { secret, loadVault } from './secrets';
 import { track } from './obs';
+import { aiConfigured, chatJson } from './llm';
 
 /**
  * HIRING POST RADAR — X + LinkedIn posts by ANYONE (founders, engineers, recruiters) hiring for your roles,
@@ -26,6 +28,7 @@ export interface PwConfig {
 export interface PwPost {
   id: string; platform: 'x' | 'li'; url: string; author: string; text: string; postedAt: string | null; foundAt: string;
   roles: string[]; place: string; emails: string[]; links: string[]; sent: boolean; verified: boolean;
+  ai?: { role: string; company: string; location: string; mode: string; experience: string; salary: string; apply: string; summary: string; model?: string };
 }
 export interface PwContact { email: string; who: string; company: string; platform: 'x' | 'li'; sourceUrl: string; context: string; foundAt: string; postedAt: string | null }
 export interface PwMeta { lastRun?: string; lastLog?: string[]; cursor: number; lastEmail?: string; sentTotal: number; scanned: number }
@@ -34,7 +37,7 @@ export const DEFAULT_PW: PwConfig = {
   enabled: true,
   roles: ['forward deployed engineer', 'FDE', 'AI engineer', 'ML engineer', 'machine learning engineer', 'applied AI engineer', 'LLM engineer', 'GenAI engineer', 'AI/ML engineer', 'solutions engineer AI', 'deployment engineer'],
   places: ['Bengaluru', 'Bangalore', 'remote', 'India'],
-  keywords: [], exclude: ['intern', 'internship', 'unpaid'], platforms: ['x', 'li'], maxAgeDays: 7, batch: 100, email: '', allowUnstated: true,
+  keywords: [], exclude: ['intern', 'internship', 'unpaid'], platforms: ['x', 'li'], maxAgeDays: 1, batch: 100, email: '', allowUnstated: true,
 };
 
 const HIRING = /\b(hiring|we'?re hiring|we are hiring|now hiring|is hiring|join (us|our team|my team)|looking for (an?|our|talented|strong|experienced)|open (role|position)s?|job opening|openings?\b|vacanc|apply (here|now|at|via|using)|dm (me|us)|send (your |me your )?(cv|resume)|share (your )?(cv|resume)|referrals? (open|available)|#hiring|#wearehiring|we'?re looking for|building (a|our) team)/i;
@@ -59,7 +62,7 @@ export async function savePwConfig(p: Partial<PwConfig>): Promise<PwConfig> {
     enabled: p.enabled ?? cur.enabled,
     roles: list(p.roles, 25, cur.roles), places: list(p.places, 15, cur.places), keywords: list(p.keywords, 25, cur.keywords), exclude: list(p.exclude, 30, cur.exclude).map((x) => x.toLowerCase()),
     platforms: (Array.isArray(p.platforms) ? p.platforms.filter((x) => x === 'x' || x === 'li') : cur.platforms) as PwConfig['platforms'],
-    maxAgeDays: Math.max(1, Math.min(30, Number(p.maxAgeDays ?? cur.maxAgeDays) || 7)),
+    maxAgeDays: Math.max(1, Math.min(30, Number(p.maxAgeDays ?? cur.maxAgeDays) || 1)),
     batch: Math.max(10, Math.min(500, Number(p.batch ?? cur.batch) || 100)),
     email: String(p.email ?? cur.email ?? '').trim().slice(0, 200), allowUnstated: p.allowUnstated ?? cur.allowUnstated, updatedAt: new Date().toISOString(),
   };
@@ -101,32 +104,6 @@ function cleanLinkedIn(md: string, snippet: string): string {
   return text.trim();
 }
 
-/** Query plan: every role × platform, rotated across runs (cursor) so all combinations get covered within a few hours. */
-function plan(c: PwConfig, cursor: number, max: number): { q: string; platform: 'x' | 'li' }[] {
-  const placeQ = c.places.length ? `(${c.places.slice(0, 5).map((p) => (/\s/.test(p) ? `"${p}"` : p)).join(' OR ')})` : '';
-  const terms = [...c.roles, ...c.keywords];
-  const all: { q: string; platform: 'x' | 'li' }[] = [];
-  for (const t of terms) for (const pf of c.platforms) {
-    const site = pf === 'x' ? 'site:x.com' : 'site:linkedin.com/posts';
-    const role = /\s/.test(t) ? `"${t}"` : t;
-    all.push({ q: `${site} ${role} hiring ${placeQ}`.trim(), platform: pf });
-    all.push({ q: `${site} ${role} (hiring OR "we're hiring" OR "join us" OR "DM me")`, platform: pf });
-  }
-  const out: typeof all = [];
-  for (let i = 0; i < Math.min(max, all.length); i++) out.push(all[(cursor + i) % all.length]);
-  return out;
-}
-
-async function search(q: string, rec: Recency): Promise<WebResult[]> {
-  const live = (await liveEngines()).map((e) => e.id);
-  if (live.includes('searxng')) {
-    const r = await runEngine('searxng', q, 30, rec); // free + unlimited
-    if (r.length >= 3) return r;
-    // SearXNG's upstream engines throttle bursts → this query falls back to the free-tier engines (cached, rotated)
-  }
-  return (await webSearch(q, 20, rec).catch(() => ({ results: [] as WebResult[] }))).results; // rotates paid-free engines (cached)
-}
-
 function judge(text: string, c: PwConfig): { ok: boolean; roles: string[]; place: string; why?: string } {
   const t = text.toLowerCase();
   if (SEEKER.test(text)) return { ok: false, roles: [], place: '', why: 'job seeker' };
@@ -161,15 +138,22 @@ export async function runRadar(opts: { budgetMs?: number; maxQueries?: number } 
   const meta = await getJSON<PwMeta>('pw:meta', { cursor: 0, sentTotal: 0, scanned: 0 });
   const log: string[] = [];
   if (!availableEngines().length) return { newPosts: 0, pending: 0, contacts: 0, log: ['no search engine configured'] };
-  const qs = plan(c, meta.cursor, opts.maxQueries ?? 12);
-  const rec: Recency = c.maxAgeDays <= 1 ? 'day' : c.maxAgeDays <= 7 ? 'week' : 'month';
+  // rotate through role × platform; each one goes through every free door (SearXNG + Bing RSS + Linkup + engines)
+  const terms = [...c.roles, ...c.keywords];
+  const combos = terms.flatMap((t) => c.platforms.map((pf) => ({ t, pf })));
+  const n = Math.min(combos.length, Math.max(2, Math.round((opts.maxQueries ?? 12) / 2)));
+  const qs = Array.from({ length: n }, (_, i) => combos[(meta.cursor + i) % combos.length]);
   const raw: (WebResult & { platform: 'x' | 'li' })[] = [];
-  await pool(qs, 4, async (x) => {
+  const doors: Record<string, number> = {};
+  await pool(qs, 3, async (x) => {
     if (Date.now() - t0 > budget * 0.5) return;
-    for (const r of await search(x.q, rec)) raw.push({ ...r, platform: x.platform });
+    const r = await findPosts(x.pf, x.t, { days: c.maxAgeDays });
+    for (const [k, v] of Object.entries(r.doors)) doors[k] = (doors[k] || 0) + v;
+    for (const h of r.results) raw.push({ ...h, platform: x.pf });
   });
-  log.push(`${qs.length} searches → ${raw.length} results`);
+  log.push(`${qs.map((x) => `${x.pf === 'x' ? 'X' : 'LI'}:${x.t}`).join(', ')} → ${raw.length} posts found (${Object.entries(doors).map(([k, v]) => `${k} ${v}`).join(', ')})`);
   const have = await hgetall<PwPost>('pw:posts');
+  const everSent = await hgetall<number>('pw:sent'); // permanent ledger: a post is never emailed twice
   const cand = new Map<string, WebResult & { platform: 'x' | 'li' }>();
   for (const r of raw) {
     let url = r.url.split('#')[0];
@@ -178,7 +162,7 @@ export async function runRadar(opts: { budgetMs?: number; maxQueries?: number } 
     else if (!isLiPost(url)) continue;
     url = url.replace(/\?.*$/, '');
     const id = idOf(url);
-    if (have[id] || cand.has(id)) continue;
+    if (have[id] || everSent[id] || cand.has(id)) continue;
     const d = dateFromUrl(url);
     if (d && Date.now() - Date.parse(d) > c.maxAgeDays * 864e5) continue; // exact age from the post ID
     cand.set(id, { ...r, url });
@@ -216,10 +200,14 @@ export async function runRadar(opts: { budgetMs?: number; maxQueries?: number } 
     const emails = Array.from(new Set((text.match(EMAIL_RX) || []).map((e) => e.toLowerCase().replace(/[.,;:]+$/, '')).filter((e) => !BAD_EMAIL.test(e)))).slice(0, 6);
     fresh.push({ id, platform: r.platform, url: r.url, author: author.slice(0, 100), text: text.slice(0, 3000), postedAt, foundAt: new Date().toISOString(), roles: j.roles.slice(0, 4), place: j.place, emails, links, sent: false, verified });
   });
+  // AI: is this REALLY a hiring post for one of your roles? + in-depth extraction (role, company, place, mode, experience, pay, how to apply)
+  const checked = await aiCheck(fresh, c);
+  if (checked.dropped) log.push(`AI rejected ${checked.dropped} (not a real hiring post for your roles)`);
+  fresh.splice(0, fresh.length, ...checked.keep);
   for (const p of fresh) await hset('pw:posts', p.id, p);
   // settings changed or rules got stricter → re-check what has not been emailed yet
   let rejudged = 0;
-  for (const p of Object.values(have)) if (!p.sent && !judge(`${p.text} ${p.author}`, c).ok) { await hdel('pw:posts', p.id); rejudged++; }
+  for (const p of Object.values(have)) if (!p.sent && (!judge(`${p.text} ${p.author}`, c).ok || (p.postedAt && Date.parse(p.foundAt) - Date.parse(p.postedAt) > c.maxAgeDays * 864e5 + 36e5))) { await hdel('pw:posts', p.id); rejudged++; }
   if (rejudged) log.push(`${rejudged} earlier posts removed by the current rules`);
   let contacts = 0;
   const known = await hgetall<PwContact>('pw:contacts');
@@ -243,20 +231,49 @@ export async function runRadar(opts: { budgetMs?: number; maxQueries?: number } 
   return { newPosts: fresh.length, pending: emailed && !emailed.startsWith('email failed') ? 0 : pending, contacts, log, emailed };
 }
 
+async function aiCheck(posts: PwPost[], c: PwConfig): Promise<{ keep: PwPost[]; dropped: number }> {
+  if (!posts.length || !(await aiConfigured())) return { keep: posts, dropped: 0 };
+  const keep: PwPost[] = [];
+  let dropped = 0;
+  for (let i = 0; i < posts.length; i += 8) {
+    const batch = posts.slice(i, i + 8);
+    const r = await chatJson<{ items: { i: number; hiring: boolean; matches_roles: boolean; role: string; company: string; location: string; work_mode: string; experience: string; salary: string; apply_how: string; summary: string }[] }>(
+      'You read social-media posts and decide, strictly and honestly, whether each one is a REAL job opening someone is hiring for right now. Never invent details — "" when not stated.',
+      `Target roles: ${[...c.roles, ...c.keywords].join(', ')}. Acceptable places: ${c.places.join(', ')} (remote that excludes India is NOT acceptable).
+For each post: hiring = true only if it advertises an open role (not news, opinion, a course, a job seeker, a "how to get hired" tip, a list of old jobs). matches_roles = the opening is one of the target roles or clearly the same kind of work.
+Extract: role (exact title), company, location, work_mode (remote/hybrid/onsite), experience asked, salary if stated, apply_how (every email / link / "DM" / form exactly as written), summary (one honest line: what the job is).
+Posts:
+${JSON.stringify(batch.map((p, k) => ({ i: k, author: p.author, text: p.text.slice(0, 1800) })))}
+JSON: {"items":[{"i":0,"hiring":true,"matches_roles":true,"role":"","company":"","location":"","work_mode":"","experience":"","salary":"","apply_how":"","summary":""}]}`,
+      { maxTokens: 3000, timeoutMs: 60000 },
+    ).catch(() => null);
+    if (!r?.data?.items) { keep.push(...batch); continue; } // AI down → keep what the strict rules passed
+    for (const it of r.data.items) {
+      const p = batch[it.i];
+      if (!p) continue;
+      if (!it.hiring || !it.matches_roles) { dropped++; continue; }
+      keep.push({ ...p, ai: { role: it.role || '', company: it.company || '', location: it.location || '', mode: it.work_mode || '', experience: it.experience || '', salary: it.salary || '', apply: it.apply_how || '', summary: it.summary || '', model: r.meta.model } });
+    }
+    for (const [k, p] of batch.entries()) if (!r.data.items.some((it) => it.i === k)) keep.push(p); // not answered → keep
+  }
+  return { keep, dropped };
+}
+
 /** Email every unsent post (newest first) + the contacts found in them, then mark them sent. */
 export async function emailBatch(): Promise<string> {
   const c = await getPwConfig();
   if (!c.email) throw new Error('Add the email to send to');
-  const posts = Object.values(await hgetall<PwPost>('pw:posts')).filter((p) => !p.sent).sort((a, b) => (b.postedAt || '').localeCompare(a.postedAt || ''));
+  const ledger = await hgetall<number>('pw:sent');
+  const posts = Object.values(await hgetall<PwPost>('pw:posts')).filter((p) => !p.sent && !ledger[p.id]).sort((a, b) => (b.postedAt || '').localeCompare(a.postedAt || ''));
   if (!posts.length) return 'nothing new to send';
   const batch = posts.slice(0, 300);
   const contacts = Object.values(await hgetall<PwContact>('pw:contacts')).filter((x) => batch.some((p) => p.url === x.sourceUrl));
-  const row = (p: PwPost) => `<tr><td style="padding:8px 6px;border-bottom:1px solid #eee;vertical-align:top;white-space:nowrap;font-size:12px;color:#666">${p.platform === 'x' ? '𝕏' : 'in'} · ${p.postedAt ? p.postedAt.slice(0, 10) : ''}</td><td style="padding:8px 6px;border-bottom:1px solid #eee;font-size:13px"><b>${esc(p.author || 'post')}</b> <span style="color:#0a7">${esc(p.roles.join(', '))}</span> · <span style="color:#555">${esc(p.place)}</span><div style="color:#333;margin:3px 0">${esc(p.text.slice(0, 280))}${p.text.length > 280 ? '…' : ''}</div>${p.emails.length ? `<div>📧 ${p.emails.map((e) => `<a href="mailto:${esc(e)}">${esc(e)}</a>`).join(' · ')}</div>` : ''}<a href="${esc(p.url)}">Open post →</a></td></tr>`;
+  const row = (p: PwPost) => `<tr><td style="padding:8px 6px;border-bottom:1px solid #eee;vertical-align:top;white-space:nowrap;font-size:12px;color:#666">${p.platform === 'x' ? '𝕏' : 'in'} · ${p.postedAt ? p.postedAt.slice(0, 10) : ''}</td><td style="padding:8px 6px;border-bottom:1px solid #eee;font-size:13px"><b>${esc(p.ai?.role || p.roles.join(', '))}</b>${p.ai?.company ? ` @ <b>${esc(p.ai.company)}</b>` : ''} · <span style="color:#555">${esc(p.ai?.location || p.place)}${p.ai?.mode ? ` · ${esc(p.ai.mode)}` : ''}${p.ai?.experience ? ` · ${esc(p.ai.experience)}` : ''}${p.ai?.salary ? ` · ${esc(p.ai.salary)}` : ''}</span><div style="color:#666;font-size:12px">by ${esc(p.author || 'poster')}</div><div style="color:#333;margin:3px 0">${esc(p.ai?.summary || p.text.slice(0, 280))}</div>${p.ai?.apply ? `<div><b>Apply:</b> ${esc(p.ai.apply)}</div>` : ''}${p.emails.length ? `<div>📧 ${p.emails.map((e) => `<a href="mailto:${esc(e)}">${esc(e)}</a>`).join(' · ')}</div>` : ''}<a href="${esc(p.url)}">Open post →</a></td></tr>`;
   const html = `<div style="font-family:system-ui,sans-serif;max-width:760px;margin:auto"><div style="background:#0d1424;color:#fff;padding:16px 18px;border-radius:12px"><div style="font-size:18px;font-weight:700">${batch.length} new hiring posts (X + LinkedIn)</div><div style="opacity:.8;font-size:13px">${esc(c.roles.slice(0, 5).join(' · '))} · ${esc(c.places.join(' / '))} · verified at the source, newest first</div></div>
 ${contacts.length ? `<h3>📧 ${contacts.length} hiring contact emails found in these posts</h3><table style="width:100%;border-collapse:collapse;font-size:13px">${contacts.map((x) => `<tr><td style="padding:4px 6px"><a href="mailto:${esc(x.email)}">${esc(x.email)}</a></td><td style="padding:4px 6px;color:#555">${esc(x.who)}</td><td style="padding:4px 6px"><a href="${esc(x.sourceUrl)}">source</a></td></tr>`).join('')}</table>` : ''}
 <h3>Posts</h3><table style="width:100%;border-collapse:collapse">${batch.map(row).join('')}</table><p style="color:#999;font-size:12px">From your Hiring post radar. Change roles, places, batch size or email in the app (Agent searches → Hiring post radar). Reply fast — the first 24–72 h get most interviews.</p></div>`;
   const via = await sendMail(c.email, `🎯 ${batch.length} new hiring posts${contacts.length ? ` + ${contacts.length} contact emails` : ''} — ${c.roles[0]}`, html);
-  for (const p of batch) await hset('pw:posts', p.id, { ...p, sent: true });
+  for (const p of batch) { await hset('pw:posts', p.id, { ...p, sent: true }); await hset('pw:sent', p.id, Date.now()); }
   const meta = await getJSON<PwMeta>('pw:meta', { cursor: 0, sentTotal: 0, scanned: 0 });
   await setJSON('pw:meta', { ...meta, lastEmail: new Date().toISOString(), sentTotal: meta.sentTotal + batch.length });
   return `emailed ${batch.length} posts to ${c.email} via ${via}`;

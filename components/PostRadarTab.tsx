@@ -5,7 +5,7 @@ import ExportButton from './ExportButton';
 import { ReachButton, SaveButton } from './ReachButton';
 
 type Config = { enabled: boolean; roles: string[]; places: string[]; keywords: string[]; exclude: string[]; platforms: ('x' | 'li')[]; maxAgeDays: number; batch: number; email: string; allowUnstated: boolean };
-type Post = { id: string; platform: 'x' | 'li'; url: string; author: string; text: string; postedAt: string | null; foundAt: string; roles: string[]; place: string; emails: string[]; links: string[]; sent: boolean };
+type Post = { id: string; platform: 'x' | 'li'; url: string; author: string; text: string; postedAt: string | null; foundAt: string; roles: string[]; place: string; emails: string[]; links: string[]; sent: boolean; ai?: { role: string; company: string; location: string; mode: string; experience: string; salary: string; apply: string; summary: string } };
 type Contact = { email: string; who: string; company: string; platform: 'x' | 'li'; sourceUrl: string; context: string; foundAt: string; postedAt: string | null };
 type State = { config: Config; meta: { lastRun?: string; lastLog?: string[]; lastEmail?: string; sentTotal: number; scanned: number }; pending: number; total: number; posts: Post[]; contacts: Contact[]; free: boolean };
 
@@ -39,7 +39,7 @@ export default function PostRadarTab({ toast }: { toast: (s: string) => void }) 
       <div className="hero">
         <div>
           <h2>🎯 Hiring post radar — X + LinkedIn</h2>
-          <p>Posts by <b>anyone</b> (founders, engineers, recruiters) hiring for <b>{c.roles.slice(0, 4).join(', ')}{c.roles.length > 4 ? '…' : ''}</b> in <b>{c.places.join(' / ')}</b>. Scanned every hour, each post opened at the source (exact text + time), strict filter, emailed to <b>{c.email || '— set your email'}</b> every <b>{c.batch}</b> new posts. {d.free ? 'Search: your SearXNG (free, unlimited).' : 'Search: free-tier engines (add SearXNG in Unlimited setup for unlimited).'}</p>
+          <p>Posts by <b>anyone</b> (founders, engineers, recruiters) hiring for <b>{c.roles.slice(0, 4).join(', ')}{c.roles.length > 4 ? '…' : ''}</b> in <b>{c.places.join(' / ')}</b>. Scanned every hour, only posts from the last {c.maxAgeDays * 24} h, each opened at the source (exact text + time), checked by AI (real opening for your roles?) with role / company / place / experience / how-to-apply extracted, emailed to <b>{c.email || '— set your email'}</b> every <b>{c.batch}</b> new posts — a post is never emailed twice. {d.free ? 'Search: your SearXNG (free, unlimited).' : 'Search: free-tier engines (add SearXNG in Unlimited setup for unlimited).'}</p>
           <div className="row" style={{ gap: 6, marginTop: 8 }}>
             <button className="primary" disabled={!!busy} onClick={() => post({ action: 'scan' }, 'scan')}>{busy === 'scan' ? 'Scanning X + LinkedIn… (1–3 min)' : '⚡ Scan now'}</button>
             <button disabled={!!busy || !d.pending} onClick={() => post({ action: 'email' }, 'email')}>{busy === 'email' ? 'Sending…' : `📧 Email me the ${d.pending} new now`}</button>
@@ -106,6 +106,7 @@ export default function PostRadarTab({ toast }: { toast: (s: string) => void }) 
                 <span><b>{p.platform === 'x' ? '𝕏' : 'in'} {p.author || 'post'}</b> <span className="small muted">· {p.postedAt ? `${ago(p.postedAt)} ago` : ''} · {p.roles.join(', ')} · 📍 {p.place}{p.sent ? ' · ✉ emailed' : ' · 🆕'}</span></span>
                 <button className="small-btn danger" onClick={() => post({ action: 'delete', id: p.id }, 'del')}>✕</button>
               </div>
+              {p.ai && <div className="notice small" style={{ margin: '6px 0' }}>🤖 <b>{p.ai.role}</b>{p.ai.company ? <> @ <b>{p.ai.company}</b></> : null}{[p.ai.location, p.ai.mode, p.ai.experience, p.ai.salary].filter(Boolean).map((x) => ` · ${x}`).join('')}<div>{p.ai.summary}</div>{p.ai.apply && <div><b>Apply:</b> {p.ai.apply}</div>}</div>}
               <div className="small" style={{ whiteSpace: 'pre-wrap', margin: '6px 0' }}>{p.text.slice(0, 900)}{p.text.length > 900 ? '…' : ''}</div>
               {p.emails.length > 0 && <div className="small">📧 {p.emails.map((e) => <a key={e} href={`mailto:${e}`} style={{ marginRight: 8 }}>{e}</a>)}</div>}
               <div className="row" style={{ gap: 6, marginTop: 6 }}>
