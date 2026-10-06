@@ -119,7 +119,11 @@ function plan(c: PwConfig, cursor: number, max: number): { q: string; platform: 
 
 async function search(q: string, rec: Recency): Promise<WebResult[]> {
   const live = (await liveEngines()).map((e) => e.id);
-  if (live.includes('searxng')) return runEngine('searxng', q, 30, rec); // free + unlimited
+  if (live.includes('searxng')) {
+    const r = await runEngine('searxng', q, 30, rec); // free + unlimited
+    if (r.length >= 3) return r;
+    // SearXNG's upstream engines throttle bursts → this query falls back to the free-tier engines (cached, rotated)
+  }
   return (await webSearch(q, 20, rec).catch(() => ({ results: [] as WebResult[] }))).results; // rotates paid-free engines (cached)
 }
 
