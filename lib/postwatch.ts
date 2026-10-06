@@ -240,28 +240,37 @@ export async function runRadar(opts: { budgetMs?: number; maxQueries?: number } 
 
 async function aiCheck(posts: PwPost[], c: PwConfig): Promise<{ keep: PwPost[]; dropped: number }> {
   if (!posts.length || !(await aiConfigured())) return { keep: posts, dropped: 0 };
+  type Item = { i: number; hiring: boolean; matches_roles: boolean; place_ok: boolean; role: string; company: string; location: string; work_mode: string; experience: string; salary: string; apply_how: string; summary: string };
+  const ask = (batch: PwPost[]) => chatJson<{ items: Item[] }>(
+    'You read social-media posts and decide, strictly and honestly, whether each one is a REAL job opening someone is hiring for right now. Never invent details — "" when not stated. Keep every string short.',
+    `Target roles: ${[...c.roles, ...c.keywords].join(', ')}.
+Acceptable places for this person: ${c.places.join(', ')}${c.allowUnstated ? ' (a post that states no place is OK)' : ''}. Remote that excludes India, or a role only in other cities/countries, is NOT acceptable.
+For each post: hiring = true only if it advertises an open role (not news, opinion, stats, a course, a job seeker, tips). matches_roles = the opening is one of the target roles or clearly the same work. place_ok = at least one acceptable place (or remote open to India${c.allowUnstated ? ', or no place stated' : ''}).
+Extract (max 15 words each): role, company, location, work_mode, experience, salary, apply_how (emails / links / DM exactly as written), summary (one line).
+Posts:\n${JSON.stringify(batch.map((p, k) => ({ i: k, author: p.author, text: p.text.slice(0, 1500) })))}
+JSON: {"items":[{"i":0,"hiring":true,"matches_roles":true,"place_ok":true,"role":"","company":"","location":"","work_mode":"","experience":"","salary":"","apply_how":"","summary":""}]}`,
+    { maxTokens: 4000, timeoutMs: 70000 },
+  ).catch(() => null);
   const keep: PwPost[] = [];
   let dropped = 0;
-  for (let i = 0; i < posts.length; i += 8) {
-    const batch = posts.slice(i, i + 8);
-    const r = await chatJson<{ items: { i: number; hiring: boolean; matches_roles: boolean; role: string; company: string; location: string; work_mode: string; experience: string; salary: string; apply_how: string; summary: string }[] }>(
-      'You read social-media posts and decide, strictly and honestly, whether each one is a REAL job opening someone is hiring for right now. Never invent details — "" when not stated.',
-      `Target roles: ${[...c.roles, ...c.keywords].join(', ')}. Acceptable places: ${c.places.join(', ')} (remote that excludes India is NOT acceptable).
-For each post: hiring = true only if it advertises an open role (not news, opinion, a course, a job seeker, a "how to get hired" tip, a list of old jobs). matches_roles = the opening is one of the target roles or clearly the same kind of work.
-Extract: role (exact title), company, location, work_mode (remote/hybrid/onsite), experience asked, salary if stated, apply_how (every email / link / "DM" / form exactly as written), summary (one honest line: what the job is).
-Posts:
-${JSON.stringify(batch.map((p, k) => ({ i: k, author: p.author, text: p.text.slice(0, 1800) })))}
-JSON: {"items":[{"i":0,"hiring":true,"matches_roles":true,"role":"","company":"","location":"","work_mode":"","experience":"","salary":"","apply_how":"","summary":""}]}`,
-      { maxTokens: 3000, timeoutMs: 60000 },
-    ).catch(() => null);
-    if (!r?.data?.items) { keep.push(...batch); continue; } // AI down → keep what the strict rules passed
-    for (const it of r.data.items) {
+  const apply = (batch: PwPost[], items: Item[], model: string) => {
+    for (const it of items) {
       const p = batch[it.i];
       if (!p) continue;
-      if (!it.hiring || !it.matches_roles) { dropped++; continue; }
-      keep.push({ ...p, ai: { role: it.role || '', company: it.company || '', location: it.location || '', mode: it.work_mode || '', experience: it.experience || '', salary: it.salary || '', apply: it.apply_how || '', summary: it.summary || '', model: r.meta.model } });
+      if (!it.hiring || !it.matches_roles || it.place_ok === false) { dropped++; continue; }
+      keep.push({ ...p, ai: { role: it.role || '', company: it.company || '', location: it.location || '', mode: it.work_mode || '', experience: it.experience || '', salary: it.salary || '', apply: it.apply_how || '', summary: it.summary || '', model } });
     }
-    for (const [k, p] of batch.entries()) if (!r.data.items.some((it) => it.i === k)) keep.push(p); // not answered → keep
+  };
+  for (let i = 0; i < posts.length; i += 4) {
+    const batch = posts.slice(i, i + 4);
+    const r = await ask(batch);
+    if (r?.data?.items?.length) { apply(batch, r.data.items, r.meta.model); for (const [k, p] of batch.entries()) if (!r.data.items.some((it) => it.i === k)) keep.push(p); continue; }
+    // unreadable answer → one post at a time
+    for (const p of batch) {
+      const one = await ask([p]);
+      if (one?.data?.items?.length) apply([p], one.data.items, one.meta.model);
+      else keep.push(p); // AI unavailable → the strict rules already passed it
+    }
   }
   return { keep, dropped };
 }
