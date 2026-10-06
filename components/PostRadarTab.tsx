@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ago, api } from './api';
 import ExportButton from './ExportButton';
 import { ReachButton, SaveButton } from './ReachButton';
+import CaptureButton from './CaptureButton';
 
 type Config = { enabled: boolean; roles: string[]; places: string[]; keywords: string[]; exclude: string[]; platforms: ('x' | 'li')[]; maxAgeDays: number; batch: number; email: string; allowUnstated: boolean };
 type Post = { id: string; platform: 'x' | 'li'; url: string; author: string; text: string; postedAt: string | null; foundAt: string; roles: string[]; place: string; emails: string[]; links: string[]; sent: boolean; ai?: { role: string; company: string; location: string; mode: string; experience: string; salary: string; apply: string; summary: string } };
@@ -51,6 +52,16 @@ export default function PostRadarTab({ toast }: { toast: (s: string) => void }) 
           <div><b>{d.contacts.length}</b><span>contact emails</span></div>
           <div><b>{d.meta.lastRun ? ago(d.meta.lastRun) : '—'}</b><span>last scan</span></div>
         </div>
+      </div>
+      <div className="panel" style={{ marginBottom: 10 }}>
+        <b>⚡ Truly live (last minutes), free, unlimited — from your own logged-in X / LinkedIn:</b>
+        <p className="small muted" style={{ margin: '4px 0 8px' }}>Search engines see X / LinkedIn posts hours to days late — no free server can read them live. Your browser can: open a live search below (already sorted newest + last 24 h), scroll, click <b>📥 Capture</b> in your bookmarks bar. Every post on the page is read exactly (link, time, author, text), AI-checked, extracted and added here (never twice; counts toward your {c.batch}-post email). It only reads what you are looking at — no bot, no auto-scrolling, so your account is safe.</p>
+        <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+          <a className="btn primary small-btn" target="_blank" rel="noreferrer" href={`https://x.com/search?q=${encodeURIComponent(`(${c.roles.slice(0, 6).map((r) => (/\s/.test(r) ? `"${r}"` : r)).join(' OR ')}) (hiring OR "we're hiring" OR "join us" OR "DM me") -is:retweet`)}&f=live`}>𝕏 Live: all my roles</a>
+          {c.roles.slice(0, 5).map((r) => <a key={r} className="small-btn" target="_blank" rel="noreferrer" href={`https://x.com/search?q=${encodeURIComponent(`"${r}" hiring ${c.places.some((p) => /bangalore|bengaluru/i.test(p)) ? '(bangalore OR bengaluru OR remote)' : ''} -is:retweet`)}&f=live`}>𝕏 {r}</a>)}
+          {c.roles.slice(0, 5).map((r) => <a key={`li-${r}`} className="small-btn" target="_blank" rel="noreferrer" href={`https://www.linkedin.com/search/results/content/?keywords=${encodeURIComponent(`hiring ${r}`)}&datePosted=%22past-24h%22&sortBy=%22date_posted%22`}>in {r} · 24 h</a>)}
+        </div>
+        <div style={{ marginTop: 8 }}><CaptureButton compact /></div>
       </div>
       {d.meta.lastLog?.length ? <div className="small muted" style={{ margin: '0 0 8px' }}>Last scan: {d.meta.lastLog.join(' · ')}{d.meta.lastEmail ? ` · last email ${ago(d.meta.lastEmail)} ago (${d.meta.sentTotal} posts sent in total)` : ''}</div> : null}
       <div className="row" style={{ gap: 6, marginBottom: 10 }}>

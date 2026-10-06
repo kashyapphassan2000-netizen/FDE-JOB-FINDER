@@ -259,6 +259,52 @@ JSON: {"items":[{"i":0,"hiring":true,"matches_roles":true,"role":"","company":""
   return { keep, dropped };
 }
 
+/** Posts read from YOUR logged-in X / LinkedIn page by the 📥 bookmarklet (exact link, time, author, text) → same strict
+ *  pipeline as the hourly scan: last-N-hours, strict filter, AI check + extraction, never-twice ledger, email at the batch size. */
+export interface CapturedPost { platform: 'x' | 'li'; url: string; author: string; text: string; postedAt: string | null }
+export async function ingestPosts(list: CapturedPost[]): Promise<{ got: number; added: number; dropped: Record<string, number>; pending: number; emailed?: string; items: PwPost[] }> {
+  await loadVault();
+  const c = await getPwConfig();
+  const have = await hgetall<PwPost>('pw:posts');
+  const everSent = await hgetall<number>('pw:sent');
+  const reasons: Record<string, number> = {};
+  const bump = (k: string) => { reasons[k] = (reasons[k] || 0) + 1; };
+  const fresh: PwPost[] = [];
+  for (const x of list.slice(0, 300)) {
+    let url = String(x.url || '').replace(/[?#].*$/, '');
+    const tid = tweetIdFromUrl(url);
+    if (x.platform === 'x') { if (!tid) { bump('no post link'); continue; } url = `https://x.com/${url.match(/x\.com\/([^/]+)\//i)?.[1] || 'i'}/status/${tid}`; }
+    else if (!/linkedin\.com\/(posts|feed\/update)\//i.test(url)) { bump('no post link'); continue; }
+    const id = idOf(url);
+    if (have[id] || everSent[id] || fresh.some((f) => f.id === id)) { bump('already have'); continue; }
+    const postedAt = (x.postedAt && !Number.isNaN(Date.parse(x.postedAt)) ? new Date(x.postedAt).toISOString() : null) || dateFromUrl(url);
+    if (!postedAt) { bump('no provable date'); continue; }
+    if (Date.now() - Date.parse(postedAt) > c.maxAgeDays * 864e5) { bump(`older than ${c.maxAgeDays * 24} h`); continue; }
+    const text = String(x.text || '').slice(0, 3000);
+    const author = String(x.author || '').replace(/\s+/g, ' ').slice(0, 100);
+    const j = judge(`${text} ${author}`, c);
+    if (!j.ok) { bump(j.why || 'filtered'); continue; }
+    const emails = Array.from(new Set((text.match(EMAIL_RX) || []).map((e) => e.toLowerCase().replace(/[.,;:]+$/, '')).filter((e) => !BAD_EMAIL.test(e)))).slice(0, 6);
+    const links = Array.from(new Set(text.match(/https?:\/\/[^\s)]+/g) || [])).slice(0, 8);
+    fresh.push({ id, platform: x.platform, url, author, text, postedAt, foundAt: new Date().toISOString(), roles: j.roles.slice(0, 4), place: j.place, emails, links, sent: false, verified: true });
+  }
+  const checked = await aiCheck(fresh, c);
+  if (checked.dropped) reasons['AI: not a real opening for your roles'] = checked.dropped;
+  const known = await hgetall<PwContact>('pw:contacts');
+  for (const p of checked.keep) {
+    await hset('pw:posts', p.id, p);
+    for (const e of p.emails) if (!known[e]) {
+      const i = p.text.toLowerCase().indexOf(e);
+      const company = e.split('@')[1].replace(/\.(com|ai|io|co|in|org|net|tech|dev)(\.[a-z]{2})?$/, '');
+      await hset('pw:contacts', e, { email: e, who: p.author, company: /gmail|yahoo|outlook|hotmail|proton|icloud/.test(company) ? '' : company, platform: p.platform, sourceUrl: p.url, context: p.text.slice(Math.max(0, i - 160), i + 80).replace(/\s+/g, ' '), foundAt: p.foundAt, postedAt: p.postedAt });
+    }
+  }
+  const pending = Object.values(await hgetall<PwPost>('pw:posts')).filter((p) => !p.sent).length;
+  const emailed = pending >= c.batch && c.email ? await emailBatch().catch((e) => `email failed: ${(e as Error).message.slice(0, 120)}`) : undefined;
+  await track('source', 'Hiring post radar (capture)', 'ok', `${list.length} read · ${checked.keep.length} added`);
+  return { got: list.length, added: checked.keep.length, dropped: reasons, pending, emailed, items: checked.keep };
+}
+
 /** Email every unsent post (newest first) + the contacts found in them, then mark them sent. */
 export async function emailBatch(): Promise<string> {
   const c = await getPwConfig();
