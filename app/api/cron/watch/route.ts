@@ -1,6 +1,6 @@
 import { track as cronTrackRaw } from '@/lib/obs';
 const cronTracked = (n: string, st: 'ok' | 'fail', d: string, ms: number) => cronTrackRaw('cron', n, st, d, ms);
-import { isCron, unauthorized } from '@/lib/auth';
+import { isCronAsync, unauthorized } from '@/lib/auth';
 import { runWatch } from '@/lib/watch';
 import { members, ownerEmails } from '@/lib/access';
 import { runAs, tenantFor } from '@/lib/tenant';
@@ -11,7 +11,7 @@ export const maxDuration = 300;
 
 // Vercel Cron (~every 2 h): check every watched company and email new AI / FDE roles.
 async function handle(req: Request): Promise<Response> {
-  if (!isCron(req)) return unauthorized();
+  if (!(await isCronAsync(req))) return unauthorized();
   if (!(await acquireLock('watch:run', 290))) return Response.json({ ok: true, skipped: 'already running' });
   try {
     const t0 = Date.now();

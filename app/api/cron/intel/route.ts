@@ -1,6 +1,6 @@
 import { track as cronTrackRaw } from '@/lib/obs';
 const cronTracked = (n: string, st: 'ok' | 'fail', d: string, ms: number) => cronTrackRaw('cron', n, st, d, ms);
-import { isCron, unauthorized } from '@/lib/auth';
+import { isCronAsync, unauthorized } from '@/lib/auth';
 import { scanIntel } from '@/lib/intel';
 import { buildMarketReport } from '@/lib/trends';
 
@@ -8,7 +8,7 @@ export const maxDuration = 300;
 
 // Vercel Cron (daily, one task per call so each fits the time limit): fresh Hiring radar, Layoffs and Trends market report.
 async function handle(req: Request): Promise<Response> {
-  if (!isCron(req)) return unauthorized();
+  if (!(await isCronAsync(req))) return unauthorized();
   const task = new URL(req.url).searchParams.get('task');
   try {
     if (task === 'hiring' || task === 'layoffs') return Response.json({ ok: true, task, result: await scanIntel(task) });

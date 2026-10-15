@@ -1,6 +1,6 @@
 import { track as cronTrackRaw } from '@/lib/obs';
 const cronTracked = (n: string, st: 'ok' | 'fail', d: string, ms: number) => cronTrackRaw('cron', n, st, d, ms);
-import { isCron, unauthorized } from '@/lib/auth';
+import { isCronAsync, unauthorized } from '@/lib/auth';
 import { activeSpaces, dailyBrief, getWorld } from '@/lib/mentor';
 import { loadVault, secret } from '@/lib/secrets';
 import { sendMail, esc } from '@/lib/mailer';
@@ -11,7 +11,7 @@ export const maxDuration = 300;
 
 // Vercel Cron (daily, early morning IST): refresh the world picture, write everyone's brief, email the owner's.
 async function handle(req: Request): Promise<Response> {
-  if (!isCron(req)) return unauthorized();
+  if (!(await isCronAsync(req))) return unauthorized();
   await loadVault();
   const t0 = Date.now();
   await getWorld(true).catch(() => null);

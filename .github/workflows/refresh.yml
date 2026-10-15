@@ -4,10 +4,8 @@
 #   daily 01:15   → hidden companies + newly funded startups scan
 #   daily 02:45 UTC (08:15 IST) → email digest (skips if Vercel cron already sent it)
 #   every 6 h     → self-heal (un-park engines that work again, clear stale AI cooldowns, refresh if stale)
-# Needs ONE repo secret: Settings → Secrets and variables → Actions → New repository secret
-#   CRON_SECRET  = same value as CRON_SECRET in Vercel → Settings → Environment Variables
-#   APP_URL      = optional (defaults to https://fde-job-finder.vercel.app)
-# Without CRON_SECRET the run is skipped with a warning instead of failing (no failure emails).
+# No secret to copy: each run gets a short-lived token signed by GitHub (OIDC) and the app checks it came from
+# THIS repo's refresh.yml. Optional overrides (repo secrets): CRON_SECRET (used instead of OIDC), APP_URL.
 name: refresh-jobs
 on:
   schedule:
@@ -24,6 +22,9 @@ on:
 concurrency:
   group: refresh-jobs-${{ github.event.schedule || github.event.inputs.task || 'refresh' }}
   cancel-in-progress: false
+permissions:
+  id-token: write   # lets the run ask GitHub for its signed identity token
+  contents: read
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -38,10 +39,6 @@ jobs:
         run: |
           APP_URL="${APP_URL:-https://fde-job-finder.vercel.app}"
           APP_URL="${APP_URL%/}"
-          if [ -z "$CRON_SECRET" ]; then
-            echo "::warning title=CRON_SECRET missing::Skipped. Add repo secret CRON_SECRET (same value as on Vercel) to turn on the 30-min refresh. The app still refreshes via Vercel crons."
-            exit 0
-          fi
           TASK="${INPUT_TASK:-refresh}"
           if [ "$SCHEDULE" = "10 */3 * * *" ]; then TASK=agent; fi
           if [ "$SCHEDULE" = "15 1 * * *" ]; then TASK=discover; fi
@@ -50,12 +47,18 @@ jobs:
           echo "task=$TASK"
           # self-healing: retry cold starts / 5xx / timeouts with backoff
           for attempt in 1 2 3; do
-            code=$(curl -s -o out.json -w "%{http_code}" --max-time 300 -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron?task=$TASK" || echo 000)
+            if [ -n "$CRON_SECRET" ]; then AUTH="Authorization: Bearer $CRON_SECRET"
+            else
+              TOKEN=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=fde-job-finder-cron" | jq -r .value)
+              echo "::add-mask::$TOKEN"
+              AUTH="X-GitHub-OIDC: $TOKEN"
+            fi
+            code=$(curl -s -o out.json -w "%{http_code}" --max-time 300 -H "$AUTH" "$APP_URL/api/cron?task=$TASK" || echo 000)
             head -c 2000 out.json 2>/dev/null; echo
             echo "attempt $attempt → HTTP $code"
             # 409 = a run was already in progress; not a failure
             if [ "$code" = "200" ] || [ "$code" = "409" ]; then exit 0; fi
-            if [ "$code" = "401" ]; then echo "::error title=Wrong CRON_SECRET::The repo secret CRON_SECRET does not match CRON_SECRET on Vercel. Copy it again from Vercel → Settings → Environment Variables."; exit 1; fi
+            if [ "$code" = "401" ]; then echo "::error title=Not authorized::The app refused this run (CRON_SECRET repo secret wrong, or the app's GitHub check failed)."; exit 1; fi
             sleep $((attempt * 20))
           done
           echo "::error::App did not answer after 3 tries (last HTTP $code)"

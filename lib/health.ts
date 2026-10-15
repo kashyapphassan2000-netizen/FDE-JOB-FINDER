@@ -63,7 +63,7 @@ export async function runHealthCheck(): Promise<{ at: string; checks: Check[] }>
   const ev = await events({ limit: 1500 });
   const lastOf = (rx: RegExp) => ev.find((e) => e.area === 'cron' && rx.test(e.name));
   const meta = await getMeta();
-  C.push({ group: 'Pipelines', name: 'Job refresh', status: meta && Date.now() - Date.parse(meta.lastRefresh || "") < 6 * 36e5 ? 'ok' : 'warn', detail: `last ${ago(meta?.lastRefresh)} · ${meta?.total ?? 0} jobs · failed: ${meta?.failed.join(', ') || 'none'}`, fix: meta && Date.now() - Date.parse(meta.lastRefresh || "") < 6 * 36e5 ? undefined : 'For every-30-min refresh: GitHub repo → Settings → Secrets → Actions → CRON_SECRET (same value as on Vercel). Self-heal also refreshes a list older than 3 h.' });
+  C.push({ group: 'Pipelines', name: 'Job refresh', status: meta && Date.now() - Date.parse(meta.lastRefresh || "") < 6 * 36e5 ? 'ok' : 'warn', detail: `last ${ago(meta?.lastRefresh)} · ${meta?.total ?? 0} jobs · failed: ${meta?.failed.join(', ') || 'none'}`, fix: meta && Date.now() - Date.parse(meta.lastRefresh || "") < 6 * 36e5 ? undefined : 'Check GitHub → Actions → refresh-jobs (runs every 30 min, signs in automatically). Self-heal also refreshes a list older than 3 h.' });
   const h = await getHealth();
   const broken = SOURCES.filter((s) => !s.retired && h[s.id] && !h[s.id].ok && !h[s.id].skipped?.startsWith('Add env'));
   C.push({ group: 'Pipelines', name: 'Job sources', status: broken.length ? 'warn' : 'ok', detail: broken.length ? `failing: ${broken.map((s) => `${s.id} (${(h[s.id].error || '').slice(0, 50)})`).join(', ')}` : `${Object.values(h).filter((x) => x.ok).length} healthy`, fix: broken.length ? 'See Sources & APIs for each error' : undefined });

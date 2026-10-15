@@ -93,6 +93,52 @@ export function isCron(req: Request): boolean {
   return ok;
 }
 
+/**
+ * GitHub Actions without a stored secret: each run asks GitHub for a short-lived signed token (OIDC, ~5 min).
+ * Accepted only if GitHub signed it (RS256, GitHub's public keys), it is for this app (audience), not expired,
+ * and it comes from THIS repo's refresh workflow file. Nothing to copy, nothing to leak.
+ */
+const GH_ISS = 'https://token.actions.githubusercontent.com';
+export const GH_OIDC_AUD = 'fde-job-finder-cron';
+const GH_REPO = (process.env.GH_ACTIONS_REPO || 'kashyapphassan2000-netizen/FDE-JOB-FINDER').toLowerCase();
+let ghKeys: { at: number; keys: (JsonWebKey & { kid?: string })[] } | null = null;
+const b64urlBytes = (s: string) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4)), (c) => c.charCodeAt(0));
+const b64urlJson = (s: string) => JSON.parse(new TextDecoder().decode(b64urlBytes(s)));
+async function githubKey(kid: string, fresh = false) {
+  if (fresh || !ghKeys || Date.now() - ghKeys.at > 36e5) {
+    const r = await fetch(`${GH_ISS}/.well-known/jwks`, { signal: AbortSignal.timeout(8000) });
+    if (!r.ok) throw new Error(`jwks ${r.status}`);
+    ghKeys = { at: Date.now(), keys: ((await r.json()) as { keys: (JsonWebKey & { kid?: string })[] }).keys || [] };
+  }
+  return ghKeys.keys.find((k) => k.kid === kid);
+}
+export async function isGithubActions(req: Request): Promise<boolean> {
+  const tok = req.headers.get('x-github-oidc') || '';
+  const [h, p, sig] = tok.split('.');
+  if (!h || !p || !sig) return false;
+  try {
+    const head = b64urlJson(h) as { alg?: string; kid?: string };
+    const c = b64urlJson(p) as { iss?: string; aud?: string | string[]; exp?: number; nbf?: number; repository?: string; workflow_ref?: string };
+    const now = Date.now() / 1000;
+    const aud = Array.isArray(c.aud) ? c.aud : [c.aud];
+    if (head.alg !== 'RS256' || !head.kid || c.iss !== GH_ISS || !aud.includes(GH_OIDC_AUD)) return false;
+    if (!c.exp || c.exp < now || (c.nbf && c.nbf > now + 60)) return false;
+    if ((c.repository || '').toLowerCase() !== GH_REPO || !(c.workflow_ref || '').toLowerCase().startsWith(`${GH_REPO}/.github/workflows/refresh.yml@`)) return false;
+    const jwk = (await githubKey(head.kid)) || (await githubKey(head.kid, true)); // GitHub rotates keys
+    if (!jwk) return false;
+    const key = await crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
+    const ok = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, b64urlBytes(sig), new TextEncoder().encode(`${h}.${p}`));
+    if (ok) enterTenant(OWNER);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+/** Scheduled callers: Vercel cron / anything with CRON_SECRET, or this repo's GitHub workflow via OIDC. */
+export async function isCronAsync(req: Request): Promise<boolean> {
+  return isCron(req) || (await isGithubActions(req));
+}
+
 export function unauthorized() {
   return Response.json({ error: 'Unauthorized' }, { status: 401 });
 }

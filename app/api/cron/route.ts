@@ -1,7 +1,7 @@
 import { track as cronTrackRaw } from '@/lib/obs';
 const cronTracked = (n: string, st: 'ok' | 'fail', d: string, ms: number) => cronTrackRaw('cron', n, st, d, ms);
 import { after } from 'next/server';
-import { isCron, unauthorized } from '@/lib/auth';
+import { isCronAsync, unauthorized } from '@/lib/auth';
 import { getJobs, refresh } from '@/lib/refresh';
 import { runAs, OWNER } from '@/lib/tenant';
 import { semanticPass } from '@/lib/semantic';
@@ -21,7 +21,7 @@ export const maxDuration = 300;
 //   /api/cron?task=digest    → refresh, then email the top fresh jobs (daily, skips if sent < 20 h ago)
 //   /api/cron?task=heal      → self-healing pass (lib/heal.ts)
 async function handle(req: Request): Promise<Response> {
-  if (!isCron(req)) return unauthorized();
+  if (!(await isCronAsync(req))) return unauthorized();
   await loadVault();
   const task = new URL(req.url).searchParams.get('task') || 'refresh';
   try {

@@ -56,7 +56,7 @@ export default function SourcesTab({ toast, reload }: { toast: (s: string) => vo
         <h3 style={{ marginTop: 0 }}>Platform checklist</h3>
         <Item ok={i.auth} label="APP_PASSWORD" fix="set in Vercel → Settings → Environment Variables" />
         <Item ok={i.authSecret} label="AUTH_SECRET" fix="random 64-char string (falls back to APP_PASSWORD if missing)" />
-        <Item ok={i.cronSecret} label="CRON_SECRET" fix="needed for the daily Vercel cron + 30-min GitHub Action" />
+        <Item ok={i.cronSecret} label="CRON_SECRET" fix="needed for the Vercel crons (GitHub runs sign in without it)" />
         <Item ok={i.store.ok} label={`Redis storage (${i.store.mode})`} fix={i.store.error || 'connect Upstash for Redis in Vercel → Storage'} />
         <Item ok={i.blob} label="Vercel Blob (private) for CV" fix="Vercel → Storage → Create → Blob → Private → connect" />
         <Item ok={i.notify.telegram || i.notify.webhook} label="Alerts (Telegram / webhook)" fix="optional: TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID" />
