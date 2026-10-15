@@ -72,7 +72,7 @@ export const CATALOG: Capability[] = [
     options: [
       { id: 'github_token', name: 'GitHub token (radar)', tier: 'unlimited', free: '5,000 calls / hour (vs 60)', keys: ['GITHUB_TOKEN'], url: 'https://github.com/settings/personal-access-tokens', steps: ['GitHub → Settings → Developer settings → Fine-grained tokens → Generate (no permissions needed) → paste below'] },
       { id: 'cohere', name: 'Cohere Rerank', tier: 'monthly', free: 'Free trial key (~1,000 rerank calls / month)', keys: ['COHERE_API_KEY'], url: 'https://dashboard.cohere.com/api-keys', steps: ['dashboard.cohere.com → Sign up → API keys → copy trial key → paste below'] },
-      { id: 'gha', name: 'Refresh every 30 min (GitHub Actions)', tier: 'unlimited', free: 'Free', keys: [], url: 'https://github.com/kashyapphassan2000-netizen/FDE-JOB-FINDER/settings/secrets/actions', steps: ['Open the link → New repository secret APP_URL = https://fde-job-finder.vercel.app', 'New repository secret CRON_SECRET = the same value as CRON_SECRET in Vercel → Settings → Environment Variables'] },
+      { id: 'gha', name: 'Refresh every 30 min (GitHub Actions)', tier: 'unlimited', free: 'Free', keys: [], url: 'https://github.com/kashyapphassan2000-netizen/FDE-JOB-FINDER/settings/secrets/actions', steps: ['Vercel → your project → Settings → Environment Variables → CRON_SECRET → reveal → copy', 'Open the link → New repository secret → Name: CRON_SECRET → paste → Add secret (APP_URL is optional now)', 'GitHub → Actions → refresh-jobs → Run workflow to check it turns green'] },
     ],
   },
 ];

@@ -31,6 +31,7 @@ import PlatformsTab from '@/components/PlatformsTab';
 import SourcesTab from '@/components/SourcesTab';
 import CvTab from '@/components/CvTab';
 import SettingsTab from '@/components/SettingsTab';
+import TabBoundary, { reportCrash } from '@/components/TabBoundary';
 import { ago, api, type JobsPayload } from '@/components/api';
 
 const NAV = [
@@ -89,6 +90,16 @@ export default function Home() {
     const iv = setInterval(() => { load(); api<NonNullable<typeof me>>('/api/auth/me').then(setMe).catch(() => null); }, 5 * 60 * 1000);
     return () => clearInterval(iv);
   }, [load]);
+
+  // anything that slips past a page guard (async errors) is still logged in Observability
+  useEffect(() => {
+    const onErr = (e: ErrorEvent) => { if (e.error) reportCrash(`${localStorage.getItem('fj_tab') || 'app'} (async)`, e.error); };
+    const onRej = (e: PromiseRejectionEvent) => { const m = String((e.reason as Error)?.message || e.reason); if (!/Session expired|AbortError|Failed to fetch|NetworkError|Load failed/i.test(m)) reportCrash(`${localStorage.getItem('fj_tab') || 'app'} (promise)`, e.reason); };
+    window.addEventListener('error', onErr);
+    window.addEventListener('unhandledrejection', onRej);
+    try { setTimeout(() => sessionStorage.removeItem('fj_reloaded'), 30000); } catch {}
+    return () => { window.removeEventListener('error', onErr); window.removeEventListener('unhandledrejection', onRej); };
+  }, []);
 
   useEffect(() => {
     if (!toast) return;
@@ -174,6 +185,7 @@ export default function Home() {
         {data?.storeMode === 'memory' && (
           <div className="notice warn">Storage is in <b>memory mode</b> – data is lost on redeploy. Connect Upstash Redis (PDF step 4).</div>
         )}
+        <TabBoundary name={tab}>
         {tab === 'Jobs' && <JobsTab onApply={(url, title, company) => { setApplySeed({ url, title, company, n: Date.now() }); go('Auto-apply'); }} data={data} reload={load} toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}
         {tab === 'AI Agent' && <AgentTab toast={setToast} onOutreach={(company, role) => { setSeed({ company, role, n: Date.now() }); go('Outreach'); }} />}
         {tab === 'Hidden jobs & startups' && <DiscoverTab toast={setToast} />}
@@ -204,6 +216,7 @@ export default function Home() {
         {isOwner && tab === 'Sources & APIs' && <SourcesTab toast={setToast} reload={load} />}
         {tab === 'CV' && <><CvTab toast={setToast} /><AutopilotPanel toast={setToast} /></>}
         {isOwner && tab === 'Settings' && <SettingsTab toast={setToast} />}
+        </TabBoundary>
       </main>
       {toast && <div className="toast" onClick={() => setToast('')}>{toast}</div>}
     </div>

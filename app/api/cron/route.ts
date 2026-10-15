@@ -5,7 +5,6 @@ import { isCron, unauthorized } from '@/lib/auth';
 import { getJobs, refresh } from '@/lib/refresh';
 import { runAs, OWNER } from '@/lib/tenant';
 import { semanticPass } from '@/lib/semantic';
-import { runFormD, runGithubRadar } from '@/lib/radar';
 import { draftOutreach, emailGap, weeklyGap } from '@/lib/autopilot';
 import { loadVault, secret } from '@/lib/secrets';
 import { runDueMission } from '@/lib/agent';
@@ -20,6 +19,7 @@ export const maxDuration = 300;
 //   /api/cron?task=agent     → run the next due AI-agent mission (every 3 h by default)
 //   /api/cron?task=discover  → hidden companies / new startups scan (daily)
 //   /api/cron?task=digest    → refresh, then email the top fresh jobs (daily, skips if sent < 20 h ago)
+//   /api/cron?task=heal      → self-healing pass (lib/heal.ts)
 async function handle(req: Request): Promise<Response> {
   if (!isCron(req)) return unauthorized();
   await loadVault();
@@ -40,10 +40,6 @@ async function handle(req: Request): Promise<Response> {
       await refresh({ trigger: 'digest' }).catch((e) => console.error('digest refresh', e));
       return Response.json({ ok: true, task, ...(await runDigest()) });
     }
-    if (task === 'radar') {
-      after(() => runAs(OWNER, async () => { await Promise.allSettled([runGithubRadar(200000), runFormD(150000)]); }));
-      return Response.json({ ok: true, task, started: true });
-    }
     if (task === 'gap') {
       after(() => runAs(OWNER, async () => { const r = await weeklyGap(await getJobs()); if (secret('DIGEST_TO')) await emailGap(r, secret('DIGEST_TO')); }));
       return Response.json({ ok: true, task, started: true });
@@ -51,6 +47,7 @@ async function handle(req: Request): Promise<Response> {
     if (task === 'health') {
       // daily: if anything critical is down, the important inbox hears about it (once per day per failure set)
       after(() => runAs(OWNER, async () => {
+        await (await import('@/lib/heal')).selfHeal(120000).catch((e) => console.error('heal', e)); // repair first, then report what is still broken
         const { runHealthCheck } = await import('@/lib/health');
         const { sendImportant, esc } = await import('@/lib/mailer');
         const r = await runHealthCheck();
@@ -60,6 +57,11 @@ async function handle(req: Request): Promise<Response> {
         await sendImportant(`${bad.length} service${bad.length > 1 ? 's' : ''} failing in FDE Job Finder`, `<div style="font-family:system-ui"><ul>${bad.map((c) => `<li><b>${esc(c.name)}</b> — ${esc(c.detail || '')}${c.fix ? `<br><span style="color:#555">Fix: ${esc(c.fix)}</span>` : ''}</li>`).join('')}</ul><p style="color:#888;font-size:12px">Full report: Setup → Observability → Run health check.</p></div>`);
         await setJSON('health:alerted', `${new Date().toISOString().slice(0, 10)}:${sig}`);
       }));
+      return Response.json({ ok: true, task, started: true });
+    }
+    if (task === 'heal') {
+      // self-healing pass: un-park engines that work again, clear stale AI cooldowns, retry stuck sources, refresh a stale list
+      after(() => runAs(OWNER, async () => { const { selfHeal } = await import('@/lib/heal'); await selfHeal(270000).catch((e) => console.error('heal', e)); }));
       return Response.json({ ok: true, task, started: true });
     }
     if (task === 'semantic') return Response.json({ ok: true, task, ...(await semanticPass(await getJobs(), { budgetMs: 240000 })) });

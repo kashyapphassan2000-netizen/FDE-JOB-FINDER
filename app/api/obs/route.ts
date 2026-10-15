@@ -18,12 +18,13 @@ export async function GET(req: Request) {
   const t = tenant();
   const u = new URL(req.url);
   const owner = t.role === 'owner';
-  const [ev, ai, health] = await Promise.all([
+  const [ev, ai, health, heal] = await Promise.all([
     events({ ns: owner ? u.searchParams.get('ns') || undefined : t.ns, area: u.searchParams.get('area') || undefined, status: u.searchParams.get('status') || undefined, limit: 500 }),
     owner ? aiUsage(7) : Promise.resolve([]),
     owner ? getJSON('obs:health', null) : Promise.resolve(null),
+    owner ? getJSON('heal:last', null) : Promise.resolve(null),
   ]);
-  return Response.json({ owner, events: ev, ai, health });
+  return Response.json({ owner, events: ev, ai, health, heal });
 }
 
 // POST {action:'check'} full service check · {action:'test-email'} · {action:'test-whatsapp'} (owner only — proxy enforces)
@@ -35,6 +36,7 @@ export async function POST(req: Request) {
   const b = (await req.json().catch(() => ({}))) as { action?: string; to?: string };
   try {
     if (b.action === 'check') return Response.json(await runHealthCheck());
+    if (b.action === 'heal') { const { selfHeal } = await import('@/lib/heal'); const r = await selfHeal(240000); return Response.json({ ok: true, heal: r, note: `Self-heal: ${r.fixed.length} fixed, ${r.still.length} still need you${r.fixed.length ? ` — ${r.fixed.join(' · ')}` : ''}` }); }
     if (b.action === 'test-email') { const to = b.to || secret('DIGEST_TO'); const via = await sendMail(to, 'FDE Job Finder — test email', '<p style="font-family:system-ui">✅ Email works. Sent from the Observability page.</p>'); return Response.json({ ok: true, note: `sent to ${to} via ${via}` }); }
     if (b.action === 'test-whatsapp') { await sendWhatsApp('✅ FDE Job Finder — WhatsApp works (test from Observability).'); return Response.json({ ok: true, note: 'WhatsApp sent' }); }
     return bad('unknown action');

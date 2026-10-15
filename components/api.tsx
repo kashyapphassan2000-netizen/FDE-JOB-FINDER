@@ -14,10 +14,16 @@ export type JobsPayload = {
 };
 
 export async function api<T = any>(url: string, init: RequestInit = {}): Promise<T> {
-  const r = await fetch(url, {
+  const go = () => fetch(url, {
     ...init,
     headers: init.body && !(init.body instanceof FormData) ? { 'Content-Type': 'application/json', ...(init.headers || {}) } : init.headers,
   });
+  // self-healing reads: a dropped connection or a cold-start 502/503 is retried once (writes are never repeated)
+  const read = !init.method || init.method === 'GET';
+  let r: Response;
+  try { r = await go(); }
+  catch (e) { if (!read) throw e; await new Promise((ok) => setTimeout(ok, 1200)); r = await go(); }
+  if (read && (r.status === 502 || r.status === 503)) { await new Promise((ok) => setTimeout(ok, 1500)); r = await go(); }
   if (r.status === 401) {
     window.location.href = '/login';
     throw new Error('Session expired');

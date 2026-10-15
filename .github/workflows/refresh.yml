@@ -1,11 +1,13 @@
-# Near-real-time automation (Vercel Hobby cron only allows 1 run/day, GitHub Actions is free):
+# Near-real-time booster on top of the Vercel daily crons (GitHub Actions is free):
 #   every 30 min  → refresh all job sources
-#   every 3 h     → AI agent mission (Google / LinkedIn posts / X posts / career pages)
+#   every 3 h     → next AI agent mission
 #   daily 01:15   → hidden companies + newly funded startups scan
-#   daily 02:45 UTC (08:15 IST) → email digest: top fresh jobs (skips if Vercel cron already sent it)
-# Repo → Settings → Secrets and variables → Actions → add:
-#   APP_URL      = https://your-app.vercel.app   (no trailing slash)
-#   CRON_SECRET  = same value as the CRON_SECRET env var on Vercel
+#   daily 02:45 UTC (08:15 IST) → email digest (skips if Vercel cron already sent it)
+#   every 6 h     → self-heal (un-park engines that work again, clear stale AI cooldowns, refresh if stale)
+# Needs ONE repo secret: Settings → Secrets and variables → Actions → New repository secret
+#   CRON_SECRET  = same value as CRON_SECRET in Vercel → Settings → Environment Variables
+#   APP_URL      = optional (defaults to https://fde-job-finder.vercel.app)
+# Without CRON_SECRET the run is skipped with a warning instead of failing (no failure emails).
 name: refresh-jobs
 on:
   schedule:
@@ -17,12 +19,15 @@ on:
   workflow_dispatch:
     inputs:
       task:
-        description: 'refresh | agent | discover | digest | radar | semantic'
+        description: 'refresh | agent | discover | digest | heal | health | semantic'
         default: 'refresh'
+concurrency:
+  group: refresh-jobs-${{ github.event.schedule || github.event.inputs.task || 'refresh' }}
+  cancel-in-progress: false
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 6
+    timeout-minutes: 8
     steps:
       - name: Call app
         env:
@@ -31,14 +36,27 @@ jobs:
           SCHEDULE: ${{ github.event.schedule }}
           INPUT_TASK: ${{ github.event.inputs.task }}
         run: |
-          if [ -z "$APP_URL" ] || [ -z "$CRON_SECRET" ]; then echo "Set APP_URL and CRON_SECRET repo secrets"; exit 1; fi
+          APP_URL="${APP_URL:-https://fde-job-finder.vercel.app}"
+          APP_URL="${APP_URL%/}"
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::warning title=CRON_SECRET missing::Skipped. Add repo secret CRON_SECRET (same value as on Vercel) to turn on the 30-min refresh. The app still refreshes via Vercel crons."
+            exit 0
+          fi
           TASK="${INPUT_TASK:-refresh}"
           if [ "$SCHEDULE" = "10 */3 * * *" ]; then TASK=agent; fi
           if [ "$SCHEDULE" = "15 1 * * *" ]; then TASK=discover; fi
           if [ "$SCHEDULE" = "45 2 * * *" ]; then TASK=digest; fi
-          if [ "$SCHEDULE" = "50 */6 * * *" ]; then TASK=radar; fi
+          if [ "$SCHEDULE" = "50 */6 * * *" ]; then TASK=heal; fi
           echo "task=$TASK"
-          code=$(curl -s -o out.json -w "%{http_code}" --max-time 300 -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron?task=$TASK")
-          cat out.json; echo
-          # 409 = a run was already in progress; not a failure
-          if [ "$code" != "200" ] && [ "$code" != "409" ]; then echo "HTTP $code"; exit 1; fi
+          # self-healing: retry cold starts / 5xx / timeouts with backoff
+          for attempt in 1 2 3; do
+            code=$(curl -s -o out.json -w "%{http_code}" --max-time 300 -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron?task=$TASK" || echo 000)
+            head -c 2000 out.json 2>/dev/null; echo
+            echo "attempt $attempt → HTTP $code"
+            # 409 = a run was already in progress; not a failure
+            if [ "$code" = "200" ] || [ "$code" = "409" ]; then exit 0; fi
+            if [ "$code" = "401" ]; then echo "::error title=Wrong CRON_SECRET::The repo secret CRON_SECRET does not match CRON_SECRET on Vercel. Copy it again from Vercel → Settings → Environment Variables."; exit 1; fi
+            sleep $((attempt * 20))
+          done
+          echo "::error::App did not answer after 3 tries (last HTTP $code)"
+          exit 1

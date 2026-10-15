@@ -62,18 +62,34 @@ const P = 'fj:';
 /** full Redis key; personal keys resolve to the current user's own copy (lib/tenant.ts) */
 const K = (key: string) => P + scopedKey(key);
 
+async function readJSON<T>(key: string, fallback: T): Promise<T> {
+  const raw = redis ? await redis.get<string>(K(key)) : mem.get(K(key));
+  if (raw === null || raw === undefined) return fallback;
+  const str = typeof raw === 'string' ? raw : JSON.stringify(raw);
+  // large values are gzip-compressed to stay well inside Upstash free bandwidth (10 GB/mo)
+  if (str.startsWith('gz:')) return JSON.parse(gunzipSync(Buffer.from(str.slice(3), 'base64')).toString('utf8')) as T;
+  return JSON.parse(str) as T;
+}
+
+/** Read with one automatic retry (a network blip to Redis must not look like "no data"). Falls back only if both tries fail. */
 export async function getJSON<T>(key: string, fallback: T): Promise<T> {
   try {
-    const raw = redis ? await redis.get<string>(K(key)) : mem.get(K(key));
-    if (raw === null || raw === undefined) return fallback;
-    const str = typeof raw === 'string' ? raw : JSON.stringify(raw);
-    // large values are gzip-compressed to stay well inside Upstash free bandwidth (10 GB/mo)
-    if (str.startsWith('gz:')) return JSON.parse(gunzipSync(Buffer.from(str.slice(3), 'base64')).toString('utf8')) as T;
-    return JSON.parse(str) as T;
-  } catch (e) {
-    console.error('store get failed', key, e);
-    return fallback;
+    return await readJSON(key, fallback);
+  } catch {
+    try {
+      await new Promise((r) => setTimeout(r, 400));
+      return await readJSON(key, fallback);
+    } catch (e) {
+      console.error('store get failed', key, e);
+      return fallback;
+    }
   }
+}
+
+/** Same, but throws instead of returning the fallback — for read-modify-write (never overwrite data we failed to read). */
+export async function getJSONStrict<T>(key: string, fallback: T): Promise<T> {
+  try { return await readJSON(key, fallback); }
+  catch { await new Promise((r) => setTimeout(r, 600)); return readJSON(key, fallback); }
 }
 
 export async function setJSON(key: string, value: unknown): Promise<void> {

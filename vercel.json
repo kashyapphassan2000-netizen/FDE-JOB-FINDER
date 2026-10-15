@@ -130,6 +130,10 @@
       "schedule": "40 1 * * *"
     },
     {
+      "path": "/api/cron?task=heal",
+      "schedule": "40 15 * * *"
+    },
+    {
       "path": "/api/cron?task=health",
       "schedule": "40 3 * * *"
     },

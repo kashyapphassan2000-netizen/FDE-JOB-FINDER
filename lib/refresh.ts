@@ -4,7 +4,7 @@ import { GHOST_DAYS, hardNoise, trackGhosts } from './semantic';
 import type { Job, RawJob, SourceHealth } from './types';
 import { SOURCES, intervalFor, sourceConfigured } from './sources';
 import { getSettings } from './settings';
-import { acquireLock, getJSON, hgetall, releaseLock, setJSON } from './store';
+import { acquireLock, getJSON, getJSONStrict, hgetall, releaseLock, setJSON } from './store';
 import { baseScore, classify, experienceOf, jobFlags, locationAllowed, payBand, cvMatchScore, dedupeKey, domainOf, freshnessHours, hashId, isExcluded, isHiddenGem, locationTags, seniorityOf } from './classify';
 import { getCv } from './cv';
 import { sendAlert } from './notify';
@@ -30,8 +30,8 @@ export interface RefreshMeta {
   failed: string[];
 }
 
-export async function getJobs(): Promise<Job[]> {
-  const jobs = (await getJSON<Job[]>('jobs', [])).filter((j) => !isLinkedInJob(j.url) && !isSocialPost(j.url)); // no LinkedIn jobs, no X / LinkedIn posts
+export async function getJobs(strict = false): Promise<Job[]> {
+  const jobs = (await (strict ? getJSONStrict<Job[]>('jobs', []) : getJSON<Job[]>('jobs', []))).filter((j) => !isLinkedInJob(j.url) && !isSocialPost(j.url)); // no LinkedIn jobs, no X / LinkedIn posts
   // Local UI testing only: seed from a fixture file when the store is empty (never used on Vercel).
   if (!jobs.length && process.env.FJ_SEED_FILE && !process.env.VERCEL) {
     const fs = await import('node:fs');
@@ -80,7 +80,8 @@ export async function refresh(opts: { only?: string[]; force?: boolean; trigger:
   if (!(await acquireLock(lockName, 120))) throw new Error('A refresh is already running – try again in a minute.');
   try {
     await loadVault();
-    const [settings, health, existing, cv, tracked] = await Promise.all([getSettings(), getHealth(), getJobs(), getCv(), hgetall<unknown>('track')]);
+    // strict read: if the stored list cannot be read right now, stop — never overwrite good jobs with a partial list
+    const [settings, health, existing, cv, tracked] = await Promise.all([getSettings(), getHealth(), getJobs(true).catch((e) => { throw new Error(`Could not read stored jobs (${(e as Error).message.slice(0, 80)}) — refresh skipped to protect your list; it retries on its own`); }), getCv(), hgetall<unknown>('track')]);
     const nowIso = new Date().toISOString();
     const ctxBase = { keywords: settings.keywords, locations: settings.locations, settings };
     const targets = SOURCES.filter((s) => !opts.only || opts.only.includes(s.id));

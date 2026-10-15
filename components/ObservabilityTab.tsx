@@ -10,7 +10,7 @@ const DOT = { ok: '🟢', warn: '🟡', fail: '🔴' } as const;
 const AREAS = ['', 'cron', 'source', 'ai', 'email', 'whatsapp', 'agent', 'mcp', 'login', 'alerts', 'semantic', 'radar', 'autopilot'];
 
 export default function ObservabilityTab({ toast, onOpenAgent }: { toast: (s: string) => void; onOpenAgent?: () => void }) {
-  const [d, setD] = useState<{ owner: boolean; events: Ev[]; ai: Ai[]; health: { at: string; checks: Check[] } | null } | null>(null);
+  const [d, setD] = useState<{ owner: boolean; events: Ev[]; ai: Ai[]; health: { at: string; checks: Check[] } | null; heal?: { at: string; ms: number; fixed: string[]; still: string[] } | null } | null>(null);
   const [area, setArea] = useState('');
   const [status, setStatus] = useState('');
   const [q, setQ] = useState('');
@@ -43,11 +43,20 @@ export default function ObservabilityTab({ toast, onOpenAgent }: { toast: (s: st
             <h3 style={{ margin: 0 }}>🩺 Service health {d.health && <span className="small muted">— checked {ago(d.health.at)} ago</span>}</h3>
             <span className="row" style={{ gap: 6 }}>
               <button className="primary" disabled={!!busy} onClick={() => act('check')}>{busy === 'check' ? 'Checking every service… (~30-60 s)' : '▶ Run full check'}</button>
+              <button disabled={!!busy} onClick={() => act('heal')} title="Re-test parked search engines, clear stale AI cooldowns, retry stuck sources, refresh a stale job list">{busy === 'heal' ? 'Healing… (up to 4 min)' : '🩹 Heal now'}</button>
               <button disabled={!!busy} onClick={() => act('test-email')}>✉ Test email</button>
               <button disabled={!!busy} onClick={() => act('test-whatsapp')}>💬 Test WhatsApp</button>
               {d.health && <ExportButton title="Service health" sections={[{ title: 'Checks', headers: ['Group', 'Service', 'Status', 'Detail', 'Fix'], rows: d.health.checks.map((c) => [c.group, c.name, c.status, c.detail, c.fix || '']) }]} />}
             </span>
           </div>
+          {d.heal && (
+            <div className="notice small" style={{ margin: '8px 0' }}>
+              <b>🩹 Self-healing</b> <span className="muted">— last run {ago(d.heal.at)} ago (runs daily + every 6 h via GitHub)</span>
+              {d.heal.fixed.map((f) => <div key={f}>✔ {f}</div>)}
+              {d.heal.still.map((f) => <div key={f} style={{ color: 'var(--warn, #e0a030)' }}>• {f}</div>)}
+              {!d.heal.fixed.length && !d.heal.still.length && <div>✔ nothing needed fixing</div>}
+            </div>
+          )}
           {!d.health && <div className="empty">Click ▶ Run full check.</div>}
           {groups.map((g) => (
             <div key={g}>

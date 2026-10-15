@@ -263,35 +263,90 @@ async function callModel(p: Profile, model: string, system: string, user: string
   return { text, model };
 }
 
-export interface ChatResult { text: string; provider: string; model: string; tried: string[] }
+export interface ChatResult { text: string; provider: string; model: string; tried: string[]; tier?: Tier }
+export type Tier = 'pinned' | 'primary' | 'secondary' | 'default';
 
-/** Runs through enabled profiles in order until one answers. */
+/**
+ * YOUR order: Primary (provider + optional exact model) → Secondary → Default (every other enabled provider, top → bottom).
+ * Set in AI & Keys. A provider that fails twice in a row (bad key, down, timeouts) rests 3 min and is tried last — self-healing.
+ */
+export interface PriorityPick { profileId: string; model?: string }
+export interface AiPriority { primary?: PriorityPick | null; secondary?: PriorityPick | null }
+export async function getPriority(): Promise<AiPriority> { return getJSON<AiPriority>('ai:priority', {}); }
+export async function setPriority(next: AiPriority): Promise<AiPriority> {
+  const ids = new Set((await allProfiles()).map((p) => p.id));
+  const clean = (x?: PriorityPick | null): PriorityPick | null => (x?.profileId && ids.has(x.profileId) ? { profileId: x.profileId, model: (x.model || '').trim() || undefined } : null);
+  const v: AiPriority = { primary: clean(next.primary), secondary: clean(next.secondary) };
+  if (v.primary && v.secondary && v.primary.profileId === v.secondary.profileId && (v.primary.model || '') === (v.secondary.model || '')) v.secondary = null;
+  await setJSON('ai:priority', v);
+  return v;
+}
+export interface LastAnswer { at: string; provider: string; model: string; tier: Tier; tried: number }
+export async function lastAnswer(): Promise<LastAnswer | null> { return getJSON<LastAnswer | null>('ai:last', null); }
+let lastSig = '';
+async function noteAnswer(provider: string, model: string, tier: Tier, tried: number) {
+  const sig = `${provider}|${model}|${tier}`;
+  if (sig === lastSig && tried === 0) return; // only write when who answers changes
+  lastSig = sig;
+  await setJSON('ai:last', { at: new Date().toISOString(), provider, model, tier, tried } satisfies LastAnswer).catch(() => null);
+}
+
+// circuit breaker (per server instance): 2 straight failures → rest 3 min, then tried again automatically
+const breaker = new Map<string, { fails: number; until: number }>();
+const resting = (id: string) => (breaker.get(id)?.until || 0) > Date.now();
+function noteFail(id: string, rateLimited: boolean) {
+  if (rateLimited) return; // per-model cooldowns already handle rate limits
+  const b = breaker.get(id) || { fails: 0, until: 0 };
+  b.fails++;
+  if (b.fails >= 2) { b.until = Date.now() + 3 * 6e4; b.fails = 0; }
+  breaker.set(id, b);
+}
+
+/** Runs through providers: pinned (if any) → your Primary → your Secondary → the rest in AI & Keys order. */
 export interface ChatOpts {
   maxTokens?: number; timeoutMs?: number;
   /** pin a provider (AI & Keys entry) … */ profileId?: string;
   /** … and optionally an exact model of it */ model?: string;
   /** true = only the pinned provider/model, never fall back to others (e.g. a local-only agent) */ strict?: boolean;
 }
+type Step = { p: Profile; model?: string; tier: Tier };
 export async function chat(system: string, user: string, opts: ChatOpts = {}): Promise<ChatResult> {
   const all = (await allProfiles()).filter((p) => p.enabled && p.key);
-  // pinned provider first; others follow as fallback unless strict
-  const pinned = opts.profileId ? all.filter((p) => p.id === opts.profileId) : [];
-  if (opts.profileId && !pinned.length && opts.strict) throw new Error(`The model this agent is mapped to (${opts.profileId}) is not configured or disabled — fix it in AI & Keys`);
-  const profiles = opts.strict && pinned.length ? pinned : [...pinned, ...all.filter((p) => p.id !== opts.profileId)];
-  if (!profiles.length) throw new Error('No AI provider configured. Add one in the "AI & Keys" tab (Gemini / Groq / OpenRouter have free tiers).');
+  const byId = (id?: string) => all.find((p) => p.id === id);
+  const pinned = opts.profileId ? byId(opts.profileId) : undefined;
+  if (opts.profileId && !pinned && opts.strict) throw new Error(`The model this agent is mapped to (${opts.profileId}) is not configured or disabled — fix it in AI & Keys`);
+  let steps: Step[] = [];
+  if (pinned) steps.push({ p: pinned, model: opts.model, tier: 'pinned' });
+  if (!(opts.strict && pinned)) {
+    const pr = await getPriority().catch(() => ({} as AiPriority));
+    for (const [tier, pick] of [['primary', pr.primary], ['secondary', pr.secondary]] as const) {
+      const p = byId(pick?.profileId);
+      if (p) steps.push({ p, model: pick?.model, tier });
+    }
+    for (const p of all) steps.push({ p, tier: 'default' });
+    // drop repeats: the same provider in auto mode only once (an exact-model step does not block its auto step)
+    const seen = new Set<string>();
+    steps = steps.filter((s) => { const k = `${s.p.id}|${s.model || ''}`; if (seen.has(k)) return false; seen.add(k); return true; });
+    // providers resting after repeated failures go last (still tried if nothing else answers)
+    steps = [...steps.filter((s) => !resting(s.p.id)), ...steps.filter((s) => resting(s.p.id))];
+  }
+  if (!steps.length) throw new Error('No AI provider configured. Add one in the "AI & Keys" tab (Gemini / Groq / OpenRouter have free tiers).');
   const tried: string[] = [];
-  for (const p of profiles) {
+  for (const { p, model, tier } of steps) {
     const t1 = Date.now();
     try {
-      const r = opts.model && p.id === opts.profileId
-        ? await callModel(p, opts.model, system, user, Math.max(opts.maxTokens ?? 1500, 1024), opts.timeoutMs ?? 60000)
+      const r = model
+        ? await callModel(p, model, system, user, Math.max(opts.maxTokens ?? 1500, 1024), opts.timeoutMs ?? 60000)
         : await callOne(p, system, user, opts.maxTokens ?? 1500, opts.timeoutMs ?? 60000);
       if (!r.text.trim()) throw new Error('empty response');
+      breaker.delete(p.id);
       await countAi(p.label, r.model, true, Date.now() - t1);
-      return { text: r.text, provider: p.label, model: r.model, tried };
+      if (tier !== 'pinned') await noteAnswer(p.label, r.model, tier, tried.length);
+      return { text: r.text, provider: p.label, model: r.model, tried, tier };
     } catch (e) {
-      await countAi(p.label, p.model || 'auto', false, Date.now() - t1);
-      tried.push(`${p.label}: ${(e as Error).message.slice(0, 160)}`);
+      noteFail(p.id, isRateLimit(e));
+      await countAi(p.label, model || p.model || 'auto', false, Date.now() - t1);
+      tried.push(`${p.label}${model ? ` (${model})` : ''} [${tier}]: ${(e as Error).message.slice(0, 160)}`);
     }
   }
   await track('ai', 'all AI providers failed', 'fail', tried.join(' | '));
