@@ -1,18 +1,12 @@
-# Near-real-time booster on top of the Vercel daily crons (GitHub Actions is free):
-#   every 30 min  → refresh all job sources
-#   every 3 h     → next AI agent mission
-#   daily 01:15   → hidden companies + newly funded startups scan
-#   daily 02:45 UTC (08:15 IST) → email digest (skips if Vercel cron already sent it)
-#   every 6 h     → self-heal (un-park engines that work again, clear stale AI cooldowns, refresh if stale)
+# Light safety net on top of the Vercel crons (which already refresh hourly):
+#   every 6 h     → self-heal (un-park engines that work again, clear stale AI cooldowns, refresh only if the list is stale)
+# The old 30-min refresh + 3-h agent runs were removed: they doubled the app's Vercel usage and helped hit the
+# Hobby plan limit (site paused 31 Oct). Run any task by hand: Actions → refresh-jobs → Run workflow.
 # No secret to copy: each run gets a short-lived token signed by GitHub (OIDC) and the app checks it came from
 # THIS repo's refresh.yml. Optional overrides (repo secrets): CRON_SECRET (used instead of OIDC), APP_URL.
 name: refresh-jobs
 on:
   schedule:
-    - cron: '*/30 * * * *'
-    - cron: '10 */3 * * *'
-    - cron: '15 1 * * *'
-    - cron: '45 2 * * *'
     - cron: '50 */6 * * *'
   workflow_dispatch:
     inputs:
@@ -40,9 +34,6 @@ jobs:
           APP_URL="${APP_URL:-https://fde-job-finder.vercel.app}"
           APP_URL="${APP_URL%/}"
           TASK="${INPUT_TASK:-refresh}"
-          if [ "$SCHEDULE" = "10 */3 * * *" ]; then TASK=agent; fi
-          if [ "$SCHEDULE" = "15 1 * * *" ]; then TASK=discover; fi
-          if [ "$SCHEDULE" = "45 2 * * *" ]; then TASK=digest; fi
           if [ "$SCHEDULE" = "50 */6 * * *" ]; then TASK=heal; fi
           echo "task=$TASK"
           # self-healing: retry cold starts / 5xx / timeouts with backoff
@@ -58,6 +49,8 @@ jobs:
             echo "attempt $attempt → HTTP $code"
             # 409 = a run was already in progress; not a failure
             if [ "$code" = "200" ] || [ "$code" = "409" ]; then exit 0; fi
+            # 402 = Vercel paused the site (plan limit). Nothing a retry can fix → skip quietly, no failure email
+            if [ "$code" = "402" ]; then echo "::warning title=Site paused by Vercel::Vercel returned 402 DEPLOYMENT_DISABLED (plan usage limit). Skipped. It comes back when the usage period resets or the plan is upgraded."; exit 0; fi
             if [ "$code" = "401" ]; then echo "::error title=Not authorized::The app refused this run (CRON_SECRET repo secret wrong, or the app's GitHub check failed)."; exit 1; fi
             sleep $((attempt * 20))
           done

@@ -69,7 +69,7 @@ async function handle(req: Request): Promise<Response> {
     const { health, ...meta } = r;
     // stages 2-3 (embeddings + rerank) for the new jobs, after we answer
     after(() => runAs(OWNER, async () => {
-      await semanticPass(await getJobs(), { budgetMs: 180000 }).catch((e) => console.error('semantic', e));
+      await semanticPass(await getJobs(), { budgetMs: 60000 }).catch((e) => console.error('semantic', e));
       await draftOutreach(await getJobs(), 5).catch((e) => console.error('drafts', e)); // ≥0.85 roles → outreach drafted + emailed
     }));
     return Response.json({ ok: true, task, ...meta });
